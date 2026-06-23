@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:**
-**Last completed:**
-**Next:**
+**Phase:** Phase 1 — Foundation
+**Last completed:** 01 Homepage
+**Next:** 02 Auth
 
 ---
 
@@ -16,7 +16,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 1 — Foundation
 
-- [ ] 01 Homepage
+- [x] 01 Homepage
 - [ ] 02 Auth
 - [ ] 03 PostHog Initialization
 - [ ] 04 Database Schema
@@ -50,10 +50,16 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Decisions Made During Build
 
-_Add decisions here as they are made during implementation._
+- **Logo:** Used `/public/logo.png` (full lockup image) in Navbar and Footer via `next/image`.
+- **Inter font:** Loaded via `next/font/google` with `variable: "--font-sans"` to match the `@theme` token in globals.css; applied on `<html>` element.
+- **Geist fonts removed** from layout — Inter is the sole font per ui-tokens.md.
+- **Hero screenshot:** `/public/images/dashboard-demo.png` displayed in a borderless card that bleeds into the features section.
+- **BottomCta gradient:** Inline `style` used for the gradient because Tailwind v4 `@theme` does not support gradient definitions; all colors reference design token values.
+- **Features section:** Three two-column blocks alternating image/text. Feature 3 reuses `jobs-lists.png` as a placeholder for the match score view until a dedicated screenshot is available.
 
 ---
 
 ## Notes
 
-_Add notes here as the build progresses — workarounds, patterns, anything that differs from the context files._
+- Tailwind v4 canonical class: `max-w-300` = 1200px (IDE warned on `max-w-[1200px]`).
+- No shadcn/ui components needed for the homepage — built with plain Tailwind + lucide-react icons.

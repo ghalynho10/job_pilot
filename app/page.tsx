@@ -1,5 +1,21 @@
-const Home = () => {
-  return <h1 className="bg-info-dark text-white text-3xl">JobPilot</h1>;
-};
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { Hero } from "@/components/homepage/Hero";
+import { Features } from "@/components/homepage/Features";
+import { Testimonial } from "@/components/homepage/Testimonial";
+import { BottomCta } from "@/components/homepage/BottomCta";
 
-export default Home;
+export default function Home() {
+  return (
+    <>
+      <Navbar />
+      <main className="flex-1">
+        <Hero />
+        <Features />
+        <Testimonial />
+        <BottomCta />
+      </main>
+      <Footer />
+    </>
+  );
+}
