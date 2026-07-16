@@ -1,171 +1,77 @@
 import Image from "next/image";
-import { BrainCircuit, Building2, LayoutDashboard } from "lucide-react";
+import Link from "next/link";
 
-type FeatureItemProps = {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-};
+const applicationPoints = [
+  ["Understand your match score", "See how your profile lines up with each role before you apply. Get a clear breakdown of what fits and what’s missing."],
+  ["AI-Powered Job Matching", "Stop guessing which jobs are worth applying to. JobPilot scores every role against your actual skills so you focus on the ones that matter."],
+  ["Focus on the right roles", "Filter out low fit jobs and stay on the ones that actually matter. Spend less time sorting and more time applying."],
+];
 
-function FeatureItem({ icon, title, description }: FeatureItemProps) {
-  return (
-    <div className="flex gap-4">
-      <div className="shrink-0 w-10 h-10 rounded-lg bg-accent-muted flex items-center justify-center text-accent">
-        {icon}
-      </div>
-      <div>
-        <h3 className="text-sm font-semibold text-text-primary mb-1">{title}</h3>
-        <p className="text-sm text-text-secondary leading-relaxed">{description}</p>
-      </div>
-    </div>
-  );
+function ArrowIcon() {
+  return <span aria-hidden="true">▶</span>;
 }
 
 export function Features() {
   return (
-    <div className="bg-background">
-      {/* Feature 1 — Manage your search */}
-      <section className="max-w-300 mx-auto px-6 py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Text */}
-          <div className="flex flex-col gap-10">
-            <div>
-              <p className="text-xs font-medium text-accent uppercase tracking-widest mb-3">
-                Job Discovery
-              </p>
-              <h2 className="text-[32px] font-bold leading-tight text-text-primary">
-                Manage Your Job Search With Ease
-              </h2>
-            </div>
-
-            <div className="flex flex-col gap-8">
-              <FeatureItem
-                icon={<BrainCircuit size={20} />}
-                title="Finds Jobs That Actually Fit"
-                description="Enter a title and location — JobPilot queries Adzuna and scores every result 0–100 against your real skills using GPT-4o. No more manually sifting through irrelevant listings."
-              />
-              <FeatureItem
-                icon={<Building2 size={20} />}
-                title="Know the Company Before You Apply"
-                description="One click triggers our research agent. It browses the company's own website, extracts what matters, and delivers a structured dossier — tech stack, culture, why the role exists."
-              />
-              <FeatureItem
-                icon={<LayoutDashboard size={20} />}
-                title="Keep Track of Every Application"
-                description="Your dashboard shows total jobs found, average match rate, companies researched, and weekly activity — all updated automatically as you search."
-              />
-            </div>
-          </div>
-
-          {/* Image */}
-          <div className="rounded-2xl overflow-hidden border border-border shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+    <>
+      <section className="mx-auto max-w-[1440px] border-x border-t border-border bg-surface" aria-labelledby="confidence-title">
+        <div className="grid lg:grid-cols-2">
+          <div className="order-2 bg-surface-muted px-6 py-12 sm:px-10 lg:order-1 lg:px-12 lg:py-20">
             <Image
-              src="/images/jobs-lists.png"
-              alt="Jobs list with match scores"
-              width={680}
-              height={500}
-              className="w-full h-auto block"
+              alt="JobPilot agent activity log showing job search and resume preparation tasks"
+              className="h-auto w-full rounded-xl border border-border shadow-sm"
+              height={1656}
+              sizes="(max-width: 1024px) 88vw, 620px"
+              src="/images/agnet-log.png"
+              width={2144}
             />
           </div>
-        </div>
-      </section>
-
-      {/* Feature 2 — Company Research */}
-      <section className="bg-surface border-y border-border">
-        <div className="max-w-300 mx-auto px-6 py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Image */}
-            <div className="rounded-2xl overflow-hidden border border-border shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
-              <Image
-                src="/images/agnet-log.png"
-                alt="AI company research agent output"
-                width={680}
-                height={500}
-                className="w-full h-auto block"
-              />
-            </div>
-
-            {/* Text */}
-            <div className="flex flex-col gap-6">
-              <div>
-                <p className="text-xs font-medium text-accent uppercase tracking-widest mb-3">
-                  Company Research
-                </p>
-                <h2 className="text-[32px] font-bold leading-tight text-text-primary mb-4">
-                  Know the Company Inside Out Before the Interview
-                </h2>
-                <p className="text-base text-text-secondary leading-relaxed">
-                  Our research agent opens a real browser session, visits the company&apos;s homepage,
-                  blog, and engineering pages — then synthesizes everything into a structured
-                  briefing tailored to your specific background and the role you&apos;re applying for.
-                </p>
-              </div>
-
-              <ul className="flex flex-col gap-3">
-                {[
-                  "Company overview, tech stack, and working culture",
-                  "Why this specific role exists at this company",
-                  "Your personal edge for this role based on your profile",
-                  "Smart interview questions that show you did your homework",
-                  "Gaps to address — reframed as strengths, not weaknesses",
-                ].map((point) => (
-                  <li key={point} className="flex items-start gap-3 text-sm text-text-secondary">
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature 3 — Apply with confidence */}
-      <section className="max-w-300 mx-auto px-6 py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Text */}
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-xs font-medium text-accent uppercase tracking-widest mb-3">
-                Match Scoring
-              </p>
-              <h2 className="text-[32px] font-bold leading-tight text-text-primary mb-4">
+          <div className="order-1 lg:order-2">
+            <div className="border-b border-border px-8 py-20 lg:px-16 lg:py-24">
+              <h2 className="max-w-md text-5xl font-semibold tracking-[-0.05em] text-text-primary sm:text-6xl" id="confidence-title">
                 Apply With More Confidence, Every Time
               </h2>
-              <p className="text-base text-text-secondary leading-relaxed">
-                Every job gets an AI match score, a plain-English explanation of why it fits,
-                a list of skills you already have that match, and an honest look at any gaps — so
-                you can make smart decisions about where to invest your time.
-              </p>
             </div>
-
-            <ul className="flex flex-col gap-3">
-              {[
-                "Understand exactly how well a role fits before applying",
-                "AI Precision Job Matching — scored 0–100 against your actual skills",
-                "Matched skills highlighted in green, missing skills flagged clearly",
-                "Focus on the right roles and skip the noise",
-              ].map((point) => (
-                <li key={point} className="flex items-start gap-3 text-sm text-text-secondary">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Image */}
-          <div className="rounded-2xl overflow-hidden border border-border shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
-            <Image
-              src="/images/jobs-lists.png"
-              alt="Job match score breakdown"
-              width={680}
-              height={500}
-              className="w-full h-auto block"
-            />
+            {applicationPoints.map(([title, description], index) => (
+              <article className={`border-b border-border px-8 py-8 lg:px-16 ${index === 1 ? "border-s-2 border-s-success" : ""}`} key={title}>
+                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-text-primary">{title}</h3>
+                <p className="mt-4 max-w-xl text-lg leading-8 text-text-secondary">{description}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
-    </div>
+
+      <section className="mx-auto max-w-[1440px] border-x border-t border-border bg-surface px-6 py-24 text-center sm:px-12 lg:py-32" aria-labelledby="success-story-title">
+        <p className="text-sm font-medium uppercase tracking-[0.12em] text-accent">Success Stories</p>
+        <h2 className="mx-auto mt-8 max-w-5xl text-3xl font-medium leading-tight tracking-[-0.035em] text-text-slate sm:text-4xl lg:text-5xl" id="success-story-title">
+          “I used to spend my evenings copy-pasting resumes. Now I open my dashboard to see interviews waiting. It feels like cheating. Had 3 offers on the table simultaneously.”
+        </h2>
+        <div className="mt-8 inline-flex items-center gap-3 text-start">
+          <Image alt="Tom Wilson" className="rounded-md border border-border" height={56} src="/images/user-icon.png" width={56} />
+          <div>
+            <p className="text-lg font-semibold text-text-primary">Tom Wilson</p>
+            <p className="mt-1 text-base text-text-secondary">Junior Developer</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="hero-gradient mx-auto max-w-[1440px] border border-border px-6 py-24 text-center sm:px-12 lg:py-32" aria-labelledby="closing-cta-title">
+        <h2 className="mx-auto max-w-4xl text-5xl font-semibold tracking-[-0.05em] text-text-primary sm:text-6xl">
+          Your next job search can feel a lot less overwhelming
+        </h2>
+        <p className="mx-auto mt-7 max-w-3xl text-lg leading-8 text-text-dark sm:text-xl" id="closing-cta-title">
+          Set up your profile, upload your resume, and start finding matches in minutes.
+        </p>
+        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-overlay px-6 py-3 text-lg font-medium text-accent-foreground transition-colors hover:bg-overlay-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" href="/login">
+            Get Started <ArrowIcon />
+          </Link>
+          <Link className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-muted bg-surface/70 px-6 py-3 text-lg font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" href="/login">
+            Find Your First Match
+          </Link>
+        </div>
+      </section>
+    </>
   );
 }

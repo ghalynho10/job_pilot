@@ -3,14 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
-  subsets: ["latin"],
   variable: "--font-sans",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "JobPilot — AI-Powered Job Hunting",
-  description:
-    "JobPilot finds jobs, scores them against your profile, researches companies, and helps you apply with confidence.",
+  title: "JobPilot | Find jobs that fit",
+  description: "JobPilot helps you find, research, and apply to the right jobs.",
 };
 
 export default function RootLayout({

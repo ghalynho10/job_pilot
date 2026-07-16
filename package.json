@@ -1,5 +1,5 @@
 {
-  "name": "job_pilot",
+  "name": "job_hunt",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,11 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@insforge/sdk": "^1.4.2",
-    "lucide-react": "^1.21.0",
-    "next": "16.2.9",
-    "posthog-js": "^1.392.0",
-    "posthog-node": "^5.21.2",
+    "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -23,7 +19,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

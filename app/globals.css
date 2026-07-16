@@ -27,14 +27,14 @@
   --color-text-slate: #272835;
   --color-text-slate-medium: #666d80;
 
-  /* Primary accent — purple */
+  /* Primary accent */
   --color-accent: #7c5cfc;
   --color-accent-dark: #5e4cff;
   --color-accent-light: #f3e8ff;
   --color-accent-muted: #faf5ff;
   --color-accent-foreground: #ffffff;
 
-  /* Success — green */
+  /* Success */
   --color-success: #10b981;
   --color-success-alt: #00bc7d;
   --color-success-dark: #007a55;
@@ -43,7 +43,7 @@
   --color-success-lightest: #ecfdf5;
   --color-success-foreground: #007a55;
 
-  /* Info — blue */
+  /* Info */
   --color-info: #61a8ff;
   --color-info-dark: #155dfc;
   --color-info-medium: #2b7fff;
@@ -52,15 +52,13 @@
   --color-info-foreground: #155dfc;
   --color-info-muted: #94a2c5;
 
-  /* Warning — orange */
+  /* Warning and error */
   --color-warning: #ff8904;
   --color-warning-foreground: #ffffff;
-
-  /* Error — red */
   --color-error: #ef4444;
   --color-error-foreground: #ffffff;
 
-  /* LinkedIn brand */
+  /* LinkedIn */
   --color-linkedin: #0a66c2;
   --color-linkedin-light: #dce6f1;
   --color-linkedin-foreground: #ffffff;
@@ -77,8 +75,46 @@
   --radius-full: 9999px;
 }
 
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+}
+
+.hero-gradient {
+  background:
+    radial-gradient(circle at 74% 20%, color-mix(in srgb, var(--color-info-light) 76%, transparent), transparent 38%),
+    radial-gradient(circle at 35% 62%, color-mix(in srgb, var(--color-accent-light) 72%, transparent), transparent 42%),
+    var(--color-surface);
+}
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  block-size: 1px;
+  border: 0;
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

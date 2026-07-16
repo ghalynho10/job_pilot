@@ -3,30 +3,22 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="bg-surface border-t border-border py-10 px-6">
-      <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <Link href="/" className="flex items-center">
-          <Image src="/logo.png" alt="JobPilot" width={120} height={34} />
+    <footer className="border-t border-border bg-surface">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-12 sm:flex-row sm:items-center sm:justify-between">
+        <Link className="w-fit focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent" href="/">
+          <Image alt="JobPilot" height={42} src="/logo.png" width={124} />
         </Link>
-
-        <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-8 gap-y-4 text-base font-medium text-text-dark">
+          <Link className="transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent" href="/dashboard">
             Dashboard
           </Link>
-          <Link href="/find-jobs" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-            Find Jobs
+          <Link className="transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent" href="/privacy">
+            Privacy Policy
           </Link>
-          <Link href="/profile" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-            Profile
+          <Link className="transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent" href="/terms">
+            Terms &amp; Condition
           </Link>
-          <Link href="/login" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-            Login
-          </Link>
-        </div>
-
-        <p className="text-sm text-text-muted">
-          © {new Date().getFullYear()} JobPilot. All rights reserved.
-        </p>
+        </nav>
       </div>
     </footer>
   );
