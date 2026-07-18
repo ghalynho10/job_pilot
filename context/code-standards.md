@@ -243,6 +243,7 @@ All environment variables defined in `.env.local` for development. Never hardcod
 
 | Variable                        | Used In                |
 | ------------------------------- | ---------------------- |
+| `NEXT_PUBLIC_APP_URL`           | OAuth callback URLs    |
 | `NEXT_PUBLIC_INSFORGE_URL`      | lib/insforge-client.ts |
 | `NEXT_PUBLIC_INSFORGE_ANON_KEY` | lib/insforge-client.ts |
 | `BROWSERBASE_API_KEY`           | lib/browserbase.ts     |
@@ -305,7 +306,7 @@ Never install a new package without a clear reason. Before installing anything c
 
 Approved dependencies for this project:
 
-- `@insforge/ssr` — InsForge client
+- `@insforge/sdk` — InsForge client and SSR auth helpers
 - `@browserbasehq/sdk` — Browserbase sessions
 - `@browserbasehq/stagehand` — AI browser control
 - `openai` — GPT-4o API

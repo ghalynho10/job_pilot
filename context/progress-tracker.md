@@ -8,7 +8,8 @@ Update this file after every completed feature. Any AI agent reading this should
 
 **Phase:** Phase 1 — Foundation
 **Last completed:** 01 Homepage
-**Next:** 02 Auth
+**In progress:** 02 Auth
+**Next:** 02 Auth verification
 
 ---
 
@@ -50,10 +51,14 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Decisions Made During Build
 
-_Add decisions here as they are made during implementation._
+- Auth uses `@insforge/sdk/ssr` with server owned PKCE cookies.
+- Next.js 16 route protection lives in `proxy.ts`.
+- OAuth callbacks exchange the InsForge code at `/callback`, then redirect to `/dashboard`.
+- The current dashboard page is the authenticated landing shell required to verify the auth redirect. Feature 14 replaces it with the full dashboard UI.
 
 ---
 
 ## Notes
 
-_Add notes here as the build progresses — workarounds, patterns, anything that differs from the context files._
+- Add `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_INSFORGE_URL`, and `NEXT_PUBLIC_INSFORGE_ANON_KEY` to `.env.local` before testing OAuth.
+- Production build verification is pending because the sandbox could not fetch Inter from Google Fonts. Auth tests, TypeScript, and ESLint pass.

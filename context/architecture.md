@@ -293,7 +293,7 @@ Access: authenticated users only, own files only.
 - Methods: Google OAuth, GitHub OAuth
 - Protected routes: /dashboard, /profile, /find-jobs, /find-jobs/[id]
 - Public routes: /, /login
-- Middleware in middleware.ts checks session on every protected route
+- Proxy in proxy.ts refreshes and checks the session on every protected route
 - On login → redirect to /dashboard
 
 ---
@@ -304,36 +304,24 @@ Two separate InsForge instances — never mix them:
 
 ```typescript
 // lib/insforge-client.ts
-// Browser-side — used in client components for auth state
-import { createBrowserClient } from "@insforge/ssr";
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
+// Browser side, consumes the cookie backed SSR session
+import { createBrowserClient } from "@insforge/sdk/ssr";
+export const insforge = createBrowserClient();
 
 // lib/insforge-server.ts
-// Server-side — used in API routes, Server Actions, agent code
-import { createServerClient } from "@insforge/ssr";
+// Server side, used in API routes, Server Actions, agent code
+import { createServerClient } from "@insforge/sdk/ssr";
 import { cookies } from "next/headers";
 
 export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
+  return createServerClient({ cookies: await cookies() });
 };
 ```
+
+Auth mutations use `createAuthActions()` from `@insforge/sdk/ssr`. OAuth starts
+in a Server Action, stores the PKCE verifier in an httpOnly cookie, and exchanges
+the callback code in `/callback`. `proxy.ts` uses `updateSession()` from
+`@insforge/sdk/ssr/middleware`.
 
 ---
 

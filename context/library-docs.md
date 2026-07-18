@@ -36,35 +36,18 @@ Two separate instances — never mix them:
 
 ```typescript
 // lib/insforge-client.ts — browser context only
-import { createBrowserClient } from "@insforge/ssr";
+import { createBrowserClient } from "@insforge/sdk/ssr";
 
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
+export const insforge = createBrowserClient();
 ```
 
 ```typescript
 // lib/insforge-server.ts — server context only
-import { createServerClient } from "@insforge/ssr";
+import { createServerClient } from "@insforge/sdk/ssr";
 import { cookies } from "next/headers";
 
 export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
+  return createServerClient({ cookies: await cookies() });
 };
 ```
 
@@ -72,6 +55,8 @@ export const createInsforgeServer = async () => {
 
 - Browser client — Client Components, browser-side auth state, realtime subscriptions
 - Server client — Server Components, API routes, Server Actions, agent functions
+- Auth mutations — `createAuthActions()` in Server Actions and callback routes
+- Session refresh — `updateSession()` in Next.js 16 `proxy.ts`
 - Never use browser client in server context
 - Never use server client in browser context
 
@@ -85,9 +70,19 @@ const insforge = await createInsforgeServer();
 const {
   data: { user },
   error,
-} = await insforge.auth.getUser();
+} = await insforge.auth.getCurrentUser();
 if (!user) redirect("/login");
 ```
+
+OAuth in Next.js uses a server owned PKCE flow:
+
+1. Call `createAuthActions().signInWithOAuth()` with
+   `skipBrowserRedirect: true`.
+2. Build `redirectTo` from the canonical `NEXT_PUBLIC_APP_URL`.
+3. Save `data.codeVerifier` in an httpOnly cookie for up to 10 minutes.
+4. Redirect to `data.url`.
+5. In `/callback`, call `exchangeOAuthCode(insforgeCode, codeVerifier)`.
+6. Redirect successful sessions to `/dashboard`.
 
 ---
 
