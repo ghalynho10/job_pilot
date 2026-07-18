@@ -2,6 +2,7 @@
 
 import type { JSX } from "react";
 import { useFormStatus } from "react-dom";
+import posthog from "posthog-js";
 
 interface OAuthButtonProps {
   provider: "Google" | "GitHub";
@@ -14,6 +15,7 @@ export function OAuthButton({ provider }: OAuthButtonProps): JSX.Element {
     <button
       className="flex min-h-12 w-full items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-3 text-base font-medium text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-text-muted"
       disabled={pending}
+      onClick={() => posthog.capture("oauth_sign_in_started", { provider: provider.toLowerCase() })}
       type="submit"
     >
       {provider === "Google" ? (

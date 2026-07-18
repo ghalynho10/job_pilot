@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { JSX } from "react";
 
+import { DashboardActions } from "@/components/dashboard/DashboardActions";
+import { DashboardIdentity } from "@/components/dashboard/DashboardIdentity";
 import { Navbar } from "@/components/layout/Navbar";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
@@ -21,6 +22,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
       >
         Skip to content
       </a>
+      <DashboardIdentity userId={data.user.id} />
       <Navbar authenticated />
       <main
         className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-10 sm:px-8"
@@ -48,20 +50,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
               Add your experience and skills so JobPilot can score each role
               against what you actually bring.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                className="rounded-md bg-accent px-4 py-3 text-base font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                href="/profile"
-              >
-                Complete profile
-              </Link>
-              <Link
-                className="rounded-md border border-border bg-surface px-4 py-3 text-base font-medium text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                href="/find-jobs"
-              >
-                Find jobs
-              </Link>
-            </div>
+            <DashboardActions />
           </div>
         </section>
       </main>

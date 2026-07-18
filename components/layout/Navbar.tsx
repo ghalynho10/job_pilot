@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { JSX } from "react";
+import posthog from "posthog-js";
 
 import { signOut } from "@/actions/auth";
 
@@ -37,7 +40,13 @@ export function Navbar({
           ))}
         </nav>
         {authenticated && showAuthAction ? (
-          <form action={signOut}>
+          <form
+            action={() => {
+              posthog.capture("user_signed_out");
+              posthog.reset();
+              return signOut();
+            }}
+          >
             <button
               className="rounded-md border border-border bg-surface px-5 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               type="submit"
