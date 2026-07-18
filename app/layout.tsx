@@ -12,7 +12,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "JobPilot | Find jobs that fit",
-  description: "JobPilot helps you find, research, and apply to the right jobs.",
+  description:
+    "AI-powered job search assistance for matching roles, tailored resumes, and faster applications.",
 };
 
 export default function RootLayout({

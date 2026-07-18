@@ -109,3 +109,73 @@ Last updated: 2026-07-17
 | Focus | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 
 Use as the authenticated landing shell and empty-state pattern. Pair the authenticated navbar with a concise account greeting, one bordered surface, and clear primary and secondary next-step actions.
+
+### ProfilePage
+
+File: `app/profile/page.tsx`
+
+Last updated: 2026-07-18
+
+| Property | Class |
+| --- | --- |
+| Page background | `bg-background` |
+| Main layout | `max-w-4xl gap-6 px-6 py-10 sm:px-8` |
+| Card surface (all sections) | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Card title | `text-lg font-semibold text-text-primary` |
+| Subsection heading | `text-base font-semibold text-text-primary` |
+| Field label | `text-xs font-medium uppercase tracking-wide text-text-secondary` |
+
+Full profile UI in a single narrower centered column (unlike the dashboard's wide `max-w-[1440px]` layout), matching `context/designs/profile.png`. Composed of `CompletionIndicator`, `ResumeUpload`, and `ProfileForm`. Mock data only — no save logic yet (feature 06).
+
+### CompletionIndicator
+
+File: `components/profile/CompletionIndicator.tsx`
+
+Last updated: 2026-07-18
+
+| Property | Class |
+| --- | --- |
+| Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Heading | `text-lg font-semibold text-text-primary` with `AlertCircle` icon (`text-error`) |
+| Body text | `text-sm text-text-secondary` |
+| Missing field pill | `rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-error` |
+| Ring | inline SVG, 128px, `text-error/15` track + `text-error` progress arc, `strokeLinecap="round"`, `-rotate-90` |
+| Ring center label | `text-2xl font-bold text-text-primary` |
+
+Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, `missingFields`) prop.
+
+### ResumeUpload
+
+File: `components/profile/ResumeUpload.tsx`
+
+Last updated: 2026-07-18
+
+| Property | Class |
+| --- | --- |
+| Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Dropzone (idle) | `rounded-xl border-2 border-dashed border-border-muted bg-surface-secondary` |
+| Dropzone (drag-over) | `border-accent bg-accent-muted` |
+| Dropzone icon badge | `size-11 rounded-full bg-surface shadow-sm` with `UploadCloud` icon (`text-accent`) |
+| Select Resume (secondary) | `rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary` |
+| Generate Resume (primary) | `rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-dark` with `FileText` icon |
+
+Client component — tracks drag-over state visually and opens a hidden file input; no upload wiring yet (feature 06).
+
+### ProfileForm
+
+File: `components/profile/ProfileForm.tsx`
+
+Last updated: 2026-07-18
+
+| Property | Class |
+| --- | --- |
+| Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Section divider | `border-t border-border pt-6` between Personal Info / Professional Info / Work Experience / Education / Job Preferences |
+| Input / select / textarea | `w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:ring-1 focus:ring-accent disabled:bg-surface-secondary disabled:text-text-secondary` |
+| Field label | `text-xs font-medium uppercase tracking-wide text-text-secondary` |
+| Skill / industry tag pill | `rounded-full bg-surface-secondary px-3 py-1 text-xs font-medium text-text-primary` with inline `X` remove icon |
+| Work experience entry card | `rounded-lg border border-border bg-surface-secondary p-4` |
+| Add role action | `text-sm font-medium text-accent hover:text-accent-dark` with `Plus` icon, disabled past 3 entries |
+| Save Profile (primary, full width) | `w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-dark` |
+
+Client component holding one `Profile` state object (`useState`, initialized from a mock/server-fetched value via `initialProfile` prop). Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. Save Profile button is not yet wired (feature 06). Note: the design screenshot has no Cover Letter Tone field under Job Preferences even though `build-plan.md` and the `profiles` DB schema mention one — built to match the screenshot per the source-of-truth rule in `ui-rules.md`; flag this gap when the field is eventually needed.
