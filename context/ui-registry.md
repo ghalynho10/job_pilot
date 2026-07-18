@@ -22,6 +22,7 @@ After building any component — update this file with the component name, file 
 - `Hero` — `components/homepage/Hero.tsx`: `hero-gradient` hero surface, large centered type, paired CTA buttons, bordered dashboard image preview.
 - `HowItWorks` — `components/homepage/HowItWorks.tsx`: two column desktop product section, `bg-surface-muted` visual panel, active `border-s-2 border-s-accent` feature item.
 - `Features` — `components/homepage/Features.tsx`: alternating product section, success story, and gradient closing CTA with the shared CTA button styling.
+- `PostHogProvider` — `app/PostHogProvider.tsx`: non-visual root client provider; no styling classes.
 
 ### Navbar
 

@@ -42,7 +42,6 @@ export function Navbar({
         {authenticated && showAuthAction ? (
           <form
             action={() => {
-              posthog.capture("user_signed_out");
               posthog.reset();
               return signOut();
             }}

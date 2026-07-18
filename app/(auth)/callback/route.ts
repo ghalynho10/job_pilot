@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { getAppOrigin } from "@/lib/auth-routing";
-import { createPostHogClient } from "@/lib/posthog-server";
 
 const OAUTH_VERIFIER_COOKIE = "insforge_code_verifier";
 
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   try {
-    const { data, error } = await auth.exchangeOAuthCode(code, verifier);
+    const { error } = await auth.exchangeOAuthCode(code, verifier);
 
     if (error) {
       console.error("[auth/callback]", error);
@@ -40,20 +39,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       errorResponse.cookies.delete(OAUTH_VERIFIER_COOKIE);
       return errorResponse;
     }
-
-    const posthog = createPostHogClient();
-    const distinctId = data?.user?.id;
-
-    if (distinctId) {
-      posthog.identify({ distinctId });
-      posthog.capture({
-        distinctId,
-        event: "oauth_sign_in_completed",
-        properties: { source: "oauth_callback" },
-      });
-    }
-
-    await posthog.shutdown();
   } catch (error) {
     console.error("[auth/callback]", error);
     const errorResponse = NextResponse.redirect(
