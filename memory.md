@@ -1,38 +1,44 @@
-# Memory — Homepage Verification + Workflow Skills PR
+# Memory - InsForge Auth Implementation
 
-Last updated: 2026-07-17
+Last updated: 2026-07-17 22:56 EDT
 
 ## What was built
 
-Nothing in the app itself. Two things happened:
-
-1. Verified the existing homepage (`app/page.tsx`, `components/layout/Navbar.tsx`, `components/layout/Footer.tsx`, `components/homepage/Hero.tsx`, `components/homepage/HowItWorks.tsx`, `components/homepage/Features.tsx`) against `context/designs/landing-page.png`. Ran `npm run dev`, screenshotted the live page with Playwright CLI (`npx playwright screenshot`), compared section by section: Navbar, Hero, "Manage Your Job Search With Ease", "Apply With More Confidence, Every Time", success story testimonial, closing CTA, Footer. All match the design. No console errors, only one Next.js perf hint (see Open questions).
-
-2. Used `/document pr` to write up the two local commits that were already sitting on `main` ahead of `origin/main` (`skills` and `agents`, adding the `architect`, `imprint`, `recover`, `remember`, `review` workflow skills in `.claude/commands/`, `.claude/skills/`, and `.agents/skills/`). Pushed a new branch `add-workflow-skills` from that same commit, and opened **PR #1**: <https://github.com/ghalynho10/job_pilot/pull/1> (base `main`, head `add-workflow-skills`). Used `gh pr create` directly — `gh` was already installed via Homebrew and authenticated as `ghalynho10`, it just wasn't on PATH in the first shell attempt (used the full path `/opt/homebrew/bin/gh`).
+- Implemented Google and GitHub OAuth with InsForge in `actions/auth.ts`, `app/(auth)/callback/route.ts`, and the server/client helpers under `lib/`.
+- Added the login experience in `app/(auth)/login/page.tsx` and `components/auth/OAuthButton.tsx`.
+- Added session refresh and protected-route handling through `app/api/auth/refresh/route.ts` and Next.js 16 `proxy.ts`.
+- Added an authenticated landing shell at `app/dashboard/page.tsx` and updated `components/layout/Navbar.tsx` with authenticated actions.
+- Added Auth routing and contract coverage in `tests/auth-routing.test.mjs` and `tests/auth-contract.test.mjs`.
+- Updated the architecture, library guidance, progress tracker, and UI registry. The registry now records reusable Navbar, OAuth button, login shell, and dashboard empty-state patterns.
 
 ## Decisions made
 
-None — no new architectural decisions this session.
+- Auth uses `@insforge/sdk/ssr` with a server-owned PKCE verifier stored in an HTTP-only cookie.
+- OAuth callbacks use the configured application origin, exchange the InsForge code at `/callback`, and redirect successful sessions to `/dashboard`.
+- Route protection uses `proxy.ts`, matching Next.js 16 conventions.
+- The current dashboard is only the authenticated verification shell; Phase 14 will replace it with the complete dashboard UI.
 
 ## Problems solved
 
-None — no bugs found in the homepage. PR creation "failure" on the first attempt was an environment issue (PATH), not a missing tool; resolved by calling `gh` via its absolute Homebrew path.
+- OAuth startup and callback failures now return controlled login error states instead of throwing into the UI.
+- Application-origin handling is centralized and validated; production requires an explicit HTTP or HTTPS application URL.
+- PKCE verifier cleanup is handled on callback success and failure.
+- Auth UI patterns were reconciled into `context/ui-registry.md` after implementation.
 
 ## Current state
 
-- `progress-tracker.md`: Phase 1 — Foundation, "01 Homepage" complete, "02 Auth" is next.
-- Homepage build fully verified against design, no changes needed.
-- **PR #1 open** (<https://github.com/ghalynho10/job_pilot/pull/1>): adds the 5 workflow skills. Not yet merged. Reviewer note flagged in the PR body: `architect` and `imprint` only exist under `.claude/commands/`, not mirrored into `.claude/skills/` or `.agents/skills/` like the other three — worth deciding if that's deliberate before merging.
-- Dev server was stopped at the end of the homepage-verification part of this session.
+- Commit `085267f` (`implemented auth with InsForge`) is on `main` and `origin/main`; the worktree is clean.
+- Auth contract and routing tests pass. TypeScript and ESLint also pass.
+- `context/progress-tracker.md` correctly marks `02 Auth` in progress with Auth verification next.
+- Live Google and GitHub OAuth have not yet been verified end to end against the configured InsForge project.
+- Production build verification remains pending because the sandbox could not fetch Inter from Google Fonts. This was an environment/network limitation, not an Auth compile failure.
+- Required local environment variables are configured outside source control. No credential values are stored here.
 
 ## Next session starts with
 
-1. Check whether PR #1 has been merged/reviewed; if merged, `git pull` on `main` before continuing.
-2. Per `AGENTS.md` / `progress-tracker.md`, the next build step is **02 Auth** — InsForge Google + GitHub OAuth, login page, OAuth callback handler, session middleware protecting `/dashboard`, `/profile`, `/find-jobs`, `/find-jobs/[id]`. Read `context/architecture.md` Authentication section and `context/library-docs.md` InsForge section before starting.
-3. Note: git log already shows commits "Implemented Auth with Insforge" and "InsForge setup" predating recent sessions — check the current state of `app/(auth)/`, `middleware.ts`, and `lib/insforge-*.ts` before assuming Auth still needs to be built from scratch; `progress-tracker.md` may be stale (see Open questions).
+Run `/remember restore`, then verify both OAuth providers in the real app: unauthenticated protected-route redirect, Google login, GitHub login, callback to `/dashboard`, session persistence, sign out, and blocked access after sign out. If all pass, mark `02 Auth` complete in `context/progress-tracker.md` and advance to `03 PostHog Initialization`.
 
 ## Open questions
 
-- Should the `loading="eager"` LCP fix be applied to `HowItWorks.tsx`'s jobs-list image? (raised twice now, still unanswered)
-- `progress-tracker.md` says Auth is not started, but recent git history ("Implemented Auth with Insforge", "InsForge setup") suggests otherwise — needs reconciling before starting Auth work next session.
-- Should `architect` and `imprint` be mirrored into `.claude/skills/` and `.agents/skills/` to match `recover`/`remember`/`review`? Flagged in PR #1, not yet resolved.
+- Does the deployed InsForge project have both provider callback URLs configured exactly for the current application origin?
+- Should the Google Fonts dependency be made build-independent, or should production build verification be rerun in a network-enabled environment?
