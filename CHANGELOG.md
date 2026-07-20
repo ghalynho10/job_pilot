@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Core database schema and the resumes storage bucket for job search data: profiles, agent runs, jobs, and agent logs, created through a versioned InsForge migration (see spec 0001)
 - InsForge CLI and its agent skills (database, storage, debugging, third party auth integration) are now installed, and this project is linked to its InsForge backend project
+- The full Profile page: a needs-attention banner showing profile completion and missing fields, a resume upload area, and a complete profile form covering personal info, professional info (with skill and industry tags), up to three work experience entries, education, and job preferences. Built with mock data to match the delivered design; saving the form and uploading a resume come in a follow up change
 
 ### Changed
 - The auth callback route no longer performs any analytics tracking; it only exchanges the OAuth code and redirects
