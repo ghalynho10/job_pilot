@@ -311,7 +311,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
               value={skillInput}
             />
             <button
-              className="shrink-0 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary"
+              className="shrink-0 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               onClick={addSkill}
               type="button"
             >
@@ -328,6 +328,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
                   {skill}
                   <button
                     aria-label={`Remove ${skill}`}
+                    className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => removeSkill(skill)}
                     type="button"
                   >
@@ -354,7 +355,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
               value={industryInput}
             />
             <button
-              className="shrink-0 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary"
+              className="shrink-0 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               onClick={addIndustry}
               type="button"
             >
@@ -371,6 +372,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
                   {industry}
                   <button
                     aria-label={`Remove ${industry}`}
+                    className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     onClick={() => removeIndustry(industry)}
                     type="button"
                   >
@@ -387,7 +389,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
         <div className="flex items-center justify-between">
           <SectionHeading>Work Experience</SectionHeading>
           <button
-            className="flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-dark disabled:cursor-not-allowed disabled:text-text-muted"
+            className="flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-text-muted"
             disabled={profile.workExperience.length >= MAX_WORK_EXPERIENCE_ENTRIES}
             onClick={addWorkExperience}
             type="button"

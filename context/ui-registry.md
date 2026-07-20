@@ -158,6 +158,7 @@ Last updated: 2026-07-18
 | Dropzone icon badge | `size-11 rounded-full bg-surface shadow-sm` with `UploadCloud` icon (`text-accent`) |
 | Select Resume (secondary) | `rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary` |
 | Generate Resume (primary) | `rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-dark` with `FileText` icon |
+| Focus (dropzone + Generate) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 
 Client component — tracks drag-over state visually and opens a hidden file input; no upload wiring yet (feature 06).
 
@@ -177,5 +178,9 @@ Last updated: 2026-07-18
 | Work experience entry card | `rounded-lg border border-border bg-surface-secondary p-4` |
 | Add role action | `text-sm font-medium text-accent hover:text-accent-dark` with `Plus` icon, disabled past 3 entries |
 | Save Profile (primary, full width) | `w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-dark` |
+| Focus (all buttons, incl. tag-remove icon buttons) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+| Checkbox ("Currently working here") | `rounded border-border text-accent focus:ring-accent` |
 
 Client component holding one `Profile` state object (`useState`, initialized from a mock/server-fetched value via `initialProfile` prop). Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. Save Profile button is not yet wired (feature 06). Note: the design screenshot has no Cover Letter Tone field under Job Preferences even though `build-plan.md` and the `profiles` DB schema mention one — built to match the screenshot per the source-of-truth rule in `ui-rules.md`; flag this gap when the field is eventually needed.
+
+**Pattern notes:** every interactive element in this project (buttons, links, icon-only remove buttons) must carry `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`, matching `Navbar`, `OAuthButton`, and `DashboardPage`. The `ProfileForm`/`ResumeUpload` Add, Add role, dropzone, and tag-remove buttons were initially built without it and caught and fixed during `/imprint` — check for this specifically on any new icon-only or non-primary button.

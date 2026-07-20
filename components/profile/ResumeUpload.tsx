@@ -30,7 +30,7 @@ export function ResumeUpload(): JSX.Element {
       </p>
 
       <button
-        className={`mt-4 flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+        className={`mt-4 flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           isDraggingOver
             ? "border-accent bg-accent-muted"
             : "border-border-muted bg-surface-secondary"
