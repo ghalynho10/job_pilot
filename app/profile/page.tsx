@@ -2,52 +2,12 @@ import { redirect } from "next/navigation";
 import type { JSX } from "react";
 
 import { CompletionIndicator } from "@/components/profile/CompletionIndicator";
-import { ProfileForm } from "@/components/profile/ProfileForm";
-import { ResumeUpload } from "@/components/profile/ResumeUpload";
+import { ProfileEditor } from "@/components/profile/ProfileEditor";
 import { Navbar } from "@/components/layout/Navbar";
 import { createInsforgeServer } from "@/lib/insforge-server";
-import type { Profile, ProfileCompletion } from "@/types";
-
-const mockProfile: Profile = {
-  fullName: "Faizan Ali",
-  email: "faizan@jsmastery.pro",
-  phone: "",
-  location: "",
-  linkedinUrl: "https://linkedin.com/in/faizan",
-  portfolioUrl: "https://github.com/jsmastery",
-  workAuthorization: "citizen",
-  currentTitle: "Frontend Engineer",
-  experienceLevel: "junior",
-  yearsExperience: 4,
-  skills: ["React", "TypeScript", "Next.js", "Tailwind CSS"],
-  industries: [],
-  workExperience: [
-    {
-      company: "Vercel",
-      jobTitle: "Frontend Engineer",
-      startDate: "2022-01",
-      endDate: "",
-      currentlyWorkingHere: true,
-      keyResponsibilities:
-        "Built Next.js features and optimized web vitals. Led a team of 3 developers.",
-    },
-  ],
-  education: {
-    highestDegree: "high_school",
-    fieldOfStudy: "Computer Science",
-    institutionName: "",
-    graduationYear: "",
-  },
-  jobTitlesSeeking: "Frontend Engineer, React Developer",
-  remotePreference: "any",
-  salaryExpectation: "",
-  preferredLocations: "",
-};
-
-const mockCompletion: ProfileCompletion = {
-  percentage: 70,
-  missingFields: ["Phone", "Location", "Education"],
-};
+import { deriveProfileCompletion } from "@/lib/profile-completion";
+import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
+import type { ProfileRow } from "@/types";
 
 export default async function ProfilePage(): Promise<JSX.Element> {
   const insforge = await createInsforgeServer();
@@ -56,6 +16,36 @@ export default async function ProfilePage(): Promise<JSX.Element> {
   if (error || !data.user) {
     redirect("/login?error=session");
   }
+
+  const { data: row, error: profileError } = await insforge.database
+    .from("profiles")
+    .select("*")
+    .eq("id", data.user.id)
+    .maybeSingle<ProfileRow>();
+
+  if (profileError) {
+    console.error("[app/profile]", profileError);
+  }
+
+  const profile = row ? mapProfileRowToProfile(row) : buildEmptyProfile(data.user.email);
+
+  const completion = deriveProfileCompletion({
+    fullName: row?.full_name ?? "",
+    phone: row?.phone ?? "",
+    location: row?.location ?? "",
+    currentTitle: row?.current_title ?? "",
+    experienceLevel: row?.experience_level ?? "",
+    yearsExperience: row?.years_experience ?? null,
+    skills: row?.skills ?? [],
+    workExperience: row?.work_experience ?? [],
+    education: row?.education ?? {
+      highestDegree: "",
+      fieldOfStudy: "",
+      institutionName: "",
+      graduationYear: "",
+    },
+    jobTitlesSeeking: row?.job_titles_seeking ?? [],
+  });
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
@@ -70,9 +60,8 @@ export default async function ProfilePage(): Promise<JSX.Element> {
         className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10 sm:px-8"
         id="main-content"
       >
-        <CompletionIndicator completion={mockCompletion} />
-        <ResumeUpload />
-        <ProfileForm initialProfile={mockProfile} />
+        <CompletionIndicator completion={completion} />
+        <ProfileEditor initialProfile={profile} />
       </main>
     </div>
   );
