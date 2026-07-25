@@ -14,7 +14,12 @@ import type {
 } from "@/types";
 
 interface ProfileFormProps {
-  initialProfile: Profile;
+  isSaving: boolean;
+  onProfileChange: (profile: Profile) => void;
+  onSave: () => void;
+  profile: Profile;
+  saveError: string | null;
+  saveSuccess: boolean;
 }
 
 const MAX_WORK_EXPERIENCE_ENTRIES = 3;
@@ -76,13 +81,19 @@ function SectionHeading({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
-export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
-  const [profile, setProfile] = useState<Profile>(initialProfile);
+export function ProfileForm({
+  isSaving,
+  onProfileChange,
+  onSave,
+  profile,
+  saveError,
+  saveSuccess,
+}: ProfileFormProps): JSX.Element {
   const [skillInput, setSkillInput] = useState("");
   const [industryInput, setIndustryInput] = useState("");
 
   const updateField = <K extends keyof Profile>(key: K, value: Profile[K]): void => {
-    setProfile((current) => ({ ...current, [key]: value }));
+    onProfileChange({ ...profile, [key]: value });
   };
 
   const addSkill = (): void => {
@@ -613,11 +624,23 @@ export function ProfileForm({ initialProfile }: ProfileFormProps): JSX.Element {
       </div>
 
       <button
-        className="mt-8 w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="mt-8 w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={isSaving}
+        onClick={onSave}
         type="button"
       >
-        Save Profile
+        {isSaving ? "Saving…" : "Save Profile"}
       </button>
+      {saveError ? (
+        <p className="mt-2 text-sm text-error" role="alert">
+          {saveError}
+        </p>
+      ) : null}
+      {saveSuccess ? (
+        <p aria-live="polite" className="mt-2 text-sm text-success" role="status">
+          Profile saved.
+        </p>
+      ) : null}
     </section>
   );
 }

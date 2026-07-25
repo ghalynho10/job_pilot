@@ -9,6 +9,7 @@ const PROFILE_FILES = [
   "components/profile/CompletionIndicator.tsx",
   "components/profile/ResumeUpload.tsx",
   "components/profile/ProfileForm.tsx",
+  "components/profile/ProfileEditor.tsx",
 ];
 
 async function readProjectFile(path) {
@@ -51,15 +52,26 @@ test("profile page hides the navbar sign out action, matching the design", async
   assert.match(source, /<Navbar authenticated showAuthAction=\{false\} \/>/);
 });
 
-test("profile page composes the needs-attention banner, resume upload, and profile form", async () => {
+test("profile page composes the needs-attention banner and the profile editor from real fetched data", async () => {
   const source = await readProjectFile("app/profile/page.tsx");
 
-  assert.match(source, /<CompletionIndicator completion=\{mockCompletion\} \/>/);
-  assert.match(source, /<ResumeUpload \/>/);
-  assert.match(source, /<ProfileForm initialProfile=\{mockProfile\} \/>/);
+  assert.match(source, /<CompletionIndicator completion=\{completion\} \/>/);
+  assert.match(source, /<ProfileEditor initialProfile=\{profile\} \/>/);
+  assert.doesNotMatch(source, /mockProfile|mockCompletion/, "mock data from feature 05 must be fully gone");
 });
 
-test("profile page has no profile save wiring yet, since feature 06 owns that", async () => {
+test("profile page fetches the real profiles row, scoped to the signed in user, and falls back for a brand new user", async () => {
+  const source = await readProjectFile("app/profile/page.tsx");
+
+  assert.match(source, /insforge\.database\s*\.from\("profiles"\)/);
+  assert.match(source, /\.select\("\*"\)/);
+  assert.match(source, /\.eq\("id", data\.user\.id\)/);
+  assert.match(source, /\.maybeSingle</, "must distinguish no-row-yet from a real query error");
+  assert.match(source, /row \? mapProfileRowToProfile\(row\) : buildEmptyProfile\(data\.user\.email\)/);
+  assert.match(source, /deriveProfileCompletion\(/);
+});
+
+test("profile page itself never imports the save action directly; the client ProfileEditor owns that boundary", async () => {
   const source = await readProjectFile("app/profile/page.tsx");
 
   assert.doesNotMatch(source, /actions\/profile/);
@@ -72,6 +84,24 @@ test("completion indicator shows the needs-attention heading and only renders mi
   assert.match(source, /Profile needs attention/);
   assert.match(source, /missingFields\.length > 0/);
   assert.match(source, /<AlertCircle aria-hidden="true"/);
+});
+
+test("completion indicator switches to a complete state (not needs-attention) once nothing is missing", async () => {
+  const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
+
+  assert.match(source, /const isComplete = missingFields\.length === 0;/);
+  assert.match(source, /Profile complete/);
+  assert.match(source, /<CheckCircle aria-hidden="true"/);
+  assert.match(
+    source,
+    /isComplete \? "Profile complete" : "Profile needs attention"/,
+    "the heading text must actually depend on isComplete, not always read needs-attention",
+  );
+  assert.match(
+    source,
+    /const ringColorClass = isComplete \? "text-success" : "text-error";/,
+    "the ring must switch to success colors when complete, not stay red at 100%",
+  );
 });
 
 test("completion indicator ring offset is driven by the percentage prop, not a fixed value", async () => {
@@ -109,11 +139,45 @@ test("resume upload tracks drag-over state and exposes the generate action", asy
   assert.match(source, /<FileText aria-hidden="true"/);
 });
 
-test("resume upload has no upload or generate wiring yet, since features 06 and 08 own that", async () => {
+test("resume upload never touches storage or the network directly; it only stages a file for its parent", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
   assert.doesNotMatch(source, /insforge\.storage/);
   assert.doesNotMatch(source, /fetch\(/);
+  assert.match(source, /onFileSelected\(file\)/);
+});
+
+test("resume upload rejects a non-PDF or oversized file client side before ever calling onFileSelected", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  const handleFileMatch = source.match(/const handleFile = \(file: File\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleFileMatch, "handleFile function not found");
+  const handleFileBody = handleFileMatch[0];
+
+  assert.match(handleFileBody, /file\.type !== "application\/pdf"/);
+  assert.match(handleFileBody, /file\.size > MAX_RESUME_SIZE_BYTES/);
+
+  const typeCheckIndex = handleFileBody.indexOf('file.type !== "application/pdf"');
+  const callIndex = handleFileBody.indexOf("onFileSelected(file)");
+  assert.ok(
+    typeCheckIndex !== -1 && callIndex !== -1 && typeCheckIndex < callIndex,
+    "the PDF type check must happen before onFileSelected is ever called",
+  );
+});
+
+test("resume upload wires both the file input and the drop handler through the same validated path", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(source, /onChange=\{handleInputChange\}/);
+  assert.match(source, /event\.dataTransfer\.files\?\.\[0\]/);
+  assert.match(source, /if \(file\) handleFile\(file\);/g);
+});
+
+test("resume upload shows the selected file name and a staged, not-yet-saved hint", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(source, /selectedFileName \?\? "Click to upload or drag and drop"/);
+  assert.match(source, /Selected\. Click Save Profile below to store it\./);
 });
 
 test("profile form email field is pre-filled and not editable", async () => {
@@ -168,7 +232,7 @@ test("skill and industry remove buttons have an accessible name", async () => {
   assert.match(source, /aria-label=\{`Remove \$\{industry\}`\}/);
 });
 
-test("profile form renders all five sections and the save action, with no save action wired yet", async () => {
+test("profile form renders all five sections", async () => {
   const source = await readProjectFile("components/profile/ProfileForm.tsx");
 
   for (const heading of [
@@ -180,8 +244,149 @@ test("profile form renders all five sections and the save action, with no save a
   ]) {
     assert.match(source, new RegExp(`>${heading}<`));
   }
-  assert.match(source, />\s*Save Profile\s*</);
-  assert.doesNotMatch(source, /actions\/profile/);
+});
+
+test("profile form is a fully controlled component driven by its parent, not its own local profile state", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.doesNotMatch(
+    source,
+    /useState<Profile>/,
+    "ProfileForm must not own profile state itself now that ProfileEditor does",
+  );
+  assert.match(source, /onProfileChange\(\{ \.\.\.profile, \[key\]: value \}\)/);
+  assert.doesNotMatch(source, /actions\/profile/, "ProfileForm calls the onSave prop, never the action directly");
+});
+
+test("profile form's Save Profile button is wired to the onSave prop, disabled while saving, and shows the result", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(source, /disabled=\{isSaving\}/);
+  assert.match(source, /onClick=\{onSave\}/);
+  assert.match(source, /\{isSaving \? "Saving…" : "Save Profile"\}/);
+  assert.match(source, /\{saveError \? \(/);
+  assert.match(source, /\{saveSuccess \? \(/);
+});
+
+test("profile editor owns the shared profile and resume file state, wiring both children to it", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /useState<Profile>\(initialProfile\)/);
+  assert.match(source, /useState<File \| null>\(null\)/);
+  assert.match(source, /<ResumeUpload\s+onFileSelected=\{setResumeFile\}/);
+  assert.match(source, /<ProfileForm[\s\S]*?onProfileChange=\{setProfile\}/);
+});
+
+test("profile editor calls saveProfile with both the profile and the staged resume file, and clears the file only on success", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /saveProfile\(profile, resumeFile\)/);
+
+  const handleSaveMatch = source.match(/const handleSave = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleSaveMatch, "handleSave function not found");
+  const body = handleSaveMatch[0];
+  assert.match(body, /if \(result\.success\) \{\s*setResumeFile\(null\);\s*setSaveSuccess\(true\);/);
+  assert.match(body, /\} else \{\s*setSaveError\(result\.error\);/);
+});
+
+test("profile editor auto-clears the save success message after a delay, with cleanup", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /useEffect\(/);
+  assert.match(source, /setTimeout\(\(\) => setSaveSuccess\(false\), SAVE_SUCCESS_DISPLAY_MS\)/);
+  assert.match(source, /return \(\) => clearTimeout\(timeout\);/);
+});
+
+test("actions/profile.ts saveProfile re-checks the caller is signed in before doing anything else", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /^"use server";/);
+  assert.match(source, /await insforge\.auth\.getCurrentUser\(\)/);
+
+  const authCheckIndex = source.indexOf("if (authError || !authData.user)");
+  const uploadIndex = source.indexOf("insforge.storage");
+  const writeIndex = source.indexOf(".upsert(payload");
+  assert.ok(authCheckIndex !== -1, "auth check not found");
+  assert.ok(
+    authCheckIndex < uploadIndex && authCheckIndex < writeIndex,
+    "the auth check must happen before any upload or database write",
+  );
+});
+
+test("actions/profile.ts validates the resume file before ever calling storage.upload", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  const typeCheckIndex = source.indexOf('resumeFile.type !== "application/pdf"');
+  const sizeCheckIndex = source.indexOf("resumeFile.size > MAX_RESUME_SIZE_BYTES");
+  const uploadIndex = source.indexOf(".upload(key, resumeFile)");
+
+  assert.ok(typeCheckIndex !== -1 && sizeCheckIndex !== -1 && uploadIndex !== -1);
+  assert.ok(typeCheckIndex < uploadIndex && sizeCheckIndex < uploadIndex);
+});
+
+test("actions/profile.ts reads the existing row before writing, to learn the previous resume key and completion state", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /\.select\("resume_pdf_url, is_complete"\)/);
+  assert.match(source, /\.eq\("id", userId\)/);
+  assert.match(source, /\.maybeSingle\(\)/);
+
+  const readIndex = source.indexOf('.select("resume_pdf_url, is_complete")');
+  const uploadIndex = source.indexOf(".upload(key, resumeFile)");
+  const writeIndex = source.indexOf(".upsert(payload");
+  assert.ok(readIndex < uploadIndex && readIndex < writeIndex, "the row read must happen before the upload and the write");
+});
+
+test("actions/profile.ts uploads every resume to a fresh unique key, never the fixed userId/resume.pdf path", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /const key = `\$\{userId\}\/\$\{randomUUID\(\)\}\.pdf`;/);
+  assert.doesNotMatch(source, /\$\{userId\}\/resume\.pdf/);
+});
+
+test("actions/profile.ts only includes resume_pdf_url in the write payload when a file was actually uploaded", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /\.\.\.\(resumeKey \? \{ resume_pdf_url: resumeKey \} : \{\}\)/);
+});
+
+test("actions/profile.ts deletes the previous resume key only after the write succeeds, and only if it actually changed", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(
+    source,
+    /if \(resumeKey && previousResumeKey && previousResumeKey !== resumeKey\) \{/,
+  );
+
+  const writeIndex = source.indexOf(".upsert(payload");
+  const deleteGuardIndex = source.indexOf(
+    "if (resumeKey && previousResumeKey && previousResumeKey !== resumeKey)",
+  );
+  assert.ok(writeIndex < deleteGuardIndex, "the delete must be attempted only after the write, never before");
+});
+
+test("actions/profile.ts fires profile_completed only on the false to true transition, not on every save of an already complete profile", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /if \(isComplete && !wasComplete\) \{/);
+  assert.match(source, /event: "profile_completed"/);
+  assert.match(source, /await posthog\.shutdown\(\);/);
+});
+
+test("actions/profile.ts uses the database accessor, not the nonexistent top level insforge.from", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /insforge\.database\s*\n?\s*\.from\("profiles"\)/);
+  assert.doesNotMatch(source, /(?<!\.database\s{0,20})insforge\s*\.from\("profiles"\)/s);
+});
+
+test("actions/profile.ts revalidates the profile page and never throws an uncaught error", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  assert.match(source, /revalidatePath\("\/profile"\)/);
+  assert.match(source, /^\s*try \{/m);
+  assert.match(source, /\} catch \(error\) \{/);
+  assert.match(source, /console\.error\("\[actions\/profile:saveProfile\]", error\)/);
 });
 
 test("changed profile files never use hardcoded hex colors or raw Tailwind color classes", async () => {

@@ -52,3 +52,54 @@ export type ProfileCompletion = {
   percentage: number;
   missingFields: string[];
 };
+
+export type ProfileCompletionInput = {
+  fullName: string;
+  phone: string;
+  location: string;
+  currentTitle: string;
+  experienceLevel: string;
+  yearsExperience: number | null;
+  skills: string[];
+  workExperience: WorkExperienceEntry[];
+  education: Education;
+  jobTitlesSeeking: string[];
+};
+
+export type ProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  current_title: string | null;
+  experience_level: string | null;
+  years_experience: number | null;
+  skills: string[] | null;
+  industries: string[] | null;
+  work_experience: WorkExperienceEntry[] | null;
+  education: Education | null;
+  job_titles_seeking: string[] | null;
+  remote_preference: string | null;
+  preferred_locations: string[] | null;
+  salary_expectation: string | null;
+  cover_letter_tone: string | null;
+  linkedin_url: string | null;
+  portfolio_url: string | null;
+  work_authorization: string | null;
+  resume_pdf_url: string | null;
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfileWritePayload = Omit<
+  ProfileRow,
+  "created_at" | "updated_at" | "cover_letter_tone" | "resume_pdf_url"
+> & {
+  resume_pdf_url?: string;
+};
+
+export type ActionResult<T = Record<string, never>> =
+  | ({ success: true } & T)
+  | { success: false; error: string };
