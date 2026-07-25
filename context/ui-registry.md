@@ -131,18 +131,19 @@ Full profile UI in a single narrower centered column (unlike the dashboard's wid
 
 File: `components/profile/CompletionIndicator.tsx`
 
-Last updated: 2026-07-18
+Last updated: 2026-07-24
 
 | Property | Class |
 | --- | --- |
 | Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
-| Heading | `text-lg font-semibold text-text-primary` with `AlertCircle` icon (`text-error`) |
-| Body text | `text-sm text-text-secondary` |
-| Missing field pill | `rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-error` |
-| Ring | inline SVG, 128px, `text-error/15` track + `text-error` progress arc, `strokeLinecap="round"`, `-rotate-90` |
+| Heading (incomplete) | `text-lg font-semibold text-text-primary`, "Profile needs attention", with `AlertCircle` icon (`text-error`) |
+| Heading (complete) | same classes, "Profile complete", with `CheckCircle` icon (`text-success`) |
+| Body text | `text-sm text-text-secondary`, copy swaps with the complete/incomplete state |
+| Missing field pill | `rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-error`, only rendered when `missingFields.length > 0` |
+| Ring | inline SVG, 128px, `strokeLinecap="round"`, `-rotate-90`; track + arc use `text-error`/`text-error/15` when incomplete, `text-success`/`text-success/15` when `missingFields.length === 0` |
 | Ring center label | `text-2xl font-bold text-text-primary` |
 
-Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, `missingFields`) prop.
+Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, `missingFields`) prop. `isComplete = missingFields.length === 0` drives every conditional (heading, icon, body copy, ring color) — a real bug caught after feature 06 shipped: the component only ever rendered the red "needs attention" state, even at 100%, since feature 05 never reached a genuinely complete profile against static mock data. Any future banner-style completion indicator in this project should branch the same way, not just gate the pill list.
 
 ### ResumeUpload
 
