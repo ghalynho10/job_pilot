@@ -1,48 +1,51 @@
-# Memory — Phase 2 Started (05 Profile Page Full UI built and verified)
+# Memory — Feature 06 (Profile Save Logic) shipped and closed out
 
-Last updated: 2026-07-20
+Last updated: 2026-07-24
 
 ## What was built
 
-- `app/profile/page.tsx`: auth-gated Profile page (Server Component), same redirect pattern as `app/dashboard/page.tsx`.
-- `components/profile/CompletionIndicator.tsx`: needs-attention banner with an inline SVG completion ring.
-- `components/profile/ResumeUpload.tsx`: client component, drag-and-drop dropzone + Generate Resume button. No upload wiring yet.
-- `components/profile/ProfileForm.tsx`: client component, full form — Personal Info, Professional Info (skill/industry tag inputs), Work Experience (up to 3 roles via Add role), Education, Job Preferences, Save Profile button. Not wired to any backend yet.
-- `types/index.ts` created: `Profile`, `ProfileCompletion`, and related field types.
-- Installed `lucide-react` (already pre-approved in `code-standards.md`, just wasn't installed yet).
-- `tests/profile-contract.test.mjs`: 18 new tests, following this project's existing source-contract convention (no jsdom/testing-library configured).
-- `context/ui-registry.md` and `context/progress-tracker.md` updated.
-- Fixed a real accessibility/consistency gap caught during `/imprint`: 6 interactive elements (the `ResumeUpload` dropzone button, `ProfileForm`'s two Add buttons, its Add role button, and its two tag-remove icon buttons) were missing the `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` ring every other interactive element in the registry uses. Added it to all six.
+- `docs/specs/0002-profile-save-logic/` (`index.md`, `rationale.md`, `verify.md`): spec 0002, status `Accepted`.
+- `types/index.ts`: added `ProfileRow`, `ProfileWritePayload`, `ActionResult<T>`, `ProfileCompletionInput`.
+- `lib/profile-completion.ts`, `lib/profile-mapping.ts`: shared pure helpers (completion derivation, `Profile` ↔ DB row mapping).
+- `actions/profile.ts`: one Server Action, `saveProfile(profile, resumeFile)`, saving the whole form and, when a new file was selected, the resume too, in a single call.
+- `components/profile/ProfileEditor.tsx` (new): client wrapper owning `profile` and `resumeFile` state, wires `ResumeUpload` and `ProfileForm` together and calls `saveProfile`.
+- `components/profile/ProfileForm.tsx`: now a fully controlled component (no more internal `useState<Profile>`); Save Profile button wired with pending/success/error states.
+- `components/profile/ResumeUpload.tsx`: stages a validated file via `onFileSelected`, no longer inert, does not upload itself.
+- `app/profile/page.tsx`: fetches the real `profiles` row and renders `ProfileEditor`; mock data fully gone.
+- `components/profile/CompletionIndicator.tsx`: post-close bug fix, see Problems solved.
+- Tests: `tests/profile-completion.test.mjs`, `tests/profile-mapping.test.mjs` (new, real unit tests on the pure functions), `tests/profile-contract.test.mjs` extended (source-contract style, this project's convention). Full suite: 78/78 passing.
+- `context/progress-tracker.md` and `context/ui-registry.md` updated throughout.
 
 ## Decisions made
 
-- Followed this project's `context/*.md` convention (not the generic `/develop` skill's `docs/scope/` structure, which this project doesn't use) for spec/scope tracking.
-- Built to match `context/designs/profile.png` exactly over `context/build-plan.md`'s text where they conflict: no Cover Letter Tone dropdown (the design omits it even though `build-plan.md` and the `profiles` DB schema mention one) — needs reconciling before feature 06.
-- Did not modify the shared `Navbar` component to add the nav icons + active-item underline shown in the design, since `ui-rules.md` explicitly says "no underline — active state is color change only" and `Navbar` is shared across every authenticated page. Flagged as a cross-cutting decision for `/architect` or `/sync`, not something to silently change for one page.
-- Profile page calls `Navbar` with `showAuthAction={false}` — the design has no Sign out button on this page (found via visual comparison, not assumed).
-- Content column is a centered `max-w-4xl` (narrower than the dashboard's `max-w-[1440px]`) to match the design's proportions.
-- Job Titles Seeking and Preferred Locations are plain text inputs in the UI (not tag chips), matching the screenshot, even though the DB schema stores them as arrays — the text-to-array conversion is feature 06's concern.
+- One combined `saveProfile` action, not two independent ones. Originally designed as "upload the resume immediately on select, independent of Save Profile" (matching a literal read of the dropzone's copy); reversed after the engineer directly asked for the resume to save only when Save Profile is clicked, alongside everything else.
+- Storage: every resume upload targets a fresh unique key (`${userId}/<uuid>.pdf`), never a fixed path. Reason: InsForge's `storage.upload()` never overwrites an existing key, it silently renames on collision instead — confirmed by testing the actual live endpoint directly, not assumed from docs.
+- Resume replace sequence, in this exact order: read the current row first (also supplies the `profile_completed` transition check) → validate and upload the new file → write the new key to the DB → only after that write succeeds, delete the previous key if one existed and differed. Never delete-then-upload; a failed upload or write must never cost the user their existing resume.
+- Profile completion (percentage + missing fields) is derived at read time from exactly 10 required fields, not persisted as new columns. That exact field set was chosen because it reproduces the delivered design mock's 70%/PHONE-LOCATION-EDUCATION example precisely.
+- Cover Letter Tone stays out of scope for this feature (the design has no field for it, even though `build-plan.md` and the DB schema mention one).
+- Job Titles Seeking / Preferred Locations: stay as plain comma-separated text inputs in the UI; split/trim/filter into arrays on save, comma-joined back on read.
+- `insforge.database.from(table)` is the real accessor — `insforge.from(table)` does not exist on the SDK client. Found live while building, fixed directly as a mechanical correction (not routed back through `/architect`, since it isn't a design decision).
 
 ## Problems solved
 
-- Screenshotting an auth-gated page for real (for `/check verify`) with no browser automation tool and no real OAuth credentials: signed up a throwaway InsForge account (email+password) with `require_email_verification` briefly toggled off via `npx @insforge/cli config apply` (planned with `config plan` first, restored immediately after, confirmed restored via `config export`), then cookie-injected its real access token into a Playwright session pointed at the user's own already-running dev server. This proved genuine authenticated behavior, not a bypass.
-- For the earlier build-time visual comparison (before `/check verify`), used a lower-risk method: temporarily disabled the `/profile` auth gate in `proxy.ts` and `app/profile/page.tsx` on a separate isolated dev server (port 3005, not the user's own port 3000 server), screenshotted, then immediately reverted both files.
-- `playwright` isn't a project dependency (and wasn't added as one) — ran it via its `npx` cache directory (`~/.npm/_npx/<hash>/node_modules/playwright`) since `NODE_PATH` doesn't resolve for ESM.
-- No jsdom/testing-library configured in `test-preferences.json` — component tests follow the established source-contract convention (regex assertions against file text, see `tests/auth-contract.test.mjs`, `tests/posthog-contract.test.mjs`), not real DOM rendering.
-- Cleaned up fully: both throwaway accounts (this session's and one left over from the earlier build-time check) deleted from `auth.users`; `require_email_verification` confirmed back to `true`.
+- The storage overwrite/URL questions left open by the spec were resolved by direct live testing: traced the SDK's `upload()` to the real `PUT /api/storage/buckets/:bucket/objects/:key` endpoint (the CLI's own `storage upload` command hits a *different* endpoint and would have given a misleading answer), hit it twice with the same key, observed the silent rename. Also confirmed an unauthenticated fetch of the returned `url` gets 401 (private bucket), which is why only the object *key* is ever persisted, never that `url`.
+- A cross-check on a different model (Opus) caught a real gap in the first storage revision: nothing said where "the previous key to delete" actually comes from. Fixed by adding an explicit row read at the start of `saveProfile`.
+- `/check verify` used two real throwaway InsForge sessions (not a code bypass) to prove, live: the full save/reload persistence cycle, the comma-split/join round trip (including a double-comma edge case), completion going from a real 0% to a real 100% with `is_complete` flipping in the database, a resume upload and replace leaving exactly one live object in storage (confirmed via `storage list-objects`, the old one actually gone), and selecting a resume without saving leaving both the database and storage completely untouched. One item was genuinely blocked, not faked: confirming the `profile_completed` PostHog event was actually *received*, since this environment only has a write-only project key. The database-side trigger condition (the `is_complete` transition itself) was confirmed directly instead.
+- Post-close bug, found by the engineer from a screenshot: `CompletionIndicator` had never actually reached a genuine complete state before (feature 05 only ever showed it against static 70% mock data), so once feature 06 made 100% real, it revealed the component always rendered the red "Profile needs attention" heading/icon/ring, even at 100%. Fixed with an `isComplete` branch driving heading text, icon (`CheckCircle`/`text-success` vs `AlertCircle`/`text-error`), body copy, and ring color together. Verified with an actual `react-dom/server` render (esbuild-transformed the component on the fly) for both a 100% and a 70% input before trusting the fix, not just by reading the code.
+- All throwaway InsForge accounts and test storage objects created this session were deleted; `require_email_verification` confirmed restored to `true` every time it was toggled.
 
 ## Current state
 
-- Feature 05 (Profile Page — Full UI) is built, `/check verify` passed (real authenticated session, 0 console errors, Skill tag add / Add role append / currently-working-here toggle all confirmed working), `/test` passed (18/18 new, 37/37 full suite), `/imprint` done.
-- `context/progress-tracker.md`: Phase 2 — Profile Page, 05 checked off. Next listed: 06 Profile Save Logic.
-- A commit "Build profile Page UI" already landed on the branch during this session (made by the user directly via their IDE, not by me) bundling all these changes plus the pre-existing `app/layout.tsx` metadata tweak and `instrumentation-client.ts` deletion from before this session started.
-- Save Profile / Select Resume / Generate Resume from Profile buttons are all intentionally inert (feature 06 wires Save; features 06/08 wire the resume actions) — correct per the build plan's "mock data first" approach, not a defect.
-- Still unresolved from last session: `.env.local` has the old `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` name instead of `NEXT_PUBLIC_POSTHOG_KEY`.
-- Feature 04 (Database Schema) and 02 (Auth) remain accepted/verified from the prior session — see `context/progress-tracker.md`'s Decisions Made During Build for that history; not repeated here.
+- Feature 06 is fully done: spec 0002 `Accepted`, `/check verify` PASS, `/test` 78/78, `npx tsc --noEmit` and `npm run lint` both clean.
+- `context/progress-tracker.md`: Phase 2 (Profile Page) fully checked off (05 + 06). Next listed: 07 AI Profile Extraction from Resume.
+- Known follow-ups, not yet acted on:
+  - `context/library-docs.md` needs corrections in two places: the InsForge Storage section (`.upload()` takes no options object, never overwrites, `getPublicUrl()` only works for public buckets) and the DB Queries section (`insforge.database.from`, not `insforge.from`). Queued for `/sync`, not yet run.
+  - The `Experience Level`, `Work Authorization`, and `Highest Degree` `<select>` elements (built in feature 05) have no blank placeholder option, so they visually show their first option even when genuinely unset, while the completion banner correctly lists them as missing. Found during `/check verify`'s screenshots, not yet fixed, not this feature's scope.
+  - `.env.local` still has the old `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` name instead of `NEXT_PUBLIC_POSTHOG_KEY` (carried over from earlier sessions, still unresolved).
 
 ## Next session starts with
 
-Start feature 06, Profile Save Logic: a Server Action in `actions/profile.ts` that saves all `ProfileForm` fields to the `profiles` table, uploads the resume PDF to InsForge Storage at `resumes/{user_id}/resume.pdf` with `upsert: true`, computes `is_complete` and the real completion percentage/missing fields (replacing `CompletionIndicator`'s current mock props), and calls `revalidatePath('/profile')`. Before starting, resolve the Cover Letter Tone gap and decide whether Job Titles Seeking / Preferred Locations convert from plain text to the DB's array columns on save, or the DB/UI shape changes instead.
+Feature 07, AI Profile Extraction from Resume (per `context/build-plan.md`): an "Extract from Resume" button that reads the uploaded PDF's text (via `pdf-parse`) and has GPT-4o auto-fill the profile form fields. This needs an `/architect` spec first — real open decisions include the extraction prompt/schema, how extracted fields map back into `ProfileEditor`'s state without clobbering fields the user already filled in by hand, and the empty/short-text error path already described in `build-plan.md`. Before starting, consider whether to knock out the two small known-good follow-ups first (the `library-docs.md` corrections via `/sync`, and/or the select-placeholder UX fix), since both are small, unblocked, and independent of feature 07.
 
 ## Open questions
 
@@ -50,3 +53,4 @@ Start feature 06, Profile Save Logic: a Server Action in `actions/profile.ts` th
 - Whether to ever complete a real, human driven Google or GitHub login to close the one remaining gap in feature 02's verification.
 - Cover Letter Tone: add it to the Profile page UI to match `build-plan.md`/DB schema, or update those to drop it since the design doesn't show it?
 - The design's nav icons + active-item underline aren't in the shared `Navbar` component, which instead follows `ui-rules.md`'s "no underline" rule — worth a deliberate decision (via `/architect` or `/sync`) on which one should actually govern.
+- The three `<select>` elements with no blank placeholder option (see Current state) — worth deciding priority: fix now, or fold into a later polish pass.

@@ -86,6 +86,24 @@ test("completion indicator shows the needs-attention heading and only renders mi
   assert.match(source, /<AlertCircle aria-hidden="true"/);
 });
 
+test("completion indicator switches to a complete state (not needs-attention) once nothing is missing", async () => {
+  const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
+
+  assert.match(source, /const isComplete = missingFields\.length === 0;/);
+  assert.match(source, /Profile complete/);
+  assert.match(source, /<CheckCircle aria-hidden="true"/);
+  assert.match(
+    source,
+    /isComplete \? "Profile complete" : "Profile needs attention"/,
+    "the heading text must actually depend on isComplete, not always read needs-attention",
+  );
+  assert.match(
+    source,
+    /const ringColorClass = isComplete \? "text-success" : "text-error";/,
+    "the ring must switch to success colors when complete, not stay red at 100%",
+  );
+});
+
 test("completion indicator ring offset is driven by the percentage prop, not a fixed value", async () => {
   const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
 
