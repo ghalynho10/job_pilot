@@ -194,5 +194,5 @@ Key patterns:
 
 - Database inserts take an array: `insert([{ ... }])`.
 - Reference users with `auth.users(id)`; use `auth.uid()` in RLS policies.
-- For storage uploads, persist both the returned `url` and `key`.
+- For storage uploads, persist only the returned `key`, never a `url`. Storage never overwrites an existing key (a repeat upload to the same key silently succeeds under a renamed key instead), so target a fresh unique key per upload. A private bucket's URL never resolves without auth and is not durable; mint a signed URL (`createSignedUrl`) only at the point one is actually needed. See `context/library-docs.md`'s Storage section.
 <!-- INSFORGE:END -->

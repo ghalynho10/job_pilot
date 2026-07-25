@@ -125,7 +125,7 @@ Last updated: 2026-07-18
 | Subsection heading | `text-base font-semibold text-text-primary` |
 | Field label | `text-xs font-medium uppercase tracking-wide text-text-secondary` |
 
-Full profile UI in a single narrower centered column (unlike the dashboard's wide `max-w-[1440px]` layout), matching `context/designs/profile.png`. Composed of `CompletionIndicator`, `ResumeUpload`, and `ProfileForm`. Mock data only — no save logic yet (feature 06).
+Full profile UI in a single narrower centered column (unlike the dashboard's wide `max-w-[1440px]` layout), matching `context/designs/profile.png`. Fetches the real `profiles` row and renders `CompletionIndicator` plus `ProfileEditor` (which composes `ResumeUpload` and `ProfileForm`); no mock data. Save logic per spec 0002 (feature 06, second revision: resume uploads on select).
 
 ### CompletionIndicator
 
@@ -149,25 +149,27 @@ Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, 
 
 File: `components/profile/ResumeUpload.tsx`
 
-Last updated: 2026-07-18
+Last updated: 2026-07-25
 
 | Property | Class |
 | --- | --- |
 | Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
 | Dropzone (idle) | `rounded-xl border-2 border-dashed border-border-muted bg-surface-secondary` |
 | Dropzone (drag-over) | `border-accent bg-accent-muted` |
+| Dropzone (disabled, uploading) | `disabled:cursor-not-allowed disabled:opacity-70` on the dropzone `button` and the hidden file `input`, matching `ProfileForm`'s Save Profile disabled treatment |
 | Dropzone icon badge | `size-11 rounded-full bg-surface shadow-sm` with `UploadCloud` icon (`text-accent`) |
 | Select Resume (secondary) | `rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary` |
 | Generate Resume (primary) | `rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-dark` with `FileText` icon |
+| Error text | `text-xs text-error`, `role="alert"`, shared between the client side validation error and a server side `uploadError` passed down from `ProfileEditor` |
 | Focus (dropzone + Generate) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 
-Client component — tracks drag-over state visually and opens a hidden file input; no upload wiring yet (feature 06).
+Client component, purely presentational: tracks drag-over state, opens a hidden file input, and calls `onFileSelected(file)` after a passing client side check, but never touches storage or the network itself. `ProfileEditor` owns the actual upload (`uploadResumeFile`, spec 0002's second revision) and feeds back `isUploading`, `uploadedFileName`, and `uploadError` as props; the dropzone button and file input are both disabled while `isUploading` is true, so a second file can never be picked before the first upload resolves.
 
 ### ProfileForm
 
 File: `components/profile/ProfileForm.tsx`
 
-Last updated: 2026-07-18
+Last updated: 2026-07-25
 
 | Property | Class |
 | --- | --- |
@@ -178,10 +180,19 @@ Last updated: 2026-07-18
 | Skill / industry tag pill | `rounded-full bg-surface-secondary px-3 py-1 text-xs font-medium text-text-primary` with inline `X` remove icon |
 | Work experience entry card | `rounded-lg border border-border bg-surface-secondary p-4` |
 | Add role action | `text-sm font-medium text-accent hover:text-accent-dark` with `Plus` icon, disabled past 3 entries |
-| Save Profile (primary, full width) | `w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-dark` |
+| Save Profile (primary, full width) | `w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-70`, disabled while saving (`isSaving`, shows "Saving…") or while a resume upload is in flight (`saveDisabled`, text stays "Save Profile" since no save is actually happening yet) |
+| Save result text | `text-sm text-error` (`role="alert"`) for `saveError`, `text-sm text-success` (`role="status"`, `aria-live="polite"`) for `saveSuccess` |
 | Focus (all buttons, incl. tag-remove icon buttons) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 | Checkbox ("Currently working here") | `rounded border-border text-accent focus:ring-accent` |
 
-Client component holding one `Profile` state object (`useState`, initialized from a mock/server-fetched value via `initialProfile` prop). Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. Save Profile button is not yet wired (feature 06). Note: the design screenshot has no Cover Letter Tone field under Job Preferences even though `build-plan.md` and the `profiles` DB schema mention one — built to match the screenshot per the source-of-truth rule in `ui-rules.md`; flag this gap when the field is eventually needed.
+Fully controlled client component (no internal `Profile` state); `profile`, `onProfileChange`, and the save wiring (`isSaving`, `saveDisabled`, `onSave`, `saveError`, `saveSuccess`) all come from `ProfileEditor`. Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. `saveDisabled` is a separate prop from `isSaving` on purpose: it disables the button without swapping its text to "Saving…", since a resume upload in flight is not itself a save (spec 0002's second revision, AC-9). Note: the design screenshot has no Cover Letter Tone field under Job Preferences even though `build-plan.md` and the `profiles` DB schema mention one — built to match the screenshot per the source-of-truth rule in `ui-rules.md`; flag this gap when the field is eventually needed.
+
+### ProfileEditor
+
+File: `components/profile/ProfileEditor.tsx`
+
+Last updated: 2026-07-25
+
+Non-visual client wrapper, no styling classes of its own; composes `ResumeUpload` and `ProfileForm` and owns every piece of state a Save Profile click or a resume selection touches: `profile`, `resumeKey` (the already uploaded, not yet saved resume's storage key, or `null`), `resumeFileName`, `isUploading`, `uploadError`, plus the existing save `isPending`/`saveError`/`saveSuccess` trio. On `onFileSelected`, calls `uploadResumeFile` immediately (spec 0002's second revision: the resume uploads on select, not on Save Profile), passing the previous, still unsaved key so the server can best effort clean it up on a reselect. `saveProfile` still only fires on the Save Profile click, taking the resolved `resumeKey`; `resumeKey`/`resumeFileName` reset to `null` only once that save actually succeeds, since only then is the key a real, saved resume rather than an abandoned upload.
 
 **Pattern notes:** every interactive element in this project (buttons, links, icon-only remove buttons) must carry `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`, matching `Navbar`, `OAuthButton`, and `DashboardPage`. The `ProfileForm`/`ResumeUpload` Add, Add role, dropzone, and tag-remove buttons were initially built without it and caught and fixed during `/imprint` — check for this specifically on any new icon-only or non-primary button.

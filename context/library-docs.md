@@ -90,21 +90,21 @@ OAuth in Next.js uses a server owned PKCE flow:
 
 ```typescript
 // Read
-const { data, error } = await insforge
+const { data, error } = await insforge.database
   .from("jobs")
   .select("*")
   .eq("user_id", user.id)
   .order("found_at", { ascending: false });
 
 // Insert
-const { data, error } = await insforge
+const { data, error } = await insforge.database
   .from("jobs")
   .insert({ user_id: user.id, title, company, match_score })
   .select()
   .single();
 
 // Update
-const { error } = await insforge
+const { error } = await insforge.database
   .from("jobs")
   .update({ company_research: dossier })
   .eq("id", jobId)
@@ -113,40 +113,49 @@ const { error } = await insforge
 
 **Rules:**
 
+- The accessor is `insforge.database.from(table)` — there is no top level `insforge.from(table)`, that call does not exist on the SDK client (confirmed directly against the installed SDK's type exports; `.database.from()` returns a `@supabase/postgrest-js` `PostgrestQueryBuilder`, which is also where `.upsert()` and `.maybeSingle()` come from)
 - Always scope queries to `user_id` — never query without user filter
 - Always handle the `error` return — never assume success
-- Use `.single()` when expecting exactly one row
+- Use `.single()` when expecting exactly one row, `.maybeSingle()` when a matching row might not exist yet
 
 ---
 
 ### Storage
 
 ```typescript
-// Upload file
-const { data, error } = await insforge.storage
-  .from("resumes")
-  .upload(`${userId}/resume.pdf`, fileBuffer, {
-    contentType: "application/pdf",
-    upsert: true, // overwrites existing file
-  });
+// Upload file — .upload() takes no options object (no contentType, no
+// upsert); storage never overwrites an existing key, a second upload to
+// the same key silently succeeds under a renamed key instead (confirmed
+// directly against the live backend, not assumed from general knowledge).
+// Target a fresh, unique key every time so there is nothing to collide with:
+const key = `${userId}/${randomUUID()}.pdf`;
+const { data, error } = await insforge.storage.from("resumes").upload(key, fileBuffer);
 
-// Get public URL
-const { data } = insforge.storage
-  .from("resumes")
-  .getPublicUrl(`${userId}/resume.pdf`);
+// Only the returned key is durable — persist data.key to the DB, never a URL
 
-const url = data.publicUrl;
+// Reading a stored file back: the resumes bucket is PRIVATE, so
+// getPublicUrl() never resolves for it. Mint a short lived signed URL
+// instead, only at the point it is actually needed:
+const { data: signed } = await insforge.storage.from("resumes").createSignedUrl(key);
+const url = signed.signedUrl; // expires; never cache this, never store it
+
+// Replacing a file: upload the new key, write it to the DB, only then
+// remove the old key (never delete before the new write succeeds)
+await insforge.storage.from("resumes").remove(previousKey);
 ```
 
 **Storage paths:**
 
-- Base resume: `resumes/{user_id}/resume.pdf`
+- Resume uploads: `resumes/{user_id}/{a random id}.pdf`, a fresh key every upload, never a fixed path
 
 **Rules:**
 
-- Always use `upsert: true` for base resume uploads — overwrites existing file
-- Always save the public URL back to the DB after upload
-- Never write files to disk — always upload buffer directly to storage
+- `.upload(path, file)` takes exactly two arguments — no `contentType`, no `upsert`, no options object at all
+- Storage never overwrites a key — never target a fixed path expecting an overwrite; use a fresh unique key per upload
+- Replacing a file is upload new key, write it, then delete the old key, never delete-then-upload (a failed upload or write must never cost the existing file)
+- `resumes` is a private bucket — `getPublicUrl()` only resolves for a public bucket and must not be used here; use `createSignedUrl()` instead, and only call it at the point a link is actually needed
+- Persist only the object key to the DB, never a URL (a signed URL expires, and a private bucket's plain URL never resolves without auth)
+- Never write files to disk — always upload buffer/File directly to storage
 
 ---
 
@@ -630,13 +639,11 @@ const ResumePDF = ({ profile }: { profile: Profile }) => (
 // Generate buffer
 const buffer = await renderToBuffer(<ResumePDF profile={profile} />)
 
-// Upload directly to InsForge Storage
-await insforge.storage
-  .from('resumes')
-  .upload(`${userId}/resume.pdf`, buffer, {
-    contentType: 'application/pdf',
-    upsert: true
-  })
+// Upload directly to InsForge Storage — a fresh unique key, see the
+// Storage section above: .upload() takes no options object, and storage
+// never overwrites an existing key
+const key = `${userId}/${randomUUID()}.pdf`
+await insforge.storage.from('resumes').upload(key, buffer)
 ```
 
 **Supported CSS properties:**
@@ -648,8 +655,8 @@ Only use these — others are silently ignored:
 - Server-side only — never import in client components
 - Always use `renderToBuffer` — not `renderToStream` or `PDFDownloadLink`
 - PDF generation only in `app/api/resume/` routes
-- Generated buffer uploaded directly to InsForge Storage — never written to disk
-- Always save public URL to DB after upload
+- Generated buffer uploaded directly to InsForge Storage, to a fresh unique key — never written to disk, never a fixed path
+- Save the returned object key to the DB after upload, never a URL (see the Storage section above)
 
 ---
 

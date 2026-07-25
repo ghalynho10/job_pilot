@@ -18,6 +18,7 @@ interface ProfileFormProps {
   onProfileChange: (profile: Profile) => void;
   onSave: () => void;
   profile: Profile;
+  saveDisabled?: boolean;
   saveError: string | null;
   saveSuccess: boolean;
 }
@@ -86,6 +87,7 @@ export function ProfileForm({
   onProfileChange,
   onSave,
   profile,
+  saveDisabled = false,
   saveError,
   saveSuccess,
 }: ProfileFormProps): JSX.Element {
@@ -625,7 +627,7 @@ export function ProfileForm({
 
       <button
         className="mt-8 w-full rounded-md bg-accent px-4 py-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={isSaving}
+        disabled={isSaving || saveDisabled}
         onClick={onSave}
         type="button"
       >
