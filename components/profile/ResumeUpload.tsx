@@ -12,13 +12,17 @@ import {
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
 interface ResumeUploadProps {
+  isUploading: boolean;
   onFileSelected: (file: File) => void;
-  selectedFileName: string | null;
+  uploadedFileName: string | null;
+  uploadError: string | null;
 }
 
 export function ResumeUpload({
+  isUploading,
   onFileSelected,
-  selectedFileName,
+  uploadedFileName,
+  uploadError,
 }: ResumeUploadProps): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -45,6 +49,7 @@ export function ResumeUpload({
 
   const handleDragOver = (event: DragEvent<HTMLButtonElement>): void => {
     event.preventDefault();
+    if (isUploading) return;
     setIsDraggingOver(true);
   };
 
@@ -55,9 +60,12 @@ export function ResumeUpload({
   const handleDrop = (event: DragEvent<HTMLButtonElement>): void => {
     event.preventDefault();
     setIsDraggingOver(false);
+    if (isUploading) return;
     const file = event.dataTransfer.files?.[0];
     if (file) handleFile(file);
   };
+
+  const displayError = uploadError ?? validationError;
 
   return (
     <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -68,11 +76,12 @@ export function ResumeUpload({
       </p>
 
       <button
-        className={`mt-4 flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`mt-4 flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-70 ${
           isDraggingOver
             ? "border-accent bg-accent-muted"
             : "border-border-muted bg-surface-secondary"
         }`}
+        disabled={isUploading}
         onClick={() => fileInputRef.current?.click()}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -83,25 +92,29 @@ export function ResumeUpload({
           <UploadCloud aria-hidden="true" className="size-5 text-accent" />
         </span>
         <span className="text-sm font-semibold text-text-primary">
-          {selectedFileName ?? "Click to upload or drag and drop"}
+          {uploadedFileName ??
+            (isUploading ? "Uploading…" : "Click to upload or drag and drop")}
         </span>
         <span className="text-xs text-text-muted">
-          {selectedFileName
-            ? "Selected. Click Save Profile below to store it."
-            : "PDF formatting only. Maximum file size 5MB."}
+          {isUploading
+            ? "Hold on, this only takes a moment."
+            : uploadedFileName
+              ? "Uploaded. Click Save Profile below to add it to your profile."
+              : "PDF formatting only. Maximum file size 5MB."}
         </span>
         <span className="mt-1 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary">
           Select Resume
         </span>
       </button>
-      {validationError ? (
+      {displayError ? (
         <p className="mt-2 text-xs text-error" role="alert">
-          {validationError}
+          {displayError}
         </p>
       ) : null}
       <input
         accept="application/pdf"
         className="sr-only"
+        disabled={isUploading}
         onChange={handleInputChange}
         ref={fileInputRef}
         type="file"

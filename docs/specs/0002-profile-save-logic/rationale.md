@@ -106,3 +106,49 @@ A read only critique pass on a different model (Opus) was requested by the engin
 Two smaller items were also applied: the Follow-up item about orphaned storage objects was broadened, since the upload-succeeds-but-row-write-fails path leaves one behind exactly as much as the delete-fails-after-success path does, and `index.md`'s AC-6 wording was loosened from a literal `{ success, error? }` shape to match what the API surface table actually specifies (`isComplete`, `resumeKey` on success).
 
 Not applied: the critique also asked whether two browser tabs saving concurrently is accounted for. It is, generically: this project already treats a profile save as ordinary last write wins (no optimistic concurrency anywhere in this feature), and a concurrent save orphaning one just uploaded resume object is a specific case of the same already accepted, already documented tradeoff, not a new one worth a separate callout.
+
+## Second revision (2026-07-25): resume uploads on select again
+
+> Revision note: this decision's first revision (above) deliberately moved away from uploading on select, on the engineer's direct request, in favor of one save moment for everything. The engineer has now asked to move the resume upload back to firing on select, this time knowingly trading away the second half of that benefit (one shared save moment) to get faster feedback on the file itself. This section records that second, narrower reversal; the original Option 1 vs Option 2 choice above (one combined action vs two fully independent ones) is not what is being reopened; the choice this time is about *when the file's bytes leave the browser*, not about whether the profile row's fields still share one save action.
+
+### Option A: upload on select, defer only the database write (chosen)
+
+`uploadResumeFile` uploads the file the moment it is selected and returns a key. `saveProfile` still only writes `resume_pdf_url` when Save Profile is clicked, exactly as every other field.
+
+**Pros**:
+- Keeps one save moment for the actual persisted record; a person can never end up with a resume attached to a profile they otherwise never saved a single field of.
+- Bad files (wrong type, too large, a failed upload) surface immediately, not after the person has also filled in the rest of a long form.
+
+**Cons**:
+- Two moments to explain instead of one: the file itself leaves the browser on select, but is not "part of the profile" until Save Profile. Orphaned, never saved uploads become the common case, not the rare one (see Consequences in `index.md`).
+
+### Option B: upload and save both fire on select
+
+`uploadResumeFile` uploads the file and writes `resume_pdf_url` to the row in the same call, independent of `saveProfile` and the Save Profile button entirely.
+
+**Pros**:
+- Genuinely nothing left to do once a file is picked; matches a fully literal reading of "upload immediately."
+- No client side "which key is still unsaved" bookkeeping needed at all.
+
+**Cons**:
+- Breaks the one deliberate save moment for the record itself, the exact property the first revision was chosen for. A person could pick a resume, close the tab having touched nothing else, and come back to find their profile's resume field already changed, while every other field they may have half filled in is gone. Rejected: the engineer confirmed the resume should still wait for Save Profile at the database layer, only the upload itself should move earlier.
+
+### Rationale (second revision)
+
+Option A is chosen because it isolates exactly what the engineer asked to change (upload timing) without also reopening what they did not ask to change (one save moment for the persisted record). Deferring only the database write keeps `saveProfile`'s existing replace sequence, its `is_complete` transition check, and its RLS backed row read all untouched; the only thing removed from it is the upload block itself, which becomes `uploadResumeFile`.
+
+The follow on question, what happens to a resume that was uploaded but never saved, was resolved the same way: best effort delete the previous unsaved upload when a person replaces their selection before saving (a `previousUnsavedKey` param on `uploadResumeFile`, cleaned up server side, never left to the client to enforce), and accept, as a known and now more frequent tradeoff, that a person who selects once and simply abandons the page leaves that one object behind. A stronger guarantee here (say, a scheduled sweep of unreferenced objects, or requiring the client to call a cleanup endpoint on unmount) was considered and rejected as disproportionate: the cost of an occasional orphaned PDF is storage space, not correctness or user visible behavior, and this project's own standard for this exact tradeoff was already set in the first revision (see Follow-up in `index.md`).
+
+The resume's interaction with profile completion needed a direct answer too, since it was an open question when this revision started: there is none. The ten fields `deriveProfileCompletion` checks (full name, phone, location, current title, experience level, years of experience, at least one skill, at least one work experience entry, a chosen highest degree, at least one job title sought) never included the resume in either revision. Moving the upload earlier changes nothing about when a profile crosses into 100% complete or when `profile_completed` fires.
+
+## Cross check (a different model, read only) and the fix it prompted
+
+A read only critique pass on a different model (Opus) was requested by the engineer for this second revision, the same practice already used for the storage design in the first revision above. It found the storage reasoning (unique keys, deferred database write, read before write, key not URL) internally consistent, and confirmed the "uploaded, then a long edit, then finally save" concern is already handled, since the key is stored and read back at save time regardless of how much time passed in between. It also caught one real correctness gap and flagged two things worth naming explicitly, all applied:
+
+**The missing reselect lock.** As first written, nothing stopped a person from picking a second file while the first upload was still in flight. AC-9 only disabled Save Profile, not the resume control itself. Two concrete failures follow from that: the first upload's key might not exist in `ProfileEditor` state yet when the second one fires, so it could never be passed to `previousUnsavedKey` and would leak; or, if the two uploads settle out of order, the older one could end up as the `resumeKey` that Save Profile actually persists, silently saving the wrong resume. Fixed by widening AC-9 and the Decision: `ResumeUpload`'s file input and dropzone are now disabled for the entire time an upload is in flight, not only Save Profile. This guarantees at most one `uploadResumeFile` call is ever outstanding, which is also what makes `previousUnsavedKey` reliable in the first place.
+
+**The lost response case was a real, unnamed orphan path.** `uploadResumeFile` can succeed on the server while its response never reaches the client (a dropped connection, a closed tab mid request). The object exists, but `ProfileEditor` never learns its key, so it can never reach `previousUnsavedKey` and the UI correctly, if misleadingly, shows the selection as failed. This is not a new class of problem, it is the same accepted "orphan without a corresponding save" tradeoff already named above, just triggered by the network instead of the person. Added as its own explicit bullet in `index.md`'s Key invariants rather than left implicit, since it does not go through the same cleanup path as a normal reselect.
+
+**A stale sentence, left over from the first revision.** `index.md`'s first user story still read "I want my resume saved together with the rest of my profile when I click Save Profile, so there is one clear moment my information is actually stored," directly contradicting the two moment model this revision describes. Fixed by rewriting it to match the resume specific story (fast feedback on selection) that this revision is actually about.
+
+Not applied: a suggestion to add a timeout or cancel affordance for an upload that never settles. Noted instead as a Follow-up in `index.md`; there is no evidence yet that uploads to this bucket hang, and adding cancellation now would be solving a problem this feature has not actually observed.

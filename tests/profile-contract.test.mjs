@@ -173,11 +173,22 @@ test("resume upload wires both the file input and the drop handler through the s
   assert.match(source, /if \(file\) handleFile\(file\);/g);
 });
 
-test("resume upload shows the selected file name and a staged, not-yet-saved hint", async () => {
+test("resume upload shows an uploading state, then the uploaded file name with a not-yet-saved hint", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
-  assert.match(source, /selectedFileName \?\? "Click to upload or drag and drop"/);
-  assert.match(source, /Selected\. Click Save Profile below to store it\./);
+  assert.match(source, /isUploading \? "Uploading…" : "Click to upload or drag and drop"/);
+  assert.match(source, /Uploaded\. Click Save Profile below to add it to your profile\./);
+});
+
+test("resume upload disables both the dropzone button and the file input while an upload is in flight", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  const disabledMatches = source.match(/disabled=\{isUploading\}/g) ?? [];
+  assert.equal(
+    disabledMatches.length,
+    2,
+    "both the dropzone button and the file input must be disabled while uploading, so a second file can never be picked before the first resolves",
+  );
 });
 
 test("profile form email field is pre-filled and not editable", async () => {
@@ -258,34 +269,86 @@ test("profile form is a fully controlled component driven by its parent, not its
   assert.doesNotMatch(source, /actions\/profile/, "ProfileForm calls the onSave prop, never the action directly");
 });
 
-test("profile form's Save Profile button is wired to the onSave prop, disabled while saving, and shows the result", async () => {
+test("profile form's Save Profile button is wired to the onSave prop, disabled while saving or externally disabled, and shows the result", async () => {
   const source = await readProjectFile("components/profile/ProfileForm.tsx");
 
-  assert.match(source, /disabled=\{isSaving\}/);
+  assert.match(source, /disabled=\{isSaving \|\| saveDisabled\}/);
   assert.match(source, /onClick=\{onSave\}/);
   assert.match(source, /\{isSaving \? "Saving…" : "Save Profile"\}/);
   assert.match(source, /\{saveError \? \(/);
   assert.match(source, /\{saveSuccess \? \(/);
 });
 
-test("profile editor owns the shared profile and resume file state, wiring both children to it", async () => {
+test("profile editor owns the shared profile and resume key state, wiring both children to it", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
   assert.match(source, /useState<Profile>\(initialProfile\)/);
-  assert.match(source, /useState<File \| null>\(null\)/);
-  assert.match(source, /<ResumeUpload\s+onFileSelected=\{setResumeFile\}/);
+  assert.match(source, /useState<string \| null>\(null\)/);
+  assert.match(source, /<ResumeUpload[\s\S]*?onFileSelected=\{handleFileSelected\}/);
   assert.match(source, /<ProfileForm[\s\S]*?onProfileChange=\{setProfile\}/);
 });
 
-test("profile editor calls saveProfile with both the profile and the staged resume file, and clears the file only on success", async () => {
+test("profile editor uploads a resume immediately on select, through uploadResumeFile, passing the previous unsaved key for best effort cleanup", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  assert.match(source, /saveProfile\(profile, resumeFile\)/);
+  const handleFileSelectedMatch = source.match(
+    /const handleFileSelected = \(file: File\): void => \{[\s\S]*?\n {2}\};/,
+  );
+  assert.ok(handleFileSelectedMatch, "handleFileSelected function not found");
+  const body = handleFileSelectedMatch[0];
+
+  assert.match(body, /setIsUploading\(true\)/);
+  assert.match(body, /const previousUnsavedKey = resumeKey \?\? undefined;/);
+  assert.match(body, /uploadResumeFile\(file, previousUnsavedKey\)/);
+  assert.match(body, /setResumeKey\(result\.key\)/);
+});
+
+test("profile editor's upload promise chain handles a rejection, not just a resolved failure, so isUploading always resets", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleFileSelectedMatch = source.match(
+    /const handleFileSelected = \(file: File\): void => \{[\s\S]*?\n {2}\};/,
+  );
+  assert.ok(handleFileSelectedMatch, "handleFileSelected function not found");
+  const body = handleFileSelectedMatch[0];
+
+  const hasCatch = /\.catch\(/.test(body);
+  const hasTryCatch = /try\s*\{[\s\S]*await[\s\S]*\}\s*catch/.test(body);
+  assert.ok(
+    hasCatch || hasTryCatch,
+    "handleFileSelected only attaches .then(), with no .catch() and no try/catch. " +
+      "uploadResumeFile(file, previousUnsavedKey) can reject outright, not just resolve " +
+      "with { success: false } (confirmed live: a real 2MB PDF trips Next.js's own default " +
+      "1MB Server Action body limit and rejects before uploadResumeFile's own code ever runs, " +
+      "see /check verify's report on spec 0002's second revision). When that happens, the " +
+      ".then() callback never runs, so setIsUploading(false) never fires: the resume control " +
+      "and Save Profile stay disabled forever for that session, with no error shown to the " +
+      "user. Add a .catch() that calls setIsUploading(false) and setUploadError(...) so an " +
+      "unexpected rejection degrades to a visible, recoverable error instead of a silent, " +
+      "permanent stuck state.",
+  );
+});
+
+test("profile editor disables Save Profile while a resume upload is in flight, via saveDisabled, not the isSaving text", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /<ResumeUpload\s+isUploading=\{isUploading\}/);
+  assert.match(source, /<ProfileForm[\s\S]*?isSaving=\{isPending\}/);
+  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading\}/);
+});
+
+test("profile editor calls saveProfile with the profile and the resolved resume key, clearing it only on success", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /saveProfile\(profile, resumeKey\)/);
 
   const handleSaveMatch = source.match(/const handleSave = \(\): void => \{[\s\S]*?\n {2}\};/);
   assert.ok(handleSaveMatch, "handleSave function not found");
   const body = handleSaveMatch[0];
-  assert.match(body, /if \(result\.success\) \{\s*setResumeFile\(null\);\s*setSaveSuccess\(true\);/);
+  assert.match(
+    body,
+    /if \(result\.success\) \{\s*setResumeKey\(null\);\s*setResumeFileName\(null\);\s*setSaveSuccess\(true\);/,
+  );
   assert.match(body, /\} else \{\s*setSaveError\(result\.error\);/);
 });
 
@@ -297,44 +360,74 @@ test("profile editor auto-clears the save success message after a delay, with cl
   assert.match(source, /return \(\) => clearTimeout\(timeout\);/);
 });
 
-test("actions/profile.ts saveProfile re-checks the caller is signed in before doing anything else", async () => {
+test("actions/profile.ts re-checks the caller is signed in inside both uploadResumeFile and saveProfile before doing anything else", async () => {
   const source = await readProjectFile("actions/profile.ts");
 
   assert.match(source, /^"use server";/);
-  assert.match(source, /await insforge\.auth\.getCurrentUser\(\)/);
 
-  const authCheckIndex = source.indexOf("if (authError || !authData.user)");
-  const uploadIndex = source.indexOf("insforge.storage");
-  const writeIndex = source.indexOf(".upsert(payload");
-  assert.ok(authCheckIndex !== -1, "auth check not found");
-  assert.ok(
-    authCheckIndex < uploadIndex && authCheckIndex < writeIndex,
-    "the auth check must happen before any upload or database write",
-  );
+  const uploadStart = source.indexOf("export async function uploadResumeFile");
+  const saveStart = source.indexOf("export async function saveProfile");
+  assert.ok(uploadStart !== -1 && saveStart !== -1 && uploadStart < saveStart);
+
+  const uploadBody = source.slice(uploadStart, saveStart);
+  const uploadAuthCheckIndex = uploadBody.indexOf("if (authError || !authData.user)");
+  const uploadCallIndex = uploadBody.indexOf(".upload(key, file)");
+  assert.ok(uploadAuthCheckIndex !== -1 && uploadCallIndex !== -1);
+  assert.ok(uploadAuthCheckIndex < uploadCallIndex, "uploadResumeFile must check auth before uploading");
+
+  const saveBody = source.slice(saveStart);
+  const saveAuthCheckIndex = saveBody.indexOf("if (authError || !authData.user)");
+  const writeIndex = saveBody.indexOf(".upsert(payload");
+  assert.ok(saveAuthCheckIndex !== -1 && writeIndex !== -1);
+  assert.ok(saveAuthCheckIndex < writeIndex, "saveProfile must check auth before writing");
 });
 
-test("actions/profile.ts validates the resume file before ever calling storage.upload", async () => {
+test("actions/profile.ts's uploadResumeFile validates the file before ever calling storage.upload", async () => {
   const source = await readProjectFile("actions/profile.ts");
+  const uploadStart = source.indexOf("export async function uploadResumeFile");
+  const saveStart = source.indexOf("export async function saveProfile");
+  const uploadBody = source.slice(uploadStart, saveStart);
 
-  const typeCheckIndex = source.indexOf('resumeFile.type !== "application/pdf"');
-  const sizeCheckIndex = source.indexOf("resumeFile.size > MAX_RESUME_SIZE_BYTES");
-  const uploadIndex = source.indexOf(".upload(key, resumeFile)");
+  const typeCheckIndex = uploadBody.indexOf('file.type !== "application/pdf"');
+  const sizeCheckIndex = uploadBody.indexOf("file.size > MAX_RESUME_SIZE_BYTES");
+  const uploadIndex = uploadBody.indexOf(".upload(key, file)");
 
   assert.ok(typeCheckIndex !== -1 && sizeCheckIndex !== -1 && uploadIndex !== -1);
   assert.ok(typeCheckIndex < uploadIndex && sizeCheckIndex < uploadIndex);
 });
 
-test("actions/profile.ts reads the existing row before writing, to learn the previous resume key and completion state", async () => {
+test("actions/profile.ts's uploadResumeFile best effort deletes the previous unsaved key, never failing its own upload on a delete error", async () => {
   const source = await readProjectFile("actions/profile.ts");
+  const uploadStart = source.indexOf("export async function uploadResumeFile");
+  const saveStart = source.indexOf("export async function saveProfile");
+  const uploadBody = source.slice(uploadStart, saveStart);
 
-  assert.match(source, /\.select\("resume_pdf_url, is_complete"\)/);
-  assert.match(source, /\.eq\("id", userId\)/);
-  assert.match(source, /\.maybeSingle\(\)/);
+  assert.match(uploadBody, /if \(previousUnsavedKey\) \{/);
+  assert.match(uploadBody, /\.remove\(previousUnsavedKey\)/);
 
-  const readIndex = source.indexOf('.select("resume_pdf_url, is_complete")');
-  const uploadIndex = source.indexOf(".upload(key, resumeFile)");
-  const writeIndex = source.indexOf(".upsert(payload");
-  assert.ok(readIndex < uploadIndex && readIndex < writeIndex, "the row read must happen before the upload and the write");
+  const uploadCallIndex = uploadBody.indexOf(".upload(key, file)");
+  const deleteIndex = uploadBody.indexOf(".remove(previousUnsavedKey)");
+  assert.ok(uploadCallIndex !== -1 && deleteIndex !== -1 && uploadCallIndex < deleteIndex);
+
+  const removeErrorBlock = uploadBody.slice(deleteIndex, deleteIndex + 200);
+  assert.match(removeErrorBlock, /console\.error/);
+  assert.doesNotMatch(removeErrorBlock, /return \{ success: false/);
+});
+
+test("actions/profile.ts's saveProfile reads the existing row before writing, and never uploads anything itself", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+  const saveStart = source.indexOf("export async function saveProfile");
+  const saveBody = source.slice(saveStart);
+
+  assert.match(saveBody, /\.select\("resume_pdf_url, is_complete"\)/);
+  assert.match(saveBody, /\.eq\("id", userId\)/);
+  assert.match(saveBody, /\.maybeSingle\(\)/);
+
+  const readIndex = saveBody.indexOf('.select("resume_pdf_url, is_complete")');
+  const writeIndex = saveBody.indexOf(".upsert(payload");
+  assert.ok(readIndex !== -1 && writeIndex !== -1 && readIndex < writeIndex, "the row read must happen before the write");
+
+  assert.doesNotMatch(saveBody, /\.upload\(/, "saveProfile must not upload a file itself; that is uploadResumeFile's job now");
 });
 
 test("actions/profile.ts uploads every resume to a fresh unique key, never the fixed userId/resume.pdf path", async () => {

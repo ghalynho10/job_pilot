@@ -12,9 +12,69 @@ import type { ActionResult, Profile, ProfileWritePayload } from "@/types";
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
+export async function uploadResumeFile(
+  file: File,
+  previousUnsavedKey?: string,
+): Promise<ActionResult<{ key: string }>> {
+  try {
+    const insforge = await createInsforgeServer();
+    const { data: authData, error: authError } =
+      await insforge.auth.getCurrentUser();
+
+    if (authError || !authData.user) {
+      return {
+        success: false,
+        error: "You must be signed in to upload a resume.",
+      };
+    }
+
+    if (file.type !== "application/pdf") {
+      return { success: false, error: "Please upload a PDF file." };
+    }
+    if (file.size === 0) {
+      return { success: false, error: "The selected file is empty." };
+    }
+    if (file.size > MAX_RESUME_SIZE_BYTES) {
+      return {
+        success: false,
+        error: "File is larger than 5MB. Please upload a smaller PDF.",
+      };
+    }
+
+    const userId = authData.user.id;
+    const key = `${userId}/${randomUUID()}.pdf`;
+    const { data: uploadData, error: uploadError } = await insforge.storage
+      .from("resumes")
+      .upload(key, file);
+
+    if (uploadError || !uploadData) {
+      console.error("[actions/profile:uploadResumeFile]", uploadError);
+      return {
+        success: false,
+        error: "Failed to upload resume. Please try again.",
+      };
+    }
+
+    if (previousUnsavedKey) {
+      const { error: removeError } = await insforge.storage
+        .from("resumes")
+        .remove(previousUnsavedKey);
+
+      if (removeError) {
+        console.error("[actions/profile:uploadResumeFile]", removeError);
+      }
+    }
+
+    return { success: true, key: uploadData.key };
+  } catch (error) {
+    console.error("[actions/profile:uploadResumeFile]", error);
+    return { success: false, error: "Failed to upload resume. Please try again." };
+  }
+}
+
 export async function saveProfile(
   profile: Profile,
-  resumeFile: File | null,
+  resumeKey: string | null,
 ): Promise<ActionResult<{ isComplete: boolean; resumeKey?: string }>> {
   try {
     const insforge = await createInsforgeServer();
@@ -26,21 +86,6 @@ export async function saveProfile(
         success: false,
         error: "You must be signed in to save your profile.",
       };
-    }
-
-    if (resumeFile) {
-      if (resumeFile.type !== "application/pdf") {
-        return { success: false, error: "Please upload a PDF file." };
-      }
-      if (resumeFile.size === 0) {
-        return { success: false, error: "The selected file is empty." };
-      }
-      if (resumeFile.size > MAX_RESUME_SIZE_BYTES) {
-        return {
-          success: false,
-          error: "File is larger than 5MB. Please upload a smaller PDF.",
-        };
-      }
     }
 
     const userId = authData.user.id;
@@ -59,25 +104,6 @@ export async function saveProfile(
 
     const previousResumeKey: string | null = existingRow?.resume_pdf_url ?? null;
     const wasComplete: boolean = existingRow?.is_complete ?? false;
-
-    let resumeKey: string | undefined;
-
-    if (resumeFile) {
-      const key = `${userId}/${randomUUID()}.pdf`;
-      const { data: uploadData, error: uploadError } = await insforge.storage
-        .from("resumes")
-        .upload(key, resumeFile);
-
-      if (uploadError || !uploadData) {
-        console.error("[actions/profile:saveProfile]", uploadError);
-        return {
-          success: false,
-          error: "Failed to upload resume. Please try again.",
-        };
-      }
-
-      resumeKey = uploadData.key;
-    }
 
     const baseRow = mapProfileToRow(profile, userId, email);
     const completion = deriveProfileCompletion({
@@ -142,7 +168,7 @@ export async function saveProfile(
     }
 
     revalidatePath("/profile");
-    return { success: true, isComplete, resumeKey };
+    return { success: true, isComplete, resumeKey: resumeKey ?? undefined };
   } catch (error) {
     console.error("[actions/profile:saveProfile]", error);
     return { success: false, error: "Failed to save profile. Please try again." };
