@@ -56,7 +56,7 @@ test("profile page composes the needs-attention banner and the profile editor fr
   const source = await readProjectFile("app/profile/page.tsx");
 
   assert.match(source, /<CompletionIndicator completion=\{completion\} \/>/);
-  assert.match(source, /<ProfileEditor initialProfile=\{profile\} \/>/);
+  assert.match(source, /<ProfileEditor initialProfile=\{profile\} userId=\{data\.user\.id\} \/>/);
   assert.doesNotMatch(source, /mockProfile|mockCompletion/, "mock data from feature 05 must be fully gone");
 });
 
@@ -279,13 +279,31 @@ test("profile form's Save Profile button is wired to the onSave prop, disabled w
   assert.match(source, /\{saveSuccess \? \(/);
 });
 
-test("profile editor owns the shared profile and resume key state, wiring both children to it", async () => {
+test("profile editor owns the shared profile state and reads the staged resume from an external store, wiring both children to it", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
   assert.match(source, /useState<Profile>\(initialProfile\)/);
-  assert.match(source, /useState<string \| null>\(null\)/);
+  assert.match(source, /useSyncExternalStore\(\s*subscribeToStagedResume/);
+  assert.match(source, /getStagedResumeKey\(userId\)/);
+  assert.match(source, /getStagedResumeFileName\(userId\)/);
+  assert.match(source, /getStagedResumeServerSnapshot/);
   assert.match(source, /<ResumeUpload[\s\S]*?onFileSelected=\{handleFileSelected\}/);
   assert.match(source, /<ProfileForm[\s\S]*?onProfileChange=\{setProfile\}/);
+});
+
+test("profile editor never reads sessionStorage in a useState initializer or a bare useEffect, only through useSyncExternalStore (hydration safety, AC-10)", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.doesNotMatch(
+    source,
+    /useState\([^)]*sessionStorage/,
+    "reading sessionStorage inside a useState initializer runs on the client's first render only, desyncing it from the server rendered HTML with no sessionStorage at all",
+  );
+  assert.doesNotMatch(
+    source,
+    /useEffect\(\(\) => \{[^}]*setResumeKey/,
+    "rehydrating via setState inside a plain useEffect is exactly the pattern this project's react-hooks/set-state-in-effect lint rule rejects; useSyncExternalStore is the correct tool for a hydration safe one time external read",
+  );
 });
 
 test("profile editor uploads a resume immediately on select, through uploadResumeFile, passing the previous unsaved key for best effort cleanup", async () => {
@@ -300,7 +318,7 @@ test("profile editor uploads a resume immediately on select, through uploadResum
   assert.match(body, /setIsUploading\(true\)/);
   assert.match(body, /const previousUnsavedKey = resumeKey \?\? undefined;/);
   assert.match(body, /uploadResumeFile\(file, previousUnsavedKey\)/);
-  assert.match(body, /setResumeKey\(result\.key\)/);
+  assert.match(body, /writeStagedResume\(userId, result\.key, file\.name\)/);
 });
 
 test("profile editor's upload promise chain handles a rejection, not just a resolved failure, so isUploading always resets", async () => {
@@ -337,7 +355,7 @@ test("profile editor disables Save Profile while a resume upload is in flight, v
   assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading\}/);
 });
 
-test("profile editor calls saveProfile with the profile and the resolved resume key, clearing it only on success", async () => {
+test("profile editor calls saveProfile with the profile and the resolved resume key, clearing the staged entry only on success", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
   assert.match(source, /saveProfile\(profile, resumeKey\)/);
@@ -347,7 +365,7 @@ test("profile editor calls saveProfile with the profile and the resolved resume 
   const body = handleSaveMatch[0];
   assert.match(
     body,
-    /if \(result\.success\) \{\s*setResumeKey\(null\);\s*setResumeFileName\(null\);\s*setSaveSuccess\(true\);/,
+    /if \(result\.success\) \{\s*clearStagedResume\(userId\);\s*setSaveSuccess\(true\);/,
   );
   assert.match(body, /\} else \{\s*setSaveError\(result\.error\);/);
 });

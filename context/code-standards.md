@@ -47,6 +47,7 @@ The AI agent on this project operates as a senior engineer. This means:
 - Server Actions live in `actions/` — never define Server Actions inline in components
 - Caching is uncached by default — all dynamic code runs at request time
 - Always read Next.js documentation before implementing any Next.js specific feature — APIs may differ from training data
+- Reading a browser only value (`localStorage`, `sessionStorage`) that affects what renders: use `useSyncExternalStore`, never a `useState` initializer or a `useEffect` that calls `setState`. A Client Component is still server rendered first, where the value does not exist yet, so either of those desyncs the client's first render from the server's (a real hydration mismatch, not cosmetic) or trips this project's `react-hooks/set-state-in-effect` lint rule (from `eslint-config-next/core-web-vitals`, unmodified). Worked example: `lib/staged-resume-storage.ts` plus `components/profile/ProfileEditor.tsx` (spec 0002's third revision).
 
 ---
 
