@@ -213,7 +213,7 @@ URL saved to profiles table
 | remote_preference   | text        | remote / onsite / hybrid / any               |
 | preferred_locations | text[]      | Optional preferred locations                 |
 | salary_expectation  | text        | Optional                                     |
-| cover_letter_tone   | text        | formal / casual / enthusiastic               |
+| cover_letter_tone   | text        | Reserved nullable column; not rendered in current profile UI |
 | linkedin_url        | text        |                                              |
 | portfolio_url       | text        |                                              |
 | work_authorization  | text        | citizen / permanent_resident / visa_required |
@@ -281,7 +281,7 @@ URL saved to profiles table
 
 | Bucket  | Path                         | Contents                  |
 | ------- | ---------------------------- | ------------------------- |
-| resumes | resumes/{user_id}/resume.pdf | Current active resume PDF |
+| resumes | resumes/{user_id}/{random}.pdf | Current active resume PDF, stored as a private object key in `profiles.resume_pdf_url` |
 
 Access: authenticated users only, own files only.
 

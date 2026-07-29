@@ -249,11 +249,12 @@ export function ProfileForm({
               onChange={(event) =>
                 updateField(
                   "workAuthorization",
-                  event.target.value as WorkAuthorization,
+                  event.target.value as Profile["workAuthorization"],
                 )
               }
               value={profile.workAuthorization}
             >
+              <option value="">Select authorization</option>
               {WORK_AUTHORIZATION_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -281,10 +282,14 @@ export function ProfileForm({
               className={inputClass}
               id="experienceLevel"
               onChange={(event) =>
-                updateField("experienceLevel", event.target.value as ExperienceLevel)
+                updateField(
+                  "experienceLevel",
+                  event.target.value as Profile["experienceLevel"],
+                )
               }
               value={profile.experienceLevel}
             >
+              <option value="">Select level</option>
               {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -515,10 +520,14 @@ export function ProfileForm({
               className={inputClass}
               id="highestDegree"
               onChange={(event) =>
-                updateEducation("highestDegree", event.target.value as HighestDegree)
+                updateEducation(
+                  "highestDegree",
+                  event.target.value as Education["highestDegree"],
+                )
               }
               value={profile.education.highestDegree}
             >
+              <option value="">Select degree</option>
               {HIGHEST_DEGREE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -581,10 +590,14 @@ export function ProfileForm({
               className={inputClass}
               id="remotePreference"
               onChange={(event) =>
-                updateField("remotePreference", event.target.value as RemotePreference)
+                updateField(
+                  "remotePreference",
+                  event.target.value as Profile["remotePreference"],
+                )
               }
               value={profile.remotePreference}
             >
+              <option value="">Select preference</option>
               {REMOTE_PREFERENCE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}

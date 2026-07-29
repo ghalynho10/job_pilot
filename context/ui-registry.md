@@ -28,7 +28,7 @@ After building any component — update this file with the component name, file 
 
 File: `components/layout/Navbar.tsx`
 
-Last updated: 2026-07-17
+Last updated: 2026-07-25
 
 | Property | Class |
 | --- | --- |
@@ -44,7 +44,7 @@ Last updated: 2026-07-17
 | Primary action | `rounded-md bg-overlay px-5 py-3 text-sm font-medium text-accent-foreground hover:bg-overlay-dark` |
 | Secondary action | `rounded-md border border-border bg-surface px-5 py-3 text-sm font-medium text-text-primary hover:bg-surface-secondary` |
 
-Use as the shared 64px site header. Public routes show the dark overlay CTA; authenticated routes replace it with the supplied account action or hide the action entirely.
+Use as the shared 64px site header. Public routes show the dark overlay CTA; authenticated routes replace it with the supplied account action or hide the action entirely. Navigation remains text-only and the active state remains color-only, matching `ui-rules.md`'s no-underline rule.
 
 ### OAuthButton
 
@@ -149,7 +149,7 @@ Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, 
 
 File: `components/profile/ResumeUpload.tsx`
 
-Last updated: 2026-07-25
+Last updated: 2026-07-29
 
 | Property | Class |
 | --- | --- |
@@ -169,13 +169,14 @@ Client component, purely presentational: tracks drag-over state, opens a hidden 
 
 File: `components/profile/ProfileForm.tsx`
 
-Last updated: 2026-07-25
+Last updated: 2026-07-29
 
 | Property | Class |
 | --- | --- |
 | Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
 | Section divider | `border-t border-border pt-6` between Personal Info / Professional Info / Work Experience / Education / Job Preferences |
 | Input / select / textarea | `w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:ring-1 focus:ring-accent disabled:bg-surface-secondary disabled:text-text-secondary` |
+| Blank select placeholder | First `<option value="">...` for Work Authorization, Experience Level, Highest Degree, and Remote Preference, so empty profile values render as empty choices instead of visually implying the first saved option |
 | Field label | `text-xs font-medium uppercase tracking-wide text-text-secondary` |
 | Skill / industry tag pill | `rounded-full bg-surface-secondary px-3 py-1 text-xs font-medium text-text-primary` with inline `X` remove icon |
 | Work experience entry card | `rounded-lg border border-border bg-surface-secondary p-4` |
@@ -185,7 +186,7 @@ Last updated: 2026-07-25
 | Focus (all buttons, incl. tag-remove icon buttons) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 | Checkbox ("Currently working here") | `rounded border-border text-accent focus:ring-accent` |
 
-Fully controlled client component (no internal `Profile` state); `profile`, `onProfileChange`, and the save wiring (`isSaving`, `saveDisabled`, `onSave`, `saveError`, `saveSuccess`) all come from `ProfileEditor`. Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. `saveDisabled` is a separate prop from `isSaving` on purpose: it disables the button without swapping its text to "Saving…", since a resume upload in flight is not itself a save (spec 0002's second revision, AC-9). Note: the design screenshot has no Cover Letter Tone field under Job Preferences even though `build-plan.md` and the `profiles` DB schema mention one — built to match the screenshot per the source-of-truth rule in `ui-rules.md`; flag this gap when the field is eventually needed.
+Fully controlled client component (no internal `Profile` state); `profile`, `onProfileChange`, and the save wiring (`isSaving`, `saveDisabled`, `onSave`, `saveError`, `saveSuccess`) all come from `ProfileEditor`. Skills and industries are tag inputs (Enter or Add button); Work Experience supports up to 3 entries via Add role; "Currently working here" disables End Date. `saveDisabled` is a separate prop from `isSaving` on purpose: it disables the button without swapping its text to "Saving…", since a resume upload in flight is not itself a save (spec 0002's second revision, AC-9). Cover Letter Tone is intentionally absent from the current profile UI to match the delivered design; `cover_letter_tone` remains a reserved nullable DB column only.
 
 ### ProfileEditor
 
