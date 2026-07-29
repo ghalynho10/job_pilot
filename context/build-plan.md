@@ -94,7 +94,7 @@ Build the complete profile page UI with mock data. No save logic yet.
   - Professional Info — Current Job Title, Experience Level dropdown, Years of Experience, Skills tag input with Add button, Industries tag input with Add button
   - Work Experience — up to 3 roles, each with Company Name, Job Title, Start Date, End Date, Currently working here checkbox, Key Responsibilities textarea. Add role button.
   - Education — Highest Degree dropdown, Field of Study, Institution Name, Graduation Year
-  - Job Preferences — Job Titles Seeking, Remote Preference dropdown, Salary Expectation, Preferred Locations, Cover Letter Tone dropdown
+  - Job Preferences — Job Titles Seeking, Remote Preference dropdown, Salary Expectation, Preferred Locations
 - Save Profile button at bottom
 
 ---
@@ -107,7 +107,7 @@ Wire profile form to InsForge DB.
 
 - Server Action in actions/profile.ts saves all form fields to profiles table
 - Resume PDF uploaded to InsForge Storage at a fresh unique key, resumes/{user_id}/{a random id}.pdf (storage never overwrites a key, see library-docs.md)
-- resume_pdf_url saved to profiles table after upload
+- resume_pdf_url stores the uploaded storage key only after the user clicks Save Profile
 - is_complete set to true when all required fields are filled
 - Completion percentage and missing fields calculated and saved
 - Form pre-fills with existing data on return visits

@@ -257,6 +257,28 @@ test("profile form renders all five sections", async () => {
   }
 });
 
+test("profile form select fields with empty profile values render blank placeholders first", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  for (const placeholder of [
+    "Select authorization",
+    "Select level",
+    "Select degree",
+    "Select preference",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`<option value="">${placeholder}</option>`),
+      `${placeholder} placeholder missing`,
+    );
+  }
+
+  assert.match(source, /event\.target\.value as Profile\["workAuthorization"\]/);
+  assert.match(source, /event\.target\.value as Profile\["experienceLevel"\]/);
+  assert.match(source, /event\.target\.value as Education\["highestDegree"\]/);
+  assert.match(source, /event\.target\.value as Profile\["remotePreference"\]/);
+});
+
 test("profile form is a fully controlled component driven by its parent, not its own local profile state", async () => {
   const source = await readProjectFile("components/profile/ProfileForm.tsx");
 
