@@ -61,7 +61,7 @@ export default async function ProfilePage(): Promise<JSX.Element> {
         id="main-content"
       >
         <CompletionIndicator completion={completion} />
-        <ProfileEditor initialProfile={profile} />
+        <ProfileEditor initialProfile={profile} userId={data.user.id} />
       </main>
     </div>
   );

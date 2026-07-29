@@ -1,4 +1,4 @@
-# Verify: 06 Profile Save Logic · spec 0002 · updated 2026-07-25
+# Verify: 06 Profile Save Logic · spec 0002 · updated 2026-07-28
 
 _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
@@ -17,6 +17,9 @@ _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `
 - [ ] Select a non PDF file, or one over 5MB → rejected client side immediately; also confirm the server itself enforces this (e.g. call `uploadResumeFile` directly bypassing the client check) → AC-4
 - [ ] Complete a profile for the first time (fill the last missing required field and save, with or without a resume selected) → exactly one `profile_completed` PostHog event fires; save again while still complete → no additional event → AC-7
 - [ ] Call `uploadResumeFile` and `saveProfile` without a valid session (expired or missing cookie) → both return a clear `{ success: false, error }` result, never throw → AC-6
+- [ ] Select a resume, wait for it to finish uploading, reload the same tab (not a new tab) → dropzone still shows it uploaded and ready to save, no second object appears in the bucket, `resume_pdf_url` is still unchanged → AC-10
+- [ ] After the reload above, click Save Profile → the row saves with the rehydrated key, matching the object already in the bucket → AC-10
+- [ ] Select a resume, wait for it to finish uploading, open `/profile` in a second, separately signed in tab or session (or sign out and back in on the same tab) → the second session shows nothing selected, not the first session's staged file → AC-10
 
 ## Commands
 
@@ -35,3 +38,4 @@ _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `
 - AC-7: covered by the first-completion step
 - AC-8: covered by the select-without-save and replace-before-save steps
 - AC-9: covered by the Save Profile disabled during upload step
+- AC-10: covered by the same-tab reload, reload-then-save, and second-session steps

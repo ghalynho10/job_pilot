@@ -152,3 +152,51 @@ A read only critique pass on a different model (Opus) was requested by the engin
 **A stale sentence, left over from the first revision.** `index.md`'s first user story still read "I want my resume saved together with the rest of my profile when I click Save Profile, so there is one clear moment my information is actually stored," directly contradicting the two moment model this revision describes. Fixed by rewriting it to match the resume specific story (fast feedback on selection) that this revision is actually about.
 
 Not applied: a suggestion to add a timeout or cancel affordance for an upload that never settles. Noted instead as a Follow-up in `index.md`; there is no evidence yet that uploads to this bucket hang, and adding cancellation now would be solving a problem this feature has not actually observed.
+
+## Third revision (2026-07-28): the staged upload survives a refresh
+
+> Revision note: the engineer found the second revision's tradeoff surprising in practice, not wrong: selecting a resume and then refreshing the page (by habit, or by accident) made the file look like it had vanished, even though it was already sitting in storage. This section records a narrow addition, not a reversal: nothing about when the database is written changes, AC-4 and AC-8's database side guarantees are untouched. The only thing that changes is whether the browser remembers a staged, not yet saved upload across a reload of the same tab.
+
+### Option A: mirror the staged key into sessionStorage, namespaced per user (chosen)
+
+`ProfileEditor` writes `resumeKey`/`resumeFileName` into `sessionStorage`, under a key that includes the signed in user's id, every time an upload resolves, and clears that entry the moment `saveProfile` succeeds. On mount, it reads that entry once to initialize state instead of always starting empty.
+
+**Pros**:
+- Tab scoped by construction (`sessionStorage` is never shared across tabs, and is cleared when a tab closes), which sidesteps the two hardest questions this could have raised: two tabs racing each other, and a stale entry outliving the session. Neither can happen.
+- No new server surface at all. `saveProfile` and `uploadResumeFile` are both completely unaware this exists; a rehydrated key is just a string, identical to one resolved moments ago.
+
+**Cons**:
+- One more place (`sessionStorage`) that has to be kept in sync with the React state, even though it only has two write points and one read point, so the actual risk of drift is low.
+- Cannot detect that the staged object was deleted out from under it (nothing does that yet) or, in principle, that a stale namespaced entry from a very old tab session still lingers; accepted, covered in Follow-up.
+
+### Option B: write resume_pdf_url to the database immediately on upload
+
+Persist the key to the `profiles` row the moment `uploadResumeFile` succeeds, the same option already considered and rejected in the second revision, revisited here because it would also solve "survives a refresh" for free, the row itself becomes the source of truth.
+
+**Cons**:
+- Rejected again, for the same reason as before: it breaks the one deliberate save moment for the persisted record. A person could refresh, see their resume already attached, and reasonably but wrongly assume the rest of their edits were saved too. Solving a refresh annoyance is not worth reopening a guarantee the engineer specifically asked to keep.
+
+### Option C: localStorage instead of sessionStorage
+
+Same mechanism as Option A, but with `localStorage`, so the staged upload would also survive closing and reopening the tab, or the whole browser.
+
+**Cons**:
+- Not what was asked (the engineer described refreshing the page, not reopening the browser days later), and it reopens exactly the questions Option A avoids for free: a stale key from a browser session long past could now collide with a resume someone else saved from a different tab in between, this becomes a real staleness problem to solve rather than a structurally avoided one. Rejected as solving a bigger problem than the one that exists, at a real cost in correctness risk.
+
+### Rationale (third revision)
+
+Option A is chosen because `sessionStorage`'s own scoping rules do the hard work: tab scoped and clear on tab close are exactly the two properties that make "no cross tab staleness to reason about" true by construction, not by anything this app has to check. Namespacing by user id was the one addition needed on top of that, so a second person signing in on the same tab never sees the first person's staged file; no explicit sign out handling was needed once the namespace itself decides what is readable, one less thing to get wrong.
+
+The harder question, "what if the staged key no longer points at a real object," was deliberately not solved with a verification round trip. Nothing in this project deletes a resume object today (the orphan cleanup Follow-up item was never built), so the failure mode this would guard against does not exist yet; adding a check for it now would be solving a problem that is still hypothetical, at the cost of a network round trip on every page load just to render the dropzone. If the cleanup pass is ever built, it inherits a concrete constraint instead: do not delete an object a live `sessionStorage` entry might reference, a grace period on anything recently uploaded is enough (see Follow-up in `index.md`).
+
+## Cross check (a different model, read only) and the fixes it prompted
+
+A read only critique pass on a different model (Opus) was requested by the engineer for this third revision, the same practice used for the first two. It found no way for this design to cause the wrong resume to get saved, confirmed the cross account namespacing holds, and confirmed the `sessionStorage` unavailable fallback is sufficient. It caught one real implementation hazard and two documentation gaps, all applied:
+
+**The mount read, as first written, would have caused a hydration mismatch.** `ProfileEditor` is a Client Component that Next.js still renders on the server first, where `sessionStorage` does not exist at all. The original wording, "read that namespaced entry once and initialize `resumeKey`/`resumeFileName` from it" without saying where, reads naturally as doing that read inside the `useState` call itself. That would make the client's very first render disagree with the server rendered HTML the instant something is actually staged, a real hydration mismatch, not a stylistic nitpick. Fixed by making the timing explicit in both the Decision and the Build plan: state initializes at `null`, matching the server render, and the rehydration read happens in a `useEffect` that runs once after mount, at the cost of one frame showing the idle state before it flips to uploaded.
+
+**Whether `ResumeUpload` needed a new concept to display a rehydrated resume was never stated.** It does not: `ResumeUpload` already renders purely from `isUploading`, `uploadedFileName`, and `uploadError`, and the rehydrated `resumeFileName` flows into `uploadedFileName` through the exact same prop it already receives for a same session upload. Added as an explicit Key invariant so `/develop` does not invent a redundant status field.
+
+**AC-8 and AC-10 read as contradictory at the acceptance criteria level.** AC-8 said leaving the page after selecting a resume always orphans the upload; AC-10 now says a refresh recovers it. The Consequences section already reconciled this in prose, but the two ACs themselves did not point at each other. Fixed with one added sentence on AC-8: a refresh of the same tab is not "leaving the page" for this purpose.
+
+Not applied: the critique's note that many different users signing into the same tab over time could leave many namespaced `sessionStorage` entries behind. Confirmed as not a real concern: `sessionStorage` is cleared the moment a tab closes, so this can only ever accumulate within one still open tab across however many sign ins happened in it, bounded and cheap, not the kind of unbounded growth worth engineering around.
