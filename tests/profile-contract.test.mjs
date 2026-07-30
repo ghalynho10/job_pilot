@@ -180,13 +180,13 @@ test("resume upload shows an uploading state, then the uploaded file name with a
   assert.match(source, /Uploaded\. Click Save Profile below to add it to your profile\./);
 });
 
-test("resume upload disables both the dropzone button and the file input while an upload or extraction is in flight", async () => {
+test("resume upload disables both the dropzone button and the file input while an upload, extraction, or generation is in flight", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
   assert.match(
     source,
-    /const isBusy = isUploading \|\| isExtracting;/,
-    "isBusy must combine both the upload and extraction in-flight states",
+    /const isBusy = isUploading \|\| isExtracting \|\| isGenerating;/,
+    "isBusy must combine the upload, extraction, and generation in-flight states",
   );
 
   const disabledMatches = source.match(/disabled=\{isBusy\}/g) ?? [];
@@ -381,7 +381,7 @@ test("profile editor disables Save Profile while a resume upload or extraction i
   assert.match(source, /<ResumeUpload[\s\S]*?isUploading=\{isUploading\}/);
   assert.match(source, /<ResumeUpload[\s\S]*?isExtracting=\{isExtracting\}/);
   assert.match(source, /<ProfileForm[\s\S]*?isSaving=\{isPending\}/);
-  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting\}/);
+  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting \|\| isGenerating\}/);
 });
 
 test("profile editor calls saveProfile with the profile and the resolved resume key, clearing the staged entry only on success", async () => {
@@ -598,6 +598,88 @@ test("resume upload shows a server side extraction error the same way it shows a
     source,
     /\{extractError \? \(\s*<p className="mt-2 text-xs text-error" role="alert">\s*\{extractError\}/,
     "extractError must render with the same text-error/role=alert pattern as uploadError",
+  );
+});
+
+test("resume upload generate button is disabled while busy or when the profile isn't complete enough, and shows a hint (AC-2)", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(source, /disabled=\{isBusy \|\| !canGenerate\}/);
+  assert.match(source, /\{isGenerating \? "Generating…" : "Generate Resume from Profile"\}/);
+  assert.match(
+    source,
+    /\{generateHint \? \(\s*<p className="mt-2 text-xs text-text-muted">\{generateHint\}<\/p>/,
+    "ResumeUpload renders whatever hint string it's given; ProfileEditor decides when one exists",
+  );
+});
+
+test("resume upload shows a View resume control only after a successful generation, minting its link on click rather than caching one (AC-5)", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(source, /\{generateSuccess \? \(/);
+  assert.match(source, /onClick=\{onViewResume\}/);
+  assert.match(source, /\{isFetchingViewLink \? "Preparing link…" : "View resume"\}/);
+
+  const viewResumeMatch = source.match(/<button\s+className="text-xs[^>]*onClick=\{onViewResume\}[\s\S]*?<\/button>/);
+  assert.ok(viewResumeMatch, "View resume button not found");
+  assert.match(
+    viewResumeMatch[0],
+    /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/,
+    "View resume must carry the project wide focus ring, like every other interactive element",
+  );
+});
+
+test("profile editor derives canGenerate from the current profile state, not a separate flag (AC-2)", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(
+    source,
+    /const canGenerate = profile\.fullName\.trim\(\)\.length > 0 && profile\.workExperience\.length > 0;/,
+  );
+});
+
+test("profile editor warns when the profile has unsaved changes, since the server always generates from the last saved row (AC-2)", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(
+    source,
+    /const isProfileDirty = JSON\.stringify\(profile\) !== JSON\.stringify\(initialProfile\);/,
+  );
+  assert.match(
+    source,
+    /const generateHint = !canGenerate\s*\? "Add your full name and at least one work experience entry to generate a resume\."\s*: isProfileDirty\s*\? "Save your profile first so Generate Resume uses your latest changes\."\s*: null;/,
+  );
+});
+
+test("profile editor's generate flow posts to the generate endpoint and refreshes the router on success", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleGenerateMatch = source.match(/const handleGenerate = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleGenerateMatch, "handleGenerate function not found");
+  const body = handleGenerateMatch[0];
+
+  assert.match(body, /fetch\("\/api\/resume\/generate", \{ method: "POST" \}\)/);
+  assert.match(body, /router\.refresh\(\);/);
+  assert.match(body, /\.catch\(\(\) => \{\s*setIsGenerating\(false\);\s*setGenerateError\(/);
+});
+
+test("profile editor's view resume flow fetches a fresh signed url and opens it, never storing it (AC-5)", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleViewResumeMatch = source.match(/const handleViewResume = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleViewResumeMatch, "handleViewResume function not found");
+  const body = handleViewResumeMatch[0];
+
+  assert.match(body, /fetch\("\/api\/resume\/signed-url"\)/);
+  assert.match(body, /window\.open\(result\.url, "_blank", "noopener,noreferrer"\)/);
+});
+
+test("profile editor folds isGenerating into saveDisabled alongside upload and extraction", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(
+    source,
+    /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting \|\| isGenerating\}/,
   );
 });
 

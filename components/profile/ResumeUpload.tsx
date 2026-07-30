@@ -13,30 +13,48 @@ const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
 interface ResumeUploadProps {
   canExtract: boolean;
+  canGenerate: boolean;
   extractError: string | null;
+  generateError: string | null;
+  generateHint: string | null;
+  generateSuccess: boolean;
   isExtracting: boolean;
+  isFetchingViewLink: boolean;
+  isGenerating: boolean;
   isUploading: boolean;
   onExtract: () => void;
   onFileSelected: (file: File) => void;
+  onGenerate: () => void;
+  onViewResume: () => void;
   uploadedFileName: string | null;
   uploadError: string | null;
+  viewLinkError: string | null;
 }
 
 export function ResumeUpload({
   canExtract,
+  canGenerate,
   extractError,
+  generateError,
+  generateHint,
+  generateSuccess,
   isExtracting,
+  isFetchingViewLink,
+  isGenerating,
   isUploading,
   onExtract,
   onFileSelected,
+  onGenerate,
+  onViewResume,
   uploadedFileName,
   uploadError,
+  viewLinkError,
 }: ResumeUploadProps): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const isBusy = isUploading || isExtracting;
+  const isBusy = isUploading || isExtracting || isGenerating;
 
   const handleFile = (file: File): void => {
     if (file.type !== "application/pdf") {
@@ -149,17 +167,47 @@ export function ResumeUpload({
         </div>
       ) : null}
 
-      <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 sm:flex-row sm:items-center">
-        <p className="text-sm text-text-secondary">
-          Need a fresh document based on the fields below?
-        </p>
-        <button
-          className="flex shrink-0 items-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          type="button"
-        >
-          <FileText aria-hidden="true" className="size-4" />
-          Generate Resume from Profile
-        </button>
+      <div className="mt-6 border-t border-border pt-6">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+          <p className="text-sm text-text-secondary">
+            Need a fresh document based on the fields below?
+          </p>
+          <button
+            className="flex shrink-0 items-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            disabled={isBusy || !canGenerate}
+            onClick={onGenerate}
+            type="button"
+          >
+            <FileText aria-hidden="true" className="size-4" />
+            {isGenerating ? "Generating…" : "Generate Resume from Profile"}
+          </button>
+        </div>
+        {generateHint ? (
+          <p className="mt-2 text-xs text-text-muted">{generateHint}</p>
+        ) : null}
+        {generateError ? (
+          <p className="mt-2 text-xs text-error" role="alert">
+            {generateError}
+          </p>
+        ) : null}
+        {generateSuccess ? (
+          <div className="mt-2 flex flex-col items-start gap-1">
+            <p className="text-xs text-text-secondary">Your resume is ready.</p>
+            <button
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              disabled={isFetchingViewLink}
+              onClick={onViewResume}
+              type="button"
+            >
+              {isFetchingViewLink ? "Preparing link…" : "View resume"}
+            </button>
+            {viewLinkError ? (
+              <p className="text-xs text-error" role="alert">
+                {viewLinkError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </section>
   );

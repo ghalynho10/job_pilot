@@ -128,6 +128,11 @@ const { error } = await insforge.database
 // the same key silently succeeds under a renamed key instead (confirmed
 // directly against the live backend, not assumed from general knowledge).
 // Target a fresh, unique key every time so there is nothing to collide with:
+//
+// .upload(path, file) is typed as File | Blob only — a server side Node
+// Buffer (e.g. from renderToBuffer or a fetch response) is NOT accepted
+// directly and fails typecheck; wrap it first:
+// const fileBuffer = new Blob([new Uint8Array(buffer)], { type: "application/pdf" });
 const key = `${userId}/${randomUUID()}.pdf`;
 const { data, error } = await insforge.storage.from("resumes").upload(key, fileBuffer);
 
@@ -527,13 +532,13 @@ const result = JSON.parse(response.choices[0].message.content!);
 **Temperature settings:**
 
 - `0.3` — matching, scoring, extraction, research synthesis — deterministic results
-- `0.7` — resume generation — natural variation
+- `0.55` — resume generation (`agent/resume-generator.ts`) — generative enough to write natural prose, still constrained by the system prompt's "never invent" rule
 
 **Max tokens:**
 
 - Job matching + scoring: `300`
 - Company research synthesis: `800`
-- Resume generation: `1000`
+- Resume generation: `1400` (covers a summary paragraph plus up to 3 roles' bullets, `agent/resume-generator.ts`; work experience is capped at 3 entries before the prompt is built, so this budget can't be exceeded by a large profile)
 - Profile extraction from resume: `800`
 
 **Rules:**
@@ -636,14 +641,21 @@ const ResumePDF = ({ profile }: { profile: Profile }) => (
   </Document>
 )
 
-// Generate buffer
-const buffer = await renderToBuffer(<ResumePDF profile={profile} />)
+// Generate buffer — Next.js Route Handlers must be named route.ts, and a
+// .ts file cannot contain JSX syntax (only .tsx can). Either co-locate the
+// Document component in its own .tsx file beside the route and call it via
+// React.createElement from route.ts, or write the whole render pipeline in
+// a .tsx file the route imports a plain function from:
+import { createElement } from 'react'
+const buffer = await renderToBuffer(createElement(ResumePDF, { profile }))
 
 // Upload directly to InsForge Storage — a fresh unique key, see the
-// Storage section above: .upload() takes no options object, and storage
-// never overwrites an existing key
+// Storage section above: .upload() takes no options object, storage never
+// overwrites an existing key, and the buffer must be wrapped in a Blob
+// (upload() only accepts File | Blob, not a raw Buffer)
 const key = `${userId}/${randomUUID()}.pdf`
-await insforge.storage.from('resumes').upload(key, buffer)
+const pdfBlob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' })
+await insforge.storage.from('resumes').upload(key, pdfBlob)
 ```
 
 **Supported CSS properties:**
@@ -656,6 +668,7 @@ Only use these — others are silently ignored:
 - Always use `renderToBuffer` — not `renderToStream` or `PDFDownloadLink`
 - PDF generation only in `app/api/resume/` routes
 - Generated buffer uploaded directly to InsForge Storage, to a fresh unique key — never written to disk, never a fixed path
+- `StyleSheet.create` values are a documented exception to the project wide "no hardcoded hex" rule: `@react-pdf/renderer`'s stylesheet cannot consume the project's CSS custom property tokens (it is not a browser stylesheet), so a hex value here (e.g. a muted text color) is the correct, unavoidable choice, not a violation to flag or fix
 - Save the returned object key to the DB after upload, never a URL (see the Storage section above)
 
 ---
