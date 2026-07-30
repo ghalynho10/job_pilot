@@ -130,7 +130,8 @@ Extract from Resume button — GPT-4o reads uploaded PDF and auto-fills profile 
 
 - pdf-parse extracts raw text from uploaded PDF buffer
 - If extracted text is empty or too short — return error: "Could not extract text from this PDF. Please try a different file."
-- GPT-4o reads extracted text and returns structured JSON matching all profile field names
+- GPT-4o reads extracted text and returns structured JSON matching only the fields a resume actually states: Personal Info, Professional Info, Work Experience (capped at 3 roles), and Education — Email and every Job Preferences field (Job Titles Seeking, Remote Preference, Salary Expectation, Preferred Locations) are never included, a resume doesn't state them
+- Extraction overwrites the matching form fields (spec 0003); the user reviews and edits before saving
 - Form fields populated with extracted data
 - User saves manually after reviewing
 

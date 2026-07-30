@@ -666,26 +666,46 @@ Only use these — others are silently ignored:
 
 ### Extract Text from Uploaded Resume
 
-```typescript
-import pdf from "pdf-parse";
+The installed version is pdf-parse v2, whose API is entirely different from the
+v1 `require('pdf-parse')(buffer)` shape — v2 wraps `pdfjs-dist` and needs its
+worker module imported explicitly (confirmed against the installed package's
+own troubleshooting docs, and against a real bug hit building feature 07: without
+the worker import and `serverExternalPackages`, every call fails under Next.js's
+server bundler with "Setting up fake worker failed").
 
-// In API route handling resume upload
+```typescript
+// Must import the worker entry before PDFParse itself, or pdfjs-dist fails
+// with "Setting up fake worker failed" under Next.js's server bundler.
+import "pdf-parse/worker";
+import { PDFParse } from "pdf-parse";
+
+// In API route handling resume extraction
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("resume") as File;
-  const arrayBuffer = await file.arrayBuffer();
+  const arrayBuffer = await pdfResponse.arrayBuffer(); // e.g. from a fetched signed URL
   const buffer = Buffer.from(arrayBuffer);
 
-  const pdfData = await pdf(buffer);
-  const extractedText = pdfData.text; // raw text content
+  const parser = new PDFParse({ data: buffer });
+  let extractedText: string;
+  try {
+    const result = await parser.getText();
+    extractedText = result.text; // raw text content
+  } finally {
+    await parser.destroy(); // always free the parser, even on failure
+  }
 
-  // Send to GPT-4o for structured extraction
+  // Send extractedText to GPT-4o for structured extraction
 }
 ```
+
+`next.config.ts` must also declare `serverExternalPackages: ["pdf-parse"]` so it
+runs as a real server dependency instead of being bundled (see
+`app/api/resume/extract/route.ts` and `next.config.ts`).
 
 **Rules:**
 
 - Server-side only — never import in client components
-- `pdfData.text` is raw unformatted text — GPT-4o handles the structure extraction
+- Always `import "pdf-parse/worker"` before `import { PDFParse } from "pdf-parse"`, and list `pdf-parse` in `next.config.ts`'s `serverExternalPackages`
+- Always call `await parser.destroy()` in a `finally` block, even when `getText()` throws
+- `result.text` is raw unformatted text — GPT-4o handles the structure extraction
 - Always handle parse errors — some PDFs are image-based and return empty text
-- If `pdfData.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
+- If `result.text` is empty or very short — return error to user: "Could not extract text from this PDF. Please try a different file."
