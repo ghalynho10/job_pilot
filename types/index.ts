@@ -103,3 +103,20 @@ export type ProfileWritePayload = Omit<
 export type ActionResult<T = Record<string, never>> =
   | ({ success: true } & T)
   | { success: false; error: string };
+
+export type ExtractedProfileFields = Pick<
+  Profile,
+  | "fullName"
+  | "phone"
+  | "location"
+  | "linkedinUrl"
+  | "portfolioUrl"
+  | "workAuthorization"
+  | "currentTitle"
+  | "experienceLevel"
+  | "yearsExperience"
+  | "skills"
+  | "industries"
+  | "workExperience"
+  | "education"
+>;

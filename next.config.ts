@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdf-parse (wraps pdfjs-dist) must run as a real server dependency, not
+  // bundled, so its worker module resolves correctly at runtime (feature 07,
+  // see app/api/resume/extract/route.ts).
+  serverExternalPackages: ["pdf-parse"],
   experimental: {
     serverActions: {
       // The resumes Server Action path validates PDFs up to 5MB itself
