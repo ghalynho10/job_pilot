@@ -120,3 +120,8 @@ export type ExtractedProfileFields = Pick<
   | "workExperience"
   | "education"
 >;
+
+export type GeneratedResumeContent = {
+  summary: string;
+  workExperienceBullets: string[][];
+};

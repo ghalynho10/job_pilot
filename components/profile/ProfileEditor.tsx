@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore, useTransition, type JSX } from "react";
 
 import { saveProfile, uploadResumeFile } from "@/actions/profile";
@@ -23,14 +24,33 @@ interface ProfileEditorProps {
 const SAVE_SUCCESS_DISPLAY_MS = 3000;
 
 export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): JSX.Element {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState(false);
+  const [isFetchingViewLink, setIsFetchingViewLink] = useState(false);
+  const [viewLinkError, setViewLinkError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const canGenerate = profile.fullName.trim().length > 0 && profile.workExperience.length > 0;
+  // The server always generates from the last saved profile row (AC-2), never
+  // from unsaved form state. If the form is edited but not yet saved, warn
+  // here rather than let the user click Generate and either get rejected (an
+  // incomplete unsaved edit) or get a PDF that silently ignores their latest
+  // changes (a complete unsaved edit).
+  const isProfileDirty = JSON.stringify(profile) !== JSON.stringify(initialProfile);
+  const generateHint = !canGenerate
+    ? "Add your full name and at least one work experience entry to generate a resume."
+    : isProfileDirty
+      ? "Save your profile first so Generate Resume uses your latest changes."
+      : null;
 
   // The staged, not yet saved resume key and file name live in sessionStorage,
   // not React state: this is what makes them survive a page refresh (AC-10)
@@ -101,6 +121,48 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
       });
   };
 
+  const handleGenerate = (): void => {
+    setGenerateError(null);
+    setGenerateSuccess(false);
+    setIsGenerating(true);
+
+    void fetch("/api/resume/generate", { method: "POST" })
+      .then((response) => response.json() as Promise<ActionResult>)
+      .then((result) => {
+        setIsGenerating(false);
+        if (result.success) {
+          setGenerateSuccess(true);
+          router.refresh();
+        } else {
+          setGenerateError(result.error);
+        }
+      })
+      .catch(() => {
+        setIsGenerating(false);
+        setGenerateError("Something went wrong generating your resume. Please try again.");
+      });
+  };
+
+  const handleViewResume = (): void => {
+    setViewLinkError(null);
+    setIsFetchingViewLink(true);
+
+    void fetch("/api/resume/signed-url")
+      .then((response) => response.json() as Promise<ActionResult<{ url: string }>>)
+      .then((result) => {
+        setIsFetchingViewLink(false);
+        if (result.success) {
+          window.open(result.url, "_blank", "noopener,noreferrer");
+        } else {
+          setViewLinkError(result.error);
+        }
+      })
+      .catch(() => {
+        setIsFetchingViewLink(false);
+        setViewLinkError("Could not open your resume. Please try again.");
+      });
+  };
+
   const handleSave = (): void => {
     setSaveError(null);
     setSaveSuccess(false);
@@ -119,20 +181,29 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
     <>
       <ResumeUpload
         canExtract={resumeKey !== null}
+        canGenerate={canGenerate}
         extractError={extractError}
+        generateError={generateError}
+        generateHint={generateHint}
+        generateSuccess={generateSuccess}
         isExtracting={isExtracting}
+        isFetchingViewLink={isFetchingViewLink}
+        isGenerating={isGenerating}
         isUploading={isUploading}
         onExtract={handleExtract}
         onFileSelected={handleFileSelected}
+        onGenerate={handleGenerate}
+        onViewResume={handleViewResume}
         uploadedFileName={resumeFileName}
         uploadError={uploadError}
+        viewLinkError={viewLinkError}
       />
       <ProfileForm
         isSaving={isPending}
         onProfileChange={setProfile}
         onSave={handleSave}
         profile={profile}
-        saveDisabled={isUploading || isExtracting}
+        saveDisabled={isUploading || isExtracting || isGenerating}
         saveError={saveError}
         saveSuccess={saveSuccess}
       />
