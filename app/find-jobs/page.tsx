@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { FindJobsPage } from "@/components/find-jobs/FindJobsPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { createInsforgeServer } from "@/lib/insforge-server";
+import type { JobRow } from "@/types";
 
 export default async function FindJobsRoutePage(): Promise<JSX.Element> {
   const insforge = await createInsforgeServer();
@@ -12,6 +13,21 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
   if (error || !data.user) {
     redirect("/login?error=session");
   }
+
+  const { data: profileRow } = await insforge.database
+    .from("profiles")
+    .select("skills")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  const hasSkills = Boolean(profileRow?.skills && profileRow.skills.length > 0);
+
+  const { data: jobRows } = await insforge.database
+    .from("jobs")
+    .select("*")
+    .order("found_at", { ascending: false });
+
+  const initialJobs = (jobRows ?? []) as JobRow[];
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
@@ -26,7 +42,7 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
         className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-10 sm:px-8"
         id="main-content"
       >
-        <FindJobsPage />
+        <FindJobsPage hasSkills={hasSkills} initialJobs={initialJobs} userId={data.user.id} />
       </main>
     </div>
   );
