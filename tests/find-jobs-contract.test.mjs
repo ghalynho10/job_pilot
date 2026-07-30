@@ -242,6 +242,49 @@ test("find-jobs page provides a skip-to-content link that targets the actual mai
   assert.match(source, /id="main-content"/);
 });
 
+test("find-jobs page derives hasSkills from the real skills array, not just an existing profile row", async () => {
+  const source = await readProjectFile("app/find-jobs/page.tsx");
+
+  assert.match(
+    source,
+    /const hasSkills = Boolean\(profileRow\?\.skills && profileRow\.skills\.length > 0\);/,
+    "a profile row with an empty skills array must still block searching, matching AC-3",
+  );
+});
+
+test("a refetch failure after a successful search shows a distinct message instead of silently dropping the results", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /if \(fetchError\) \{\s*setStatus\("error"\);\s*setErrorMessage\("Search completed, but the results could not be loaded\. Please refresh\."\);\s*return;\s*\}/,
+    "the refetch error path must set its own status/message, not fall through to the success banner",
+  );
+});
+
+test("a thrown error during the search request is caught and shown as a generic error, never an unhandled rejection", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /\} catch \{\s*setStatus\("error"\);\s*setErrorMessage\("Something went wrong searching for jobs\. Please try again\."\);\s*\}/,
+  );
+
+  const tryIndex = source.indexOf("try {");
+  const fetchIndex = source.indexOf('fetch("/api/agent/find"');
+  const catchIndex = source.indexOf("} catch {");
+  assert.ok(
+    tryIndex !== -1 && tryIndex < fetchIndex && fetchIndex < catchIndex,
+    "the fetch call must be inside the try block the catch actually guards",
+  );
+});
+
+test("the post-search refetch orders jobs by found_at descending, so the newest results show first", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /\.order\("found_at", \{ ascending: false \}\)/);
+});
+
 test("find-jobs files never use hardcoded hex colors or raw Tailwind color classes", async () => {
   const rawTailwindColor =
     /\b(?:bg|text|border)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|gray|grey|slate|zinc|neutral|stone)-\d{2,3}\b/;

@@ -1,7 +1,7 @@
 # 0006. Adzuna job discovery
 
 **Date**: 2026-07-30
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

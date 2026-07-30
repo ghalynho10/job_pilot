@@ -82,3 +82,48 @@ test("job_found fires once per saved job with the exact documented props, and Po
   assert.equal(captureCount, 1, "job_found capture call site must appear exactly once, inside the loop");
   assert.equal(shutdownCount, 1, "shutdown must be called exactly once, after the loop, not per event");
 });
+
+test("a job only counts toward strongMatches at or above the documented 70 threshold", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(source, /const STRONG_MATCH_THRESHOLD = 70;/);
+  assert.match(
+    source,
+    /if \(\(match\.matchScore \?\? 0\) >= STRONG_MATCH_THRESHOLD\) \{\s*strongMatches \+= 1;\s*\}/,
+    "strongMatches must increment only when the score meets the threshold, and a null score must count as 0, not throw",
+  );
+
+  const incrementIndex = source.indexOf("strongMatches += 1;");
+  const jobsFoundIncrementIndex = source.indexOf("jobsFound += 1;");
+  assert.ok(
+    jobsFoundIncrementIndex < incrementIndex,
+    "jobsFound must increment for every saved job regardless of score, before the threshold check narrows to strong matches",
+  );
+});
+
+test("formatSalary returns null when Adzuna gives no salary_min, otherwise a rounded $Xk-$Yk range", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /function formatSalary\(job: AdzunaJob\): string \| null \{\s*if \(!job\.salary_min\) \{\s*return null;\s*\}/,
+    "must return null outright when salary_min is missing, not a malformed range",
+  );
+  assert.match(
+    source,
+    /const min = Math\.round\(job\.salary_min \/ 1000\);/,
+    "salary_min must be rounded to the nearest thousand",
+  );
+  assert.match(
+    source,
+    /const max = job\.salary_max \? Math\.round\(job\.salary_max \/ 1000\) : min;/,
+    "salary_max must fall back to the same value as min when Adzuna doesn't provide a max",
+  );
+  assert.match(source, /return `\$\$\{min\}k - \$\$\{max\}k`;/);
+});
+
+test("job_type falls back to fulltime when Adzuna omits contract_type", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(source, /job_type:\s*adzunaJob\.contract_type \|\| "fulltime",/);
+});
