@@ -149,21 +149,26 @@ Server-renderable (no client state); takes a `ProfileCompletion` (`percentage`, 
 
 File: `components/profile/ResumeUpload.tsx`
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 | Property | Class |
 | --- | --- |
 | Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
 | Dropzone (idle) | `rounded-xl border-2 border-dashed border-border-muted bg-surface-secondary` |
 | Dropzone (drag-over) | `border-accent bg-accent-muted` |
-| Dropzone (disabled, uploading) | `disabled:cursor-not-allowed disabled:opacity-70` on the dropzone `button` and the hidden file `input`, matching `ProfileForm`'s Save Profile disabled treatment |
+| Dropzone (disabled, uploading/extracting/generating) | `disabled:cursor-not-allowed disabled:opacity-70` on the dropzone `button` and the hidden file `input`, matching `ProfileForm`'s Save Profile disabled treatment |
 | Dropzone icon badge | `size-11 rounded-full bg-surface shadow-sm` with `UploadCloud` icon (`text-accent`) |
 | Select Resume (secondary) | `rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary` |
-| Generate Resume (primary) | `rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-dark` with `FileText` icon |
-| Error text | `text-xs text-error`, `role="alert"`, shared between the client side validation error and a server side `uploadError` passed down from `ProfileEditor` |
-| Focus (dropzone + Generate) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+| Extract from Resume (secondary, icon) | same secondary classes as Select Resume, with `Sparkles` icon; only rendered once `canExtract` |
+| Generate Resume (primary) | `rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-70` with `FileText` icon; disabled while any of `isUploading`/`isExtracting`/`isGenerating` is true, or while `!canGenerate` |
+| Generate hint (disabled, not busy) | `mt-2 text-xs text-text-muted`, shown only when `!canGenerate`, e.g. "Add your full name and at least one work experience entry to generate a resume." |
+| Generate success + View resume | `mt-2 flex flex-col items-start gap-1`; success line `text-xs text-text-secondary` ("Your resume is ready."); View resume is a text style action, `text-xs font-medium text-accent underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-70`, disabled while `isFetchingViewLink` |
+| Error text | `text-xs text-error`, `role="alert"`, the same pattern used for the client side validation error, `uploadError`, `extractError`, `generateError`, and `viewLinkError` alike |
+| Focus (dropzone, Extract, Generate, View resume) | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
 
-Client component, purely presentational: tracks drag-over state, opens a hidden file input, and calls `onFileSelected(file)` after a passing client side check, but never touches storage or the network itself. `ProfileEditor` owns the actual upload (`uploadResumeFile`, spec 0002's second revision) and feeds back `isUploading`, `uploadedFileName`, and `uploadError` as props; the dropzone button and file input are both disabled while `isUploading` is true, so a second file can never be picked before the first upload resolves.
+Client component, purely presentational: tracks drag-over state, opens a hidden file input, and calls `onFileSelected(file)` after a passing client side check, but never touches storage or the network itself. `ProfileEditor` owns the actual upload (`uploadResumeFile`, spec 0002's second revision), extraction (`/api/resume/extract`, spec 0003), and generation (`/api/resume/generate` plus `/api/resume/signed-url`, spec 0004), feeding back their busy/error/success state as props. The dropzone button and file input are disabled while any of `isUploading`, `isExtracting`, or `isGenerating` is true (`isBusy`), so no two of these three flows can race each other.
+
+**Note:** the View resume button was initially built without `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`, the project wide rule this same file's own Pattern notes calls out below. Caught and fixed during this `/imprint` pass, the same class of miss caught before on the Add/Add role/dropzone/tag-remove buttons; a regression test now locks it in (`tests/profile-contract.test.mjs`).
 
 ### ProfileForm
 
@@ -192,9 +197,11 @@ Fully controlled client component (no internal `Profile` state); `profile`, `onP
 
 File: `components/profile/ProfileEditor.tsx`
 
-Last updated: 2026-07-28
+Last updated: 2026-07-30
 
-Non-visual client wrapper, no styling classes of its own; composes `ResumeUpload` and `ProfileForm` and owns every piece of state a Save Profile click or a resume selection touches: `profile`, `isUploading`, `uploadError`, plus the existing save `isPending`/`saveError`/`saveSuccess` trio. On `onFileSelected`, calls `uploadResumeFile` immediately (spec 0002's second revision: the resume uploads on select, not on Save Profile), passing the previous, still unsaved key so the server can best effort clean it up on a reselect. `saveProfile` still only fires on the Save Profile click, taking the resolved `resumeKey`.
+Non-visual client wrapper, no styling classes of its own; composes `ResumeUpload` and `ProfileForm` and owns every piece of state a Save Profile click, a resume selection, an extraction, or a generation touches: `profile`, `isUploading`/`uploadError`, `isExtracting`/`extractError`, `isGenerating`/`generateError`/`generateSuccess`, `isFetchingViewLink`/`viewLinkError`, plus the existing save `isPending`/`saveError`/`saveSuccess` trio. On `onFileSelected`, calls `uploadResumeFile` immediately (spec 0002's second revision: the resume uploads on select, not on Save Profile), passing the previous, still unsaved key so the server can best effort clean it up on a reselect. `saveProfile` still only fires on the Save Profile click, taking the resolved `resumeKey`.
+
+`canGenerate` is derived straight from the live `profile` state (`fullName` non empty and `workExperience.length > 0`), not its own flag, so it always reflects the current, possibly unsaved, form values (spec 0004). `handleGenerate` posts to `/api/resume/generate` and calls `router.refresh()` on success, so the server re-reads the updated `resume_pdf_url`; `handleViewResume` fetches `/api/resume/signed-url` fresh on every click and opens it in a new tab, deliberately never storing the link anywhere in component state or `sessionStorage` (spec 0004's "mint only on click" decision). `saveDisabled` on `ProfileForm` now folds in `isGenerating` alongside `isUploading`/`isExtracting`.
 
 `resumeKey`/`resumeFileName` are not `useState` (spec 0002's third revision, AC-10: survive a page refresh within the same tab). They are read live from `sessionStorage` via `useSyncExternalStore` (`lib/staged-resume-storage.ts`: `getStagedResumeKey`, `getStagedResumeFileName`, `getStagedResumeServerSnapshot`, `subscribeToStagedResume`), namespaced per user (`profile-staged-resume:${userId}`, the `userId` prop threaded from `app/profile/page.tsx`'s session). `writeStagedResume` runs on a successful upload in place of `setResumeKey`/`setResumeFileName`; `clearStagedResume` runs on a successful save in place of resetting them to `null`. `useSyncExternalStore`, not a plain `useState` initializer or a `useEffect` that calls `setState`, because this component is server rendered first (no `sessionStorage` there): either of those would either desync the client's first render from the server's (a real hydration mismatch, not cosmetic) or trip this project's own `react-hooks/set-state-in-effect` lint rule (from `eslint-config-next/core-web-vitals`, unmodified). `getStagedResumeKey`/`getStagedResumeFileName` return plain strings (or `null`), not an object, specifically so `useSyncExternalStore`'s `Object.is` snapshot comparison works by value and never loops.
 
