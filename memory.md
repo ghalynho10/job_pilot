@@ -1,43 +1,45 @@
-# Memory — Feature 06 loose end cleanup
+# Memory — Feature 07 AI Profile Extraction from Resume
 
-Last updated: 2026-07-29 19:48 EDT
+Last updated: 2026-07-30 00:50 EDT
 
 ## What was built
 
-- `components/profile/ProfileForm.tsx`: added blank first options for Work Authorization, Experience Level, Highest Degree, and Remote Preference so genuinely empty profile values no longer visually appear as the first real option. The select change handlers now cast to the union type that includes `""`.
-- `tests/profile-contract.test.mjs`: added a regression test that verifies those four blank select placeholders exist and that the handlers accept the empty value type.
-- `context/build-plan.md`: corrected Profile Page planning text so Cover Letter Tone is no longer listed in the current Profile UI, and feature 06 now says `resume_pdf_url` stores the uploaded storage key only after Save Profile is clicked.
-- `context/architecture.md`: corrected resume storage from the stale fixed `resumes/{user_id}/resume.pdf` path to fresh unique keys, `resumes/{user_id}/{random}.pdf`, and documented `cover_letter_tone` as a reserved nullable column not rendered in the current profile UI.
-- `context/ui-registry.md`: updated `Navbar` and `ProfileForm` entries. Navbar remains text only with color only active state. ProfileForm records the blank select placeholder pattern and that Cover Letter Tone is intentionally absent from the current UI.
-- `context/progress-tracker.md`: marked the loose end cleanup as the last completed work and removed contradictory old notes that still described these items as open.
-- `docs/specs/0002-profile-save-logic/index.md` and `rationale.md`: corrected stale storage wording and marked the Cover Letter Tone follow up as resolved for the current UI.
+- `docs/specs/0003-ai-profile-extraction-from-resume/` (directory spec: `index.md`, `rationale.md`, `verify.md`), designed via `/architect`, status `Accepted`.
+- `types/index.ts`: added `ExtractedProfileFields` (a `Pick<Profile, ...>` covering only the fields a resume actually states; deliberately excludes `email` and the four Job Preferences fields).
+- `agent/resume-extractor.ts` (new file, new `agent/` directory): `extractProfileFromResumeText(text)`, this project's first `agent/` function calling OpenAI's chat completions API directly (not through Stagehand). `gpt-4o`, `temperature: 0.3`, `max_tokens: 800`. Exports `extractedProfileSchema`, a `zod` schema with per-field `.catch()` coercion (one bad enum value from GPT-4o doesn't waste the whole extraction) and `workExperience` capped to the first 3 entries via `.transform(...slice(0, 3))` (not `.max(3)`, which would have wiped the whole array on a 4th entry instead of truncating it).
+- `app/api/resume/extract/route.ts` (new file, new `app/api/resume/` directory): POST handler — auth check, `resumeKey` ownership check (`${userId}/` prefix) before any storage read, mints a signed URL, fetches the PDF, extracts text via `pdf-parse`, guards on empty/short text, calls the agent function. Never writes to the database.
+- `components/profile/ResumeUpload.tsx`: new `canExtract`/`isExtracting`/`onExtract`/`extractError` props; an Extract from Resume button shown only once a resume is staged; the dropzone/file input/Extract button disabled condition is now a combined `isBusy = isUploading || isExtracting`.
+- `components/profile/ProfileEditor.tsx`: new `isExtracting`/`extractError` state; `handleExtract` posts to the new route with the staged `resumeKey`, merges a successful result onto `profile` via object spread (full overwrite of the extractable fields), handles both a `{success:false}` response and an outright fetch rejection. `ProfileForm`'s `saveDisabled` now covers `isUploading || isExtracting`.
+- New dependencies: `openai`, `pdf-parse` (v2, a completely different API from v1), `zod`.
+- Tests: `tests/resume-extractor.test.mjs` (9 tests, schema coercion + error-branch source-contract checks), `tests/resume-extract-route.test.mjs` (10 tests, auth/ownership/DB-never-written/error-copy/worker-import-order), plus 6 new/updated tests in `tests/profile-contract.test.mjs` for the new wiring. Full suite: 119/119 passing. `tsc`/`lint` clean.
 
 ## Decisions made
 
-- Cover Letter Tone is resolved for now as intentionally absent from the profile UI, matching the delivered design. The `cover_letter_tone` database column remains reserved and nullable.
-- The shared Navbar continues to follow `ui-rules.md`: text only navigation, color only active state, no icons, no underline.
-- Orphan cleanup for uploaded but never saved resume objects remains a future storage maintenance feature. It was not built as part of this cleanup because it has lifecycle and safety implications, especially with staged resume keys that can live in `sessionStorage`.
+- Merge policy: **overwrite**. Every extraction run replaces the extractable fields in the form, even ones the user already edited by hand. Confirmed directly with the engineer; the tradeoff (a second extraction can silently discard a manual edit made since the first) is accepted, not a gap.
+- Job Preferences scope: **skip entirely**. Extraction never touches Job Titles Seeking, Remote Preference, Salary Expectation, Preferred Locations, or Email — the response schema has no slot for them at all, not just an empty one, so GPT-4o can't invent them.
+- Extraction reuses the resume already staged from feature 06's upload-on-select flow (server mints a fresh signed URL and reads it) rather than re-uploading the file to a separate one-shot endpoint.
+- No new PostHog event added for extraction (build-plan.md doesn't specify one for this feature, and `code-standards.md` caps the event list at 4).
+- This project has no `docs/scope/`; `context/progress-tracker.md` + `context/build-plan.md` remain its tracker of record. Confirmed explicitly with the engineer during `/architect` rather than introducing `docs/scope/` for one feature.
 
 ## Problems solved
 
-- Empty select fields no longer show the first valid option while the completion banner still treats them as missing.
-- Stale planning and architecture text no longer points future work toward a fixed `resume.pdf` path or `upsert` based storage behavior.
-- The old ambiguity around Cover Letter Tone and Navbar active styling is now resolved in the living docs.
+- **Real bug found by `/check verify` and fixed by `/debug`**: `pdf-parse` v2 wraps `pdfjs-dist`, which needs its worker module registered as a real import, not a bundler-resolved chunk, or every call fails under Next.js's server bundler with `Setting up fake worker failed: Cannot find module '.../pdf.worker.mjs'`. A plain `node --experimental-strip-types` script parsing the same PDF worked fine during `/develop` (masked the bug, since that path bypasses Next.js's bundler entirely) — this is why it only surfaced once actually driven through the real app. Fixed per the library's own troubleshooting docs (fetched directly, not guessed): `app/api/resume/extract/route.ts` now does `import "pdf-parse/worker"` before `import { PDFParse } from "pdf-parse"`, and `next.config.ts` gained `serverExternalPackages: ["pdf-parse"]`. Reproduced deterministically before and after the fix; regression test added and confirmed it fails without the fix.
+- **Verification technique for a Google/GitHub-OAuth-only app with no browser MCP**: signed up a throwaway account directly against InsForge's REST API (`POST /api/auth/users?client_type=server` with the anon key as bearer auth, after temporarily setting `require_email_verification: false` via `npx @insforge/cli config apply`, planned then applied then restored), then cookie-injected the returned `insforge_access_token`/`insforge_refresh_token` (found in the SDK's own `dist/ssr.js`: `DEFAULT_ACCESS_TOKEN_COOKIE`/`DEFAULT_REFRESH_TOKEN_COOKIE`, plain JWT string values, no JSON wrapping) into a real Playwright browser context. Playwright itself was run via `npx --package=playwright -- node script.cjs` with `NODE_PATH` pointed at the npx cache's `node_modules` (CJS `require`, not ESM `import`, since ESM ignores `NODE_PATH` for bare specifiers) — no dependency was added to the project. Test PDF fixtures were generated with macOS's built-in `cupsfilter` (`cupsfilter file.txt > file.pdf`), not a hand-rolled PDF or a new library. A second `next dev` instance on a different port refuses to start if the engineer's own dev server is already running in the same project directory (Next.js detects a project-level lock) — hit the existing server directly instead.
+- **Found, not caused**: deleting a throwaway InsForge auth account does NOT cascade-delete its storage objects (only DB rows do); objects uploaded directly (not through the app's own upload flow) must be deleted explicitly via `DELETE /api/storage/buckets/:bucket/objects/:key`. Corrected a prior progress-tracker.md note that could be read as claiming full cascade.
+- A transient `InsForgeError: Presigned upload failed` was hit once mid-verification; retried 4/4 successfully right after. Consistent with this project's own prior documented finding (feature 06) that this is an occasional InsForge hiccup, not a deterministic bug — didn't chase it further.
 
 ## Current state
 
-- Feature 06 and its loose end cleanup are done.
-- Validation from this session passed: `npm test` is 94/94, `npx tsc --noEmit` is clean, and `npm run lint` is clean.
-- `/sync` was run. It made no AGENTS.md changes. It reported no scope file exists under `docs/scope/`. It also flagged one remaining spec content mismatch: `docs/specs/0002-profile-save-logic/index.md` still has older prose in the Decision section that describes rehydration with `useEffect`, while the implemented and documented convention is `useSyncExternalStore`. `/sync` cannot rewrite spec content beyond status lines, so this needs `/architect` if the spec should be corrected.
-- `context/progress-tracker.md` lists the next feature as 07 AI Profile Extraction from Resume.
+- Feature 07 is fully done: spec 0003 `Accepted`, `/check verify` PASS (all 8 ACs met with cited evidence from a real run), `/test` 119/119, `context/progress-tracker.md` marks it complete.
+- Three stale doc corrections identified during this session's verify/debug/sync passes were fixed by hand afterward (no skill owns `context/*.md`, confirmed by `/sync`, which only touches `AGENTS.md`/spec-status/scope): `context/library-docs.md`'s `pdf-parse` section now shows the real v2 API; `context/build-plan.md`'s feature 07 section now states the Job-Preferences-skip/email-exclusion scope; `context/progress-tracker.md`'s feature 04 note now clarifies the account-deletion cascade is DB-row-only, not storage.
+- Current branch is `resume-extraction`, everything still uncommitted (no commits made this session; the user hasn't asked to commit).
 
 ## Next session starts with
 
-Run `/architect` before Feature 07, AI Profile Extraction from Resume. The next concrete task is to design the Extract from Resume flow: PDF text extraction, GPT structured schema, how extracted values merge into `ProfileEditor` without overwriting fields the user manually filled, and the empty or short PDF text error path.
+`context/progress-tracker.md` names 08 Resume PDF Generation from Profile as next (Phase 2's last feature). It will need `/architect` first (no spec exists yet) — `context/build-plan.md`'s feature 08 sketch: `POST /api/resume/generate`, GPT-4o generates polished resume content from the profile, `@react-pdf/renderer` renders it to a PDF buffer via `renderToBuffer()`, uploaded to a fresh unique storage key, previous key deleted only after the new key is written to `profiles`. `@react-pdf/renderer` is not yet installed (pre-approved in `code-standards.md`, same pattern as this session's `pdf-parse`/`openai`/`zod`).
 
 ## Open questions
 
-- Whether to run `/architect` just to correct the stale `useEffect` prose in spec 0002, or leave it until a future spec touch.
-- When feature 13 is designed: add a `company_research_completed_at` column, or source feature 16's activity feed from `agent_logs.created_at`.
-- Whether to ever complete a real human driven Google or GitHub login to close the last remaining feature 02 verification gap.
-- When and how to implement orphan cleanup for resume storage objects, with a grace period or other protection so cleanup does not delete a key still referenced by a live `sessionStorage` staged resume entry.
+- Whether to commit the `resume-extraction` branch's work (nothing committed yet this session).
+- Orphan cleanup for staged-but-never-saved resume uploads (feature 06 era) is still an open future storage-maintenance item, unrelated to feature 07.
+- Whether to ever complete a real human-driven Google/GitHub login to close the last remaining feature 02 verification gap (long-standing, not touched this session).
