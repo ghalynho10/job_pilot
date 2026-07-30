@@ -1,5 +1,7 @@
 export type MatchScoreTier = "high" | "medium" | "low";
 
+export const MATCH_THRESHOLD = 70;
+
 export function getMatchScoreTier(matchScore: number): MatchScoreTier {
   if (matchScore >= 90) {
     return "high";

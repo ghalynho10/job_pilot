@@ -86,12 +86,15 @@ test("job_found fires once per saved job with the exact documented props, and Po
 test("a job only counts toward strongMatches at or above the documented 70 threshold", async () => {
   const source = await readProjectFile("agent/adzuna.ts");
 
-  assert.match(source, /const STRONG_MATCH_THRESHOLD = 70;/);
+  assert.match(source, /import \{ MATCH_THRESHOLD \} from "@\/lib\/match-score";/);
   assert.match(
     source,
-    /if \(\(match\.matchScore \?\? 0\) >= STRONG_MATCH_THRESHOLD\) \{\s*strongMatches \+= 1;\s*\}/,
-    "strongMatches must increment only when the score meets the threshold, and a null score must count as 0, not throw",
+    /if \(\(match\.matchScore \?\? 0\) >= MATCH_THRESHOLD\) \{\s*strongMatches \+= 1;\s*\}/,
+    "strongMatches must increment only when the score meets the shared threshold, and a null score must count as 0, not throw",
   );
+
+  const matchScoreSource = await readProjectFile("lib/match-score.ts");
+  assert.match(matchScoreSource, /export const MATCH_THRESHOLD = 70;/);
 
   const incrementIndex = source.indexOf("strongMatches += 1;");
   const jobsFoundIncrementIndex = source.indexOf("jobsFound += 1;");

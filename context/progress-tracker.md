@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Phase 3 — Find Jobs Page
-**Last completed:** 10 Adzuna Job Discovery
-**Next:** 11 Filter + Sort + Pagination
+**Last completed:** 11 Filter + Sort + Pagination
+**Next:** 12 Job Details Page — Full UI
 
 ---
 
@@ -32,7 +32,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 - [x] 09 Find Jobs Page — Full UI
 - [x] 10 Adzuna Job Discovery
-- [ ] 11 Filter + Sort + Pagination
+- [x] 11 Filter + Sort + Pagination
 
 ### Phase 4 — Job Details Page
 

@@ -2,10 +2,9 @@ import type { InsForgeClient } from "@insforge/sdk";
 
 import { scoreJobMatch } from "@/agent/matcher";
 import { detectCountry, searchJobs, type AdzunaJob } from "@/lib/adzuna";
+import { MATCH_THRESHOLD } from "@/lib/match-score";
 import { createPostHogServer } from "@/lib/posthog-server";
 import type { Profile } from "@/types";
-
-const STRONG_MATCH_THRESHOLD = 70;
 
 function formatSalary(job: AdzunaJob): string | null {
   if (!job.salary_min) {
@@ -103,7 +102,7 @@ export async function runJobSearch(
     }
 
     jobsFound += 1;
-    if ((match.matchScore ?? 0) >= STRONG_MATCH_THRESHOLD) {
+    if ((match.matchScore ?? 0) >= MATCH_THRESHOLD) {
       strongMatches += 1;
     }
 
