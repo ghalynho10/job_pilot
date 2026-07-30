@@ -8,7 +8,7 @@ async function readProjectFile(path) {
   return readFile(new URL(path, projectRoot), "utf8");
 }
 
-test("find-jobs page redirects to login when there is no authenticated session", async () => {
+test("find-jobs page redirects to login when there is no authenticated session (AC-10)", async () => {
   const source = await readProjectFile("app/find-jobs/page.tsx");
 
   assert.match(source, /if \(error \|\| !data\.user\) \{/);
@@ -29,7 +29,7 @@ test("find-jobs page uses the server InsForge client, never the browser client",
   assert.doesNotMatch(source, /from ["']@\/lib\/insforge-client["']/);
 });
 
-test("proxy.ts protects the /find-jobs route", async () => {
+test("proxy.ts protects the /find-jobs route (AC-10)", async () => {
   const source = await readProjectFile("proxy.ts");
 
   assert.match(source, /"\/find-jobs\/:path\*"/);
@@ -39,47 +39,110 @@ test("find-jobs page composes the shared Navbar and the interactive client compo
   const source = await readProjectFile("app/find-jobs/page.tsx");
 
   assert.match(source, /<Navbar authenticated \/>/);
-  assert.match(source, /<FindJobsPage \/>/);
+  assert.match(
+    source,
+    /<FindJobsPage hasSkills=\{hasSkills\} initialJobs=\{initialJobs\} userId=\{data\.user\.id\} \/>/,
+  );
 });
 
-test("job title and location inputs are real, unwired text inputs", async () => {
+test("find-jobs page fetches the caller's existing jobs server side, newest first (AC-1)", async () => {
+  const source = await readProjectFile("app/find-jobs/page.tsx");
+
+  assert.match(source, /\.from\("jobs"\)\s*\.select\("\*"\)\s*\.order\("found_at", \{ ascending: false \}\)/);
+  assert.match(source, /const initialJobs = \(jobRows \?\? \[\]\) as JobRow\[\];/);
+});
+
+test("job title and location inputs are real, controlled text inputs wired to state", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /id="job-title"/);
   assert.match(source, /id="location"/);
-  assert.doesNotMatch(source, /onChange=\{.*job-?[Tt]itle/);
+  assert.match(source, /onChange=\{\(event\) => setJobTitle\(event\.target\.value\)\}/);
+  assert.match(source, /onChange=\{\(event\) => setLocation\(event\.target\.value\)\}/);
 });
 
-test("Find Jobs button reveals the results area via local state, not a network call", async () => {
+test("Find Jobs button triggers a real search request against the agent endpoint", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /useState\(false\)/);
-  assert.match(source, /setHasSearched\(true\)/);
-  assert.doesNotMatch(source, /fetch\(/);
+  assert.match(source, /fetch\("\/api\/agent\/find"/);
+  assert.match(source, /method: "POST"/);
 });
 
-test("filter input and both dropdowns carry no filter, sort, or search behavior", async () => {
+test("the filter input and both dropdowns are wired to real filter, sort, and search state (AC-3, AC-4, AC-5)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.doesNotMatch(source, /onChange/, "no control in this feature should be wired to onChange");
-  assert.doesNotMatch(source, /\.filter\(/, "the mock dataset must never be filtered client side yet");
-  assert.doesNotMatch(source, /\.sort\(/, "the mock dataset must never be sorted client side yet");
+  assert.match(
+    source,
+    /aria-label="Filter by company or role"[\s\S]{0,300}onChange=\{\(event\) => handleFilterTextChange\(event\.target\.value\)\}/,
+    "the filter input must be wired to filter text state",
+  );
+  assert.match(
+    source,
+    /aria-label="Filter by match"[\s\S]{0,300}onChange=\{\(event\) => handleMatchFilterChange\(event\.target\.value as MatchFilter\)\}/,
+  );
+  assert.match(
+    source,
+    /aria-label="Sort by match score"[\s\S]{0,300}onChange=\{\(event\) => handleSortModeChange\(event\.target\.value as SortMode\)\}/,
+  );
+  assert.match(
+    source,
+    /import \{ filterJobs, paginateJobs, sortJobs, type MatchFilter, type SortMode \} from "@\/lib\/find-jobs-filters";/,
+  );
+});
+
+test("the match dropdown offers High Match and Low Match, the sort dropdown offers Newest and Oldest (AC-4, AC-5)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /<option value="high">High Match<\/option>/);
+  assert.match(source, /<option value="low">Low Match<\/option>/);
+  assert.match(source, /<option value="newest">Newest<\/option>/);
+  assert.match(source, /<option value="oldest">Oldest<\/option>/);
+});
+
+test("changing the filter text, match filter, or sort resets the page back to 1 (AC-7)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  for (const fn of ["handleFilterTextChange", "handleMatchFilterChange", "handleSortModeChange"]) {
+    const start = source.indexOf(`function ${fn}(`);
+    assert.ok(start !== -1, `${fn} not found`);
+    const end = source.indexOf("\n  }", start);
+    const body = source.slice(start, end);
+    assert.match(body, /setPage\(1\)/, `${fn} must reset the page to 1`);
+  }
+});
+
+test("submitting a new search resets filter text, match filter, sort, and page to defaults (AC-9)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  const submitStart = source.indexOf("async function handleSubmit");
+  const fetchIndex = source.indexOf('fetch("/api/agent/find"');
+  const resetSection = source.slice(submitStart, fetchIndex);
+
+  assert.match(resetSection, /setFilterText\(""\)/);
+  assert.match(resetSection, /setMatchFilter\("all"\)/);
+  assert.match(resetSection, /setSortMode\("match-score"\)/);
+  assert.match(resetSection, /setPage\(1\)/);
 });
 
 test("dropdowns are native selects, not custom listboxes", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /<select aria-label="Filter by match"/);
+  assert.match(source, /<select\s[\s\S]*?aria-label="Filter by match"/);
   assert.match(source, /<select\s[\s\S]*?aria-label="Sort by match score"/);
 });
 
-test("pagination buttons have no click handlers wired", async () => {
+test("pagination Previous, Next, and page number buttons are wired with real click handlers (AC-6)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   const paginationStart = source.indexOf('aria-label="Pagination"');
   assert.ok(paginationStart !== -1, "pagination nav not found");
   const paginationSection = source.slice(paginationStart);
-  assert.doesNotMatch(paginationSection, /onClick/);
+
+  assert.match(paginationSection, /onClick=\{\(\) => setPage\(currentPage - 1\)\}/);
+  assert.match(paginationSection, /onClick=\{\(\) => setPage\(pageNumber\)\}/);
+  assert.match(paginationSection, /onClick=\{\(\) => setPage\(currentPage \+ 1\)\}/);
+  assert.match(paginationSection, /disabled=\{currentPage === 1\}/);
+  assert.match(paginationSection, /disabled=\{currentPage === totalPages\}/);
 });
 
 test("every interactive element carries the project's focus-visible treatment", async () => {
@@ -103,8 +166,8 @@ test("the jobs table is wrapped in a horizontally scrolling container", async ()
   assert.match(source, /overflow-x-auto/);
 });
 
-test("mock data shape mirrors the real jobs table's source check constraint", async () => {
-  const source = await readProjectFile("lib/mock-jobs.ts");
+test("JobRow's source field shape mirrors the real jobs table's source check constraint", async () => {
+  const source = await readProjectFile("types/index.ts");
 
   assert.match(source, /source: "search" \| "url"/);
 });
@@ -135,47 +198,87 @@ test("source badge label and classes match the design for both search and url", 
   );
 });
 
-test("pagination shows the exact static results text and page numbers from the design", async () => {
+test("pagination footer shows real results copy and a real page count driven by the filtered list (AC-6)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /Showing/);
-  assert.match(source, />1</);
-  assert.match(source, />6</);
-  assert.match(source, />24</);
   assert.match(source, /results/);
-  assert.match(source, /const PAGE_NUMBERS = \[1, 2, 3, 8\]/);
-});
-
-test("only page 1 is marked aria-current, matching the design's active page state", async () => {
-  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
-
-  assert.match(source, /aria-current=\{page === 1 \? "page" : undefined\}/);
-});
-
-test("the Previous button is disabled since page 1 is always the starting page", async () => {
-  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
-
-  const previousIndex = source.indexOf("Previous");
-  assert.ok(previousIndex !== -1, "Previous button text not found");
-  const buttonStart = source.lastIndexOf("<button", previousIndex);
-  const buttonTag = source.slice(buttonStart, previousIndex);
-  assert.match(buttonTag, /\bdisabled\b/);
-});
-
-test("the success banner and the results table are gated behind the exact same hasSearched flag", async () => {
-  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
-
-  const occurrences = source.split("{hasSearched ? (").length - 1;
-  assert.equal(
-    occurrences,
-    2,
-    "expected exactly two hasSearched-gated blocks (the banner and the results section); a third or a differently-named flag would let them go out of sync",
-  );
-  assert.doesNotMatch(
+  assert.match(source, /const PAGE_SIZE = 20;/);
+  assert.match(
     source,
-    /useState\(false\)[\s\S]*useState\(false\)/,
-    "only one piece of state should gate the results area",
+    /const totalPages = Math\.max\(1, Math\.ceil\(visibleJobs\.length \/ PAGE_SIZE\)\);/,
   );
+});
+
+test("the current page is marked aria-current, driven by real page state, not a hardcoded page 1 (AC-6)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /aria-current=\{pageNumber === currentPage \? "page" : undefined\}/);
+});
+
+test("Previous and Next are disabled at the real first and last page boundaries (AC-6)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /disabled=\{currentPage === 1\}/);
+  assert.match(source, /disabled=\{currentPage === totalPages\}/);
+});
+
+test("the results section renders whenever there are jobs, whether from page load or a search (AC-1)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /\{jobs\.length > 0 \? \(/);
+});
+
+test("a returning user with no jobs yet sees a distinct message on page load, not an empty table (AC-2)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /status === "idle" \? \(/);
+  assert.match(source, /No jobs yet\. Run a search above to find your first matches\./);
+});
+
+test("a filter and match combination matching zero rows shows a distinct message, not an empty table (AC-8)", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /visibleJobs\.length === 0 \? \(/);
+  assert.match(source, /No jobs match your filters\./);
+});
+
+test("the search status is a single state machine, not scattered booleans", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /useState<SearchStatus>\("idle"\)/,
+    "the page's search lifecycle should be one typed status value",
+  );
+});
+
+test("a search with no results shows a distinct empty state, not the success banner", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /status === "empty"/);
+  assert.match(source, /No jobs found for that search/);
+});
+
+test("a failed search shows an alert, not a silent failure", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /status === "error"/);
+  assert.match(source, /role="alert"/);
+});
+
+test("the search inputs and button are disabled while a search is in flight", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /disabled=\{!hasSkills \|\| isLoading\}/);
+  assert.match(source, /disabled=\{!hasSkills \|\| isLoading \|\| jobTitle\.trim\(\)\.length === 0\}/);
+});
+
+test("a profile with no skills blocks the search before any request is made", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /if \(!hasSkills \|\| isLoading\) \{\s*return;/);
+  assert.match(source, /Add your skills to your profile before searching for jobs\./);
 });
 
 test("both job title and location inputs have a visible, associated label", async () => {
@@ -211,6 +314,49 @@ test("find-jobs page provides a skip-to-content link that targets the actual mai
 
   assert.match(source, /href="#main-content"/);
   assert.match(source, /id="main-content"/);
+});
+
+test("find-jobs page derives hasSkills from the real skills array, not just an existing profile row", async () => {
+  const source = await readProjectFile("app/find-jobs/page.tsx");
+
+  assert.match(
+    source,
+    /const hasSkills = Boolean\(profileRow\?\.skills && profileRow\.skills\.length > 0\);/,
+    "a profile row with an empty skills array must still block searching, matching AC-3",
+  );
+});
+
+test("a refetch failure after a successful search shows a distinct message instead of silently dropping the results", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /if \(fetchError\) \{\s*setStatus\("error"\);\s*setErrorMessage\("Search completed, but the results could not be loaded\. Please refresh\."\);\s*return;\s*\}/,
+    "the refetch error path must set its own status/message, not fall through to the success banner",
+  );
+});
+
+test("a thrown error during the search request is caught and shown as a generic error, never an unhandled rejection", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /\} catch \{\s*setStatus\("error"\);\s*setErrorMessage\("Something went wrong searching for jobs\. Please try again\."\);\s*\}/,
+  );
+
+  const tryIndex = source.indexOf("try {");
+  const fetchIndex = source.indexOf('fetch("/api/agent/find"');
+  const catchIndex = source.indexOf("} catch {");
+  assert.ok(
+    tryIndex !== -1 && tryIndex < fetchIndex && fetchIndex < catchIndex,
+    "the fetch call must be inside the try block the catch actually guards",
+  );
+});
+
+test("the post-search refetch orders jobs by found_at descending, so the newest results show first", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /\.order\("found_at", \{ ascending: false \}\)/);
 });
 
 test("find-jobs files never use hardcoded hex colors or raw Tailwind color classes", async () => {
