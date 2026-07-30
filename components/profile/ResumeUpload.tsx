@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, UploadCloud } from "lucide-react";
+import { FileText, Sparkles, UploadCloud } from "lucide-react";
 import {
   useRef,
   useState,
@@ -12,14 +12,22 @@ import {
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
 interface ResumeUploadProps {
+  canExtract: boolean;
+  extractError: string | null;
+  isExtracting: boolean;
   isUploading: boolean;
+  onExtract: () => void;
   onFileSelected: (file: File) => void;
   uploadedFileName: string | null;
   uploadError: string | null;
 }
 
 export function ResumeUpload({
+  canExtract,
+  extractError,
+  isExtracting,
   isUploading,
+  onExtract,
   onFileSelected,
   uploadedFileName,
   uploadError,
@@ -27,6 +35,8 @@ export function ResumeUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  const isBusy = isUploading || isExtracting;
 
   const handleFile = (file: File): void => {
     if (file.type !== "application/pdf") {
@@ -49,7 +59,7 @@ export function ResumeUpload({
 
   const handleDragOver = (event: DragEvent<HTMLButtonElement>): void => {
     event.preventDefault();
-    if (isUploading) return;
+    if (isBusy) return;
     setIsDraggingOver(true);
   };
 
@@ -60,7 +70,7 @@ export function ResumeUpload({
   const handleDrop = (event: DragEvent<HTMLButtonElement>): void => {
     event.preventDefault();
     setIsDraggingOver(false);
-    if (isUploading) return;
+    if (isBusy) return;
     const file = event.dataTransfer.files?.[0];
     if (file) handleFile(file);
   };
@@ -81,7 +91,7 @@ export function ResumeUpload({
             ? "border-accent bg-accent-muted"
             : "border-border-muted bg-surface-secondary"
         }`}
-        disabled={isUploading}
+        disabled={isBusy}
         onClick={() => fileInputRef.current?.click()}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -114,11 +124,30 @@ export function ResumeUpload({
       <input
         accept="application/pdf"
         className="sr-only"
-        disabled={isUploading}
+        disabled={isBusy}
         onChange={handleInputChange}
         ref={fileInputRef}
         type="file"
       />
+
+      {canExtract ? (
+        <div className="mt-4">
+          <button
+            className="flex items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-secondary disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            disabled={isBusy}
+            onClick={onExtract}
+            type="button"
+          >
+            <Sparkles aria-hidden="true" className="size-4" />
+            {isExtracting ? "Extracting…" : "Extract from Resume"}
+          </button>
+          {extractError ? (
+            <p className="mt-2 text-xs text-error" role="alert">
+              {extractError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 sm:flex-row sm:items-center">
         <p className="text-sm text-text-secondary">

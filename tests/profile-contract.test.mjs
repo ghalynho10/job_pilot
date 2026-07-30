@@ -180,14 +180,20 @@ test("resume upload shows an uploading state, then the uploaded file name with a
   assert.match(source, /Uploaded\. Click Save Profile below to add it to your profile\./);
 });
 
-test("resume upload disables both the dropzone button and the file input while an upload is in flight", async () => {
+test("resume upload disables both the dropzone button and the file input while an upload or extraction is in flight", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
-  const disabledMatches = source.match(/disabled=\{isUploading\}/g) ?? [];
+  assert.match(
+    source,
+    /const isBusy = isUploading \|\| isExtracting;/,
+    "isBusy must combine both the upload and extraction in-flight states",
+  );
+
+  const disabledMatches = source.match(/disabled=\{isBusy\}/g) ?? [];
   assert.equal(
     disabledMatches.length,
-    2,
-    "both the dropzone button and the file input must be disabled while uploading, so a second file can never be picked before the first resolves",
+    3,
+    "the dropzone button, the file input, and the Extract from Resume button must all be disabled while uploading or extracting, so a second file can never be picked before the first resolves",
   );
 });
 
@@ -369,12 +375,13 @@ test("profile editor's upload promise chain handles a rejection, not just a reso
   );
 });
 
-test("profile editor disables Save Profile while a resume upload is in flight, via saveDisabled, not the isSaving text", async () => {
+test("profile editor disables Save Profile while a resume upload or extraction is in flight, via saveDisabled, not the isSaving text", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  assert.match(source, /<ResumeUpload\s+isUploading=\{isUploading\}/);
+  assert.match(source, /<ResumeUpload[\s\S]*?isUploading=\{isUploading\}/);
+  assert.match(source, /<ResumeUpload[\s\S]*?isExtracting=\{isExtracting\}/);
   assert.match(source, /<ProfileForm[\s\S]*?isSaving=\{isPending\}/);
-  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading\}/);
+  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting\}/);
 });
 
 test("profile editor calls saveProfile with the profile and the resolved resume key, clearing the staged entry only on success", async () => {
@@ -520,6 +527,78 @@ test("actions/profile.ts revalidates the profile page and never throws an uncaug
   assert.match(source, /^\s*try \{/m);
   assert.match(source, /\} catch \(error\) \{/);
   assert.match(source, /console\.error\("\[actions\/profile:saveProfile\]", error\)/);
+});
+
+test("resume upload only shows Extract from Resume once a resume is staged", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(source, /\{canExtract \? \(/);
+  assert.match(source, /onClick=\{onExtract\}/);
+  assert.match(source, /\{isExtracting \? "Extracting…" : "Extract from Resume"\}/);
+});
+
+test("profile editor's extract flow never fires without a staged resume key and merges the result by overwrite", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleExtractMatch, "handleExtract function not found");
+  const body = handleExtractMatch[0];
+
+  assert.match(body, /if \(!resumeKey\) return;/);
+  assert.match(body, /fetch\("\/api\/resume\/extract"/);
+  assert.match(body, /method: "POST"/);
+  assert.match(body, /body: JSON\.stringify\(\{ resumeKey \}\)/);
+  assert.match(
+    body,
+    /setProfile\(\(prev\) => \(\{ \.\.\.prev, \.\.\.result\.data \}\)\)/,
+    "a successful extraction must overwrite the extracted fields onto the current profile",
+  );
+});
+
+test("profile editor's extract fetch chain handles a rejection, not just a resolved failure, so isExtracting always resets", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleExtractMatch, "handleExtract function not found");
+  const body = handleExtractMatch[0];
+
+  assert.match(
+    body,
+    /\.catch\(\(\) => \{\s*setIsExtracting\(false\);\s*setExtractError\(/,
+    "a rejected fetch (network failure, not just a { success: false } response) must still " +
+      "reset isExtracting and show an error, the same rejection gap the upload flow was fixed " +
+      "for earlier; without it, Extract from Resume and Save Profile would stay disabled " +
+      "forever after a network failure",
+  );
+});
+
+test("profile editor sets extractError on failure and clears it before a new extraction attempt", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  assert.ok(handleExtractMatch, "handleExtract function not found");
+  const body = handleExtractMatch[0];
+
+  assert.match(body, /setExtractError\(null\)/, "must clear any previous error before a new attempt");
+  assert.match(body, /setExtractError\(result\.error\)/, "must surface the server's own error message on failure");
+});
+
+test("resume upload receives the extract wiring (canExtract, onExtract, extractError) from the editor, not left undefined", async () => {
+  const source = await readProjectFile("components/profile/ProfileEditor.tsx");
+
+  assert.match(source, /<ResumeUpload[\s\S]*?canExtract=\{resumeKey !== null\}/);
+  assert.match(source, /<ResumeUpload[\s\S]*?extractError=\{extractError\}/);
+  assert.match(source, /<ResumeUpload[\s\S]*?onExtract=\{handleExtract\}/);
+});
+
+test("resume upload shows a server side extraction error the same way it shows an upload error", async () => {
+  const source = await readProjectFile("components/profile/ResumeUpload.tsx");
+
+  assert.match(
+    source,
+    /\{extractError \? \(\s*<p className="mt-2 text-xs text-error" role="alert">\s*\{extractError\}/,
+    "extractError must render with the same text-error/role=alert pattern as uploadError",
+  );
 });
 
 test("changed profile files never use hardcoded hex colors or raw Tailwind color classes", async () => {

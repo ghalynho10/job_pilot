@@ -13,7 +13,7 @@ import {
   subscribeToStagedResume,
   writeStagedResume,
 } from "@/lib/staged-resume-storage";
-import type { Profile } from "@/types";
+import type { ActionResult, ExtractedProfileFields, Profile } from "@/types";
 
 interface ProfileEditorProps {
   initialProfile: Profile;
@@ -26,6 +26,8 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -74,6 +76,31 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
       });
   };
 
+  const handleExtract = (): void => {
+    if (!resumeKey) return;
+    setExtractError(null);
+    setIsExtracting(true);
+
+    void fetch("/api/resume/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resumeKey }),
+    })
+      .then((response) => response.json() as Promise<ActionResult<{ data: ExtractedProfileFields }>>)
+      .then((result) => {
+        setIsExtracting(false);
+        if (result.success) {
+          setProfile((prev) => ({ ...prev, ...result.data }));
+        } else {
+          setExtractError(result.error);
+        }
+      })
+      .catch(() => {
+        setIsExtracting(false);
+        setExtractError("Something went wrong extracting your profile. Please try again.");
+      });
+  };
+
   const handleSave = (): void => {
     setSaveError(null);
     setSaveSuccess(false);
@@ -91,7 +118,11 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
   return (
     <>
       <ResumeUpload
+        canExtract={resumeKey !== null}
+        extractError={extractError}
+        isExtracting={isExtracting}
         isUploading={isUploading}
+        onExtract={handleExtract}
         onFileSelected={handleFileSelected}
         uploadedFileName={resumeFileName}
         uploadError={uploadError}
@@ -101,7 +132,7 @@ export function ProfileEditor({ initialProfile, userId }: ProfileEditorProps): J
         onProfileChange={setProfile}
         onSave={handleSave}
         profile={profile}
-        saveDisabled={isUploading}
+        saveDisabled={isUploading || isExtracting}
         saveError={saveError}
         saveSuccess={saveSuccess}
       />
