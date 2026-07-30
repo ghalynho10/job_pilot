@@ -39,31 +39,35 @@ test("find-jobs page composes the shared Navbar and the interactive client compo
   const source = await readProjectFile("app/find-jobs/page.tsx");
 
   assert.match(source, /<Navbar authenticated \/>/);
-  assert.match(source, /<FindJobsPage \/>/);
+  assert.match(source, /<FindJobsPage hasSkills=\{hasSkills\} userId=\{data\.user\.id\} \/>/);
 });
 
-test("job title and location inputs are real, unwired text inputs", async () => {
+test("job title and location inputs are real, controlled text inputs wired to state", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /id="job-title"/);
   assert.match(source, /id="location"/);
-  assert.doesNotMatch(source, /onChange=\{.*job-?[Tt]itle/);
+  assert.match(source, /onChange=\{\(event\) => setJobTitle\(event\.target\.value\)\}/);
+  assert.match(source, /onChange=\{\(event\) => setLocation\(event\.target\.value\)\}/);
 });
 
-test("Find Jobs button reveals the results area via local state, not a network call", async () => {
+test("Find Jobs button triggers a real search request against the agent endpoint", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /useState\(false\)/);
-  assert.match(source, /setHasSearched\(true\)/);
-  assert.doesNotMatch(source, /fetch\(/);
+  assert.match(source, /fetch\("\/api\/agent\/find"/);
+  assert.match(source, /method: "POST"/);
 });
 
-test("filter input and both dropdowns carry no filter, sort, or search behavior", async () => {
+test("the filter input and both dropdowns still carry no filter, sort, or search behavior (feature 11's scope)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.doesNotMatch(source, /onChange/, "no control in this feature should be wired to onChange");
-  assert.doesNotMatch(source, /\.filter\(/, "the mock dataset must never be filtered client side yet");
-  assert.doesNotMatch(source, /\.sort\(/, "the mock dataset must never be sorted client side yet");
+  assert.doesNotMatch(
+    source,
+    /aria-label="Filter by company or role"[\s\S]{0,200}onChange/,
+    "the filter input must not be wired yet",
+  );
+  assert.doesNotMatch(source, /\.filter\(/, "the fetched jobs must never be filtered client side yet");
+  assert.doesNotMatch(source, /\.sort\(/, "the fetched jobs must never be sorted client side yet");
 });
 
 test("dropdowns are native selects, not custom listboxes", async () => {
@@ -103,8 +107,8 @@ test("the jobs table is wrapped in a horizontally scrolling container", async ()
   assert.match(source, /overflow-x-auto/);
 });
 
-test("mock data shape mirrors the real jobs table's source check constraint", async () => {
-  const source = await readProjectFile("lib/mock-jobs.ts");
+test("JobRow's source field shape mirrors the real jobs table's source check constraint", async () => {
+  const source = await readProjectFile("types/index.ts");
 
   assert.match(source, /source: "search" \| "url"/);
 });
@@ -135,13 +139,10 @@ test("source badge label and classes match the design for both search and url", 
   );
 });
 
-test("pagination shows the exact static results text and page numbers from the design", async () => {
+test("pagination footer still shows the page number set and results copy from the design", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /Showing/);
-  assert.match(source, />1</);
-  assert.match(source, />6</);
-  assert.match(source, />24</);
   assert.match(source, /results/);
   assert.match(source, /const PAGE_NUMBERS = \[1, 2, 3, 8\]/);
 });
@@ -162,20 +163,48 @@ test("the Previous button is disabled since page 1 is always the starting page",
   assert.match(buttonTag, /\bdisabled\b/);
 });
 
-test("the success banner and the results table are gated behind the exact same hasSearched flag", async () => {
+test("the results table only renders once a search actually succeeded with real jobs", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  const occurrences = source.split("{hasSearched ? (").length - 1;
-  assert.equal(
-    occurrences,
-    2,
-    "expected exactly two hasSearched-gated blocks (the banner and the results section); a third or a differently-named flag would let them go out of sync",
-  );
-  assert.doesNotMatch(
+  assert.match(source, /status === "success" && jobs\.length > 0 \? \(/);
+});
+
+test("the search status is a single state machine, not scattered booleans", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
     source,
-    /useState\(false\)[\s\S]*useState\(false\)/,
-    "only one piece of state should gate the results area",
+    /useState<SearchStatus>\("idle"\)/,
+    "the page's search lifecycle should be one typed status value",
   );
+});
+
+test("a search with no results shows a distinct empty state, not the success banner", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /status === "empty"/);
+  assert.match(source, /No jobs found for that search/);
+});
+
+test("a failed search shows an alert, not a silent failure", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /status === "error"/);
+  assert.match(source, /role="alert"/);
+});
+
+test("the search inputs and button are disabled while a search is in flight", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /disabled=\{!hasSkills \|\| isLoading\}/);
+  assert.match(source, /disabled=\{!hasSkills \|\| isLoading \|\| jobTitle\.trim\(\)\.length === 0\}/);
+});
+
+test("a profile with no skills blocks the search before any request is made", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(source, /if \(!hasSkills \|\| isLoading\) \{\s*return;/);
+  assert.match(source, /Add your skills to your profile before searching for jobs\./);
 });
 
 test("both job title and location inputs have a visible, associated label", async () => {

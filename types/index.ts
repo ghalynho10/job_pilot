@@ -125,3 +125,29 @@ export type GeneratedResumeContent = {
   summary: string;
   workExperienceBullets: string[][];
 };
+
+export type JobMatch = {
+  matchScore: number;
+  matchReason: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+};
+
+export type JobRow = {
+  id: string;
+  run_id: string | null;
+  source: "search" | "url";
+  source_url: string | null;
+  external_apply_url: string | null;
+  title: string;
+  company: string;
+  location: string | null;
+  salary: string | null;
+  job_type: string | null;
+  about_role: string | null;
+  match_score: number | null;
+  match_reason: string | null;
+  matched_skills: string[] | null;
+  missing_skills: string[] | null;
+  found_at: string;
+};

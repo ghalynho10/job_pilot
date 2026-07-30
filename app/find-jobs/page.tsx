@@ -13,6 +13,14 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
     redirect("/login?error=session");
   }
 
+  const { data: profileRow } = await insforge.database
+    .from("profiles")
+    .select("skills")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  const hasSkills = Boolean(profileRow?.skills && profileRow.skills.length > 0);
+
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <a
@@ -26,7 +34,7 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
         className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-10 sm:px-8"
         id="main-content"
       >
-        <FindJobsPage />
+        <FindJobsPage hasSkills={hasSkills} userId={data.user.id} />
       </main>
     </div>
   );
