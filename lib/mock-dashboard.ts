@@ -22,31 +22,6 @@ export type DashboardScoreBand = {
   count: number;
 };
 
-export const mockStats: DashboardStat[] = [
-  {
-    label: "Total Jobs Found",
-    value: "284",
-    trend: { direction: "up", label: "vs last week" },
-    caption: "+12%",
-  },
-  {
-    label: "Avg. Match Rate",
-    value: "82%",
-    trend: { direction: "up", label: "vs last week" },
-    caption: "+3%",
-  },
-  {
-    label: "Companies Researched",
-    value: "35",
-    caption: "Total researched",
-  },
-  {
-    label: "Jobs This Week",
-    value: "28",
-    caption: "New this week",
-  },
-];
-
 export const mockActivity: DashboardActivityEntry[] = [
   {
     id: "1",

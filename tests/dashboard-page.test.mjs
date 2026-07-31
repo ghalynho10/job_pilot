@@ -42,20 +42,31 @@ test("dashboard page computes profile completeness from a real profiles read, ne
   assert.match(source, /jobTitlesSeeking: row\?\.job_titles_seeking \?\? \[\]/);
 });
 
-test("dashboard page only conditionally renders the banner, and imports no other database tables (AC-6, AC-10)", async () => {
+test("dashboard page only conditionally renders the banner, and reads only the profiles and jobs tables (AC-6, AC-10)", async () => {
   const source = await readProjectFile("app/dashboard/page.tsx");
 
   assert.match(source, /\{!profileComplete \? <IncompleteProfileBanner \/> : null\}/);
 
   const fromCalls = [...source.matchAll(/\.from\("([^"]+)"\)/g)].map((match) => match[1]);
-  assert.deepEqual(fromCalls, ["profiles"]);
+  assert.deepEqual(fromCalls, ["profiles", "jobs"]);
 });
 
-test("dashboard page composes stat cards, activity, and all three charts from lib/mock-dashboard, in the design's order (AC-1 to AC-5)", async () => {
+test("dashboard page computes real stat cards from the current user's jobs rows, never from mock data (feature 15)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /from "@\/lib\/dashboard-stats"/);
+  assert.match(source, /\.from\("jobs"\)/);
+  assert.match(source, /\.select\("match_score, company_research, found_at"\)/);
+  assert.match(source, /\.eq\("user_id", data\.user\.id\)/);
+  assert.match(source, /computeDashboardStats\(/);
+  assert.doesNotMatch(source, /mockStats/);
+});
+
+test("dashboard page composes stat cards, activity, and all three charts, in the design's order (AC-1 to AC-5)", async () => {
   const source = await readProjectFile("app/dashboard/page.tsx");
 
   assert.match(source, /from "@\/lib\/mock-dashboard"/);
-  assert.match(source, /mockStats\.map\(\(stat\) => \(/);
+  assert.match(source, /stats\.map\(\(stat\) => \(/);
   assert.match(source, /<RecentActivityCard activity=\{mockActivity\} \/>/);
   assert.match(source, /<CompanyResearchActivityChart data=\{mockCompanyResearchActivity\} \/>/);
   assert.match(source, /<JobsFoundOverTimeChart data=\{mockJobsFoundOverTime\} \/>/);

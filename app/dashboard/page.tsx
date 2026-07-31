@@ -9,6 +9,7 @@ import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDi
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Navbar } from "@/components/layout/Navbar";
+import { computeDashboardStats, type DashboardStatsJob } from "@/lib/dashboard-stats";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
 import {
@@ -16,7 +17,6 @@ import {
   mockCompanyResearchActivity,
   mockJobsFoundOverTime,
   mockMatchScoreDistribution,
-  mockStats,
 } from "@/lib/mock-dashboard";
 import type { ProfileRow } from "@/types";
 
@@ -52,6 +52,13 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     jobTitlesSeeking: row?.job_titles_seeking ?? [],
   });
 
+  const { data: statsJobs } = await insforge.database
+    .from("jobs")
+    .select("match_score, company_research, found_at")
+    .eq("user_id", data.user.id);
+
+  const stats = computeDashboardStats((statsJobs ?? []) as DashboardStatsJob[]);
+
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <a
@@ -69,7 +76,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
         {!profileComplete ? <IncompleteProfileBanner /> : null}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {mockStats.map((stat) => (
+          {stats.map((stat) => (
             <StatCard key={stat.label} stat={stat} />
           ))}
         </div>
