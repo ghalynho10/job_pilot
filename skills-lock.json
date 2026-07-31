@@ -49,6 +49,12 @@
       "skillPath": "skills/document/SKILL.md",
       "computedHash": "dd19068ec4c9f26994713079b0a528608e48e6895e3a9fad188fcf4cc9f2b42b"
     },
+    "recharts": {
+      "source": "ansanabria/skills",
+      "sourceType": "github",
+      "skillPath": "skills/recharts/SKILL.md",
+      "computedHash": "a34ecf6ee1664a089e800a7cec095e114c6c3e8a11a06d3dfe98a39aac13f70c"
+    },
     "scope": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
