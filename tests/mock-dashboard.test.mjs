@@ -2,40 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  mockActivity,
   mockCompanyResearchActivity,
   mockJobsFoundOverTime,
   mockMatchScoreDistribution,
 } from "../lib/mock-dashboard.ts";
-
-test("mockActivity has exactly five entries in the design's order (AC-2)", () => {
-  assert.equal(mockActivity.length, 5);
-  assert.deepEqual(
-    mockActivity.map((entry) => entry.title),
-    [
-      "Found 8 jobs for Frontend Engineer",
-      "Researched Stripe",
-      "Found 12 jobs for React Developer",
-      "Researched Vercel",
-      "Found 10 jobs for Full Stack Engineer",
-    ],
-  );
-  assert.deepEqual(
-    mockActivity.map((entry) => entry.timestamp),
-    ["10 mins ago", "1 hour ago", "2 hours ago", "Yesterday", "Yesterday"],
-  );
-});
-
-test("mockActivity entry ids are unique, so React keys never collide (AC-2)", () => {
-  const ids = mockActivity.map((entry) => entry.id);
-  assert.equal(new Set(ids).size, ids.length);
-});
-
-test("mockActivity dotColor is always one of the three tokenized tones (AC-2)", () => {
-  for (const entry of mockActivity) {
-    assert.ok(["accent", "info", "success"].includes(entry.dotColor), `unexpected dotColor "${entry.dotColor}"`);
-  }
-});
 
 test("mockCompanyResearchActivity has seven Mon-to-Sun bars matching the design's values (AC-3)", () => {
   assert.deepEqual(

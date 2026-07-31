@@ -1,67 +1,44 @@
-# Memory — Feature 13, Company Research Agent, complete
+# Memory — Feature 16, Recent Activity — Real Data, complete (uncommitted)
 
 Last updated: 2026-07-31
 
 ## What was built
 
-Feature 13, Company Research Agent, is complete: designed, built, verified live, tested, and synced.
+Feature 16, Recent Activity — Real Data, is complete: built and verified live. Not yet committed or merged. No new spec was needed, same shape as feature 15 — `context/build-plan.md`'s existing logic section (merge two scoped queries by timestamp, format, color-code) was already fully specified, no architectural decision to invent.
 
-Main code added or changed:
+Main code added or changed (all currently uncommitted, on branch `dashboard-page`, which is the same commit as `main` right now since feature 15 was already merged and pushed):
 
-- `docs/specs/0009-company-research-agent/index.md` and `rationale.md`, Feature 13 spec, Status Accepted.
-- `migrations/20260731180810_add-jobs-company-research-completed-at.sql`, adds `jobs.company_research_completed_at timestamptz`, applied to the live project.
-- `agent/research.ts`, the research agent: `deriveCompanyHomepageUrl`, `runCompanyResearch`. One bounded Stagehand v3 session (homepage extract plus up to 3 sub pages, capped and prioritized by link kind, always closed in `finally`), then GPT-4o synthesis into a 9 field dossier, with a guaranteed fallback (job plus profile data only) when browsing fails or is thin.
-- `app/api/agent/research/route.ts`, `POST /api/agent/research`: auth check, `jobId` validation, scoped `id`+`user_id` job read, profile read with an empty-profile fallback, writes `company_research` and `company_research_completed_at` together only on success, fires `company_researched`, revalidates the specific job's page.
-- `components/job-details/CompanyResearchCard.tsx`, now a client component with idle, loading, error, and saved-dossier states, replacing Feature 12's disabled placeholder.
-- `components/job-details/JobDetailsPage.tsx`, passes `jobId` and `dossier` through.
-- `types/index.ts`, new `CompanyResearchDossier` type; `JobRow.company_research` typed to it; new `company_research_completed_at` field.
-- `.env.example`, `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` placeholders.
-- `package.json`/`package-lock.json`, new deps `@browserbasehq/sdk`, `@browserbasehq/stagehand`.
-- `tests/research-agent.test.mjs` and `tests/agent-research-route.test.mjs` (new), `tests/job-details.test.mjs` (extended). Full suite: 276/276 passing.
-- `AGENTS.md`, new "Agent skills" section recording two installed Browserbase skills (`browser`, `browser-use-to-stagehand`); `skills-lock.json` updated.
-- `context/progress-tracker.md` and `context/ui-registry.md`, Feature 13 marked complete, Phase advanced to Phase 5.
-- `docs/specs/0008-job-details-page/index.md`, Status corrected to Accepted (was stuck on "In Progress" despite Feature 12 being done) and both Follow-up items ticked, since Feature 13 is what they were waiting on.
-- `insforge.toml`, committed for the first time (pre-existing file, content unchanged, no secrets in it).
-
-All of the above landed in 7 separate commits on branch `browserbase` (not pushed to origin): feature code+deps+migration, tests, spec 0009, spec 0008 status fix, progress-tracker/ui-registry, agent skills tooling, insforge.toml.
+- `lib/dashboard-activity.ts` (new), pure `computeRecentActivity(agentRuns, researchedJobs, now?)`: merges completed `agent_runs` and researched `jobs` into `DashboardActivityEntry[]`, sorted by timestamp descending, capped to the newest 8. An agent run becomes `"Found {jobsFound} jobs for {jobTitleSearched}"` with a `success` (green) dot; a researched job becomes `"Researched {company}"` with an `info` (blue) dot — `accent` (the type's third color) stays unused by real data, matching feature 15's precedent of leaving `StatCard`'s trend branch unused. Also exports `formatTimeAgo(timestamp, now?)` reproducing the mock's exact phrasing ("Just now", "N min(s) ago", "N hour(s) ago", "Yesterday", "N days ago").
+- `app/dashboard/page.tsx`, now also reads the current user's completed `agent_runs` (`id, job_title_searched, jobs_found, completed_at`, `.eq("status","completed")`) and `jobs` rows with non-null `company_research_completed_at` (`id, company, company_research_completed_at`, `.not(...)`), both scoped by `user_id`, ordered newest first, capped at 10 rows each, then renders `computeRecentActivity(...)` instead of `mockActivity`.
+- `lib/mock-dashboard.ts`, `mockActivity` removed as superseded (its `DashboardActivityEntry` type stays, still shared by the real data path and `RecentActivityCard`, which is unchanged).
+- `types/index.ts`, new `AgentRunRow` type.
+- `tests/dashboard-activity.test.mjs` (new, 10 tests), `tests/dashboard-page.test.mjs` and `tests/mock-dashboard.test.mjs` updated. Full suite: 306/306 passing. `tsc`, lint, `npm run build` all clean.
+- `context/progress-tracker.md` and `context/ui-registry.md` updated (feature 16 checked off, DashboardPage entry rewritten).
 
 ## Decisions made
 
-- The Research Company button is synchronous: it awaits the request, then calls `router.refresh()`. No background job in this slice.
-- No refresh/re-research action once a dossier exists; the card just shows the saved dossier.
-- Homepage URL derivation follows the saved job's redirect via `fetch(url, { redirect: "follow" })`, strips to the root domain; falls back to a `https://www.{company}.com` guess if that fails or lands on an Adzuna domain.
-- Stagehand's real installed API (v3, `@browserbasehq/stagehand@3.7.1`) differs from the object-form `stagehand.extract({ instruction, schema })` example that was in `context/build-plan.md`: the real signature is positional, `stagehand.extract(instruction: string, schema: ZodSchema, options?)`. Implemented against the real `.d.ts`, not the plan's snippet.
-- `revalidatePath` bug found live during `/check verify`: the original call, `revalidatePath("/find-jobs/[id]")`, is a silent no-op in Next.js without a `type` argument. Fixed to `revalidatePath(\`/find-jobs/${jobId}\`)` (the job's own resolved path). Spec 0009's AC-9 wording and the route test were both updated to match.
+- Merged activity list capped at 8 entries (within the build plan's stated 5-to-10 range), a specific implementation choice, not re-litigated with the user.
+- Agent runs are filtered to `status = "completed"` only (a `running` or `failed` run is excluded from the activity feed, since "Found X jobs for..." only makes sense for a completed search).
+- Color mapping: job-search activity is `success` (green), company-research activity is `info` (blue), per the build plan's explicit "info blue, success green" instruction. `accent` is a supported token on the shared type but no real entry uses it.
 
 ## Problems solved
 
-- First live research run only ever hit the fallback path (never real browsing), because `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` in `.env.local` were set to the identical value, a copy-paste mistake, not a code bug. User fixed the key; re-ran and confirmed via server logs that a real Browserbase session opens and extraction completes.
-- A stray, never-committed edit to `context/build-plan.md` (unrelated to Feature 13, about Feature 07's resume extraction) falsely claimed GPT-4o extraction returns "all profile field names." Verified against `ExtractedProfileFields` (in `types/index.ts`) and `agent/resume-extractor.ts`'s own system prompt, both of which explicitly exclude email and job-preference fields. Reverted to the accurate, originally-committed wording. Origin of that stray edit is unknown; it predated this session and was never committed.
+None — this feature had no real implementation snags; the query pattern followed feature 15's precedent.
 
 ## Current state
 
-- Feature 13 fully verified live: real signed-in flow proven via throwaway InsForge accounts (email/password signup, session cookie injected into real Playwright browser requests), since this sandbox has no OAuth test credentials. Confirmed: auth gating, cross-user scoping (no leak), input validation, the idle/loading/error/saved-dossier UI states at desktop and mobile, a real research run with real Browserbase browsing, and DB persistence.
-- `npm test` (276/276), `npx tsc --noEmit`, `npm run lint`, `npm run build` all clean.
-- Spec 0009: Accepted. Spec 0008: Accepted (corrected this session).
-- `context/progress-tracker.md`: Feature 13 checked off, Phase 5 next.
-- Two Browserbase Agent Skills installed: `browserbase/skills@browser`, `browserbase/skills@browser-use-to-stagehand`.
-- `context/build-plan.md` is back to its clean, committed state.
-- Nothing pushed to `origin` this session; all 7 commits are local on `browserbase`.
+- `/check verify` ran live against two real throwaway InsForge accounts (email/password signup, `require_email_verification` temporarily disabled via `insforge.toml` / `config apply` then restored, session cookie injected into a real Playwright browser). Account A had 5 seeded `agent_runs` (3 completed at different ages, 1 running, 1 failed) and 4 seeded `jobs` (3 researched at different ages, 1 unresearched); the rendered activity list exactly matched hand-computed expectations in order, title, timestamp text, and dot color, and correctly excluded the running run, failed run, and unresearched job. Account B (no activity) rendered an empty list with no crash and no console errors. Unauthenticated `/dashboard` still redirects (307 to `/login`). Both throwaway accounts and all their rows (including `auth.users`, via direct `db query`) were deleted afterward.
+- Note for next session: a second `npm run dev` I started during verify conflicted with the user's own already-running dev server on port 3000 (Next.js detected the lock and exited without binding anything) — used the user's existing server instead, no orphan process left behind. Worth remembering: check `lsof -i :3000` before assuming you need to start your own server.
+- No `/test` pass needed separately — tests were written during `/develop` and confirmed accurate by the verify run.
+- Nothing committed yet this session. `git status` shows the feature 16 files as modified/untracked on branch `dashboard-page` (currently identical to `main`, since feature 15 already merged and pushed).
 
 ## Next session starts with
 
-Start Feature 14, Dashboard Page — Full UI (per `context/progress-tracker.md` and `context/build-plan.md`'s Phase 5).
+Commit and merge feature 16 (same flow as feature 15: commit on `dashboard-page`, merge into `main` via VS Code Source Control or `git merge`, push), then start Feature 17, Analytics Charts — PostHog Data (per `context/progress-tracker.md` and `context/build-plan.md`'s Phase 5, the last feature in Phase 5).
 
-Recommended first command:
-
-```text
-/architect feature 14
-```
-
-`context/build-plan.md` already has a fairly complete description of the dashboard (mock data first, four stat cards, recent activity, charts); confirm whether that's detailed enough to skip straight to `/develop`, matching the precedent set for Feature 13.
+Feature 17's logic per the build plan: query PostHog for `job_found` and `company_researched` events (not the `jobs`/`agent_runs` tables like 15/16), group into day-buckets or score-bands, wire all three dashboard charts (`JobsFoundOverTimeChart`, `MatchScoreDistributionChart`, `CompanyResearchActivityChart`) to real data, with an empty state per chart when no data exists yet. This is a different data source (PostHog query API, not InsForge DB) — check whether `/develop` can still skip `/architect` here, or whether querying PostHog (auth, query shape, empty-state handling) counts as a decision owed. Feature 10's memory noted PostHog write access was confirmed working; query/read access for analytics has not been exercised yet in this project — worth checking early whether a query-capable PostHog key is even available in this environment before assuming feature 17 can be built and verified the same way as 15/16.
 
 ## Open questions
 
-- Three throwaway InsForge accounts created during verification (`jobpilot-verify*@example.com` pattern) still exist. Their `profiles`/`jobs` rows were deleted, but the `auth.users` rows themselves have no available delete path via CLI/REST/SDK (no admin endpoint exposed). Need manual deletion from the InsForge dashboard if desired.
-- Whether to push the 7 local commits on `browserbase` to origin, or open a PR, is undecided.
-- Feature 15/16 (Stats Bar, Recent Activity) should read `jobs.company_research_completed_at` for research timing, per spec 0009's own follow-up note — worth confirming when those are built.
+- Whether the other unmerged branches (`Profile_save_logic`, `adzuna-job-search`, `job-details-page`, `add-workflow-skills`) still need merging into `main`, or are stale/superseded, is still unconfirmed from last session — worth asking the user before touching them.
+- Feature 17 may need a query-capable PostHog API key; prior sessions (feature 10) only had a write-only key available. If that's still the case, feature 17's `/check verify` may hit the same kind of block feature 10's did for the `job_found` event.

@@ -22,39 +22,6 @@ export type DashboardScoreBand = {
   count: number;
 };
 
-export const mockActivity: DashboardActivityEntry[] = [
-  {
-    id: "1",
-    dotColor: "accent",
-    title: "Found 8 jobs for Frontend Engineer",
-    timestamp: "10 mins ago",
-  },
-  {
-    id: "2",
-    dotColor: "info",
-    title: "Researched Stripe",
-    timestamp: "1 hour ago",
-  },
-  {
-    id: "3",
-    dotColor: "success",
-    title: "Found 12 jobs for React Developer",
-    timestamp: "2 hours ago",
-  },
-  {
-    id: "4",
-    dotColor: "accent",
-    title: "Researched Vercel",
-    timestamp: "Yesterday",
-  },
-  {
-    id: "5",
-    dotColor: "success",
-    title: "Found 10 jobs for Full Stack Engineer",
-    timestamp: "Yesterday",
-  },
-];
-
 export const mockCompanyResearchActivity: DashboardDayCount[] = [
   { day: "Mon", count: 2 },
   { day: "Tue", count: 5 },

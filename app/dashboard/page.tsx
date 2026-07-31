@@ -9,11 +9,11 @@ import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDi
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Navbar } from "@/components/layout/Navbar";
+import { computeRecentActivity } from "@/lib/dashboard-activity";
 import { computeDashboardStats, type DashboardStatsJob } from "@/lib/dashboard-stats";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
 import {
-  mockActivity,
   mockCompanyResearchActivity,
   mockJobsFoundOverTime,
   mockMatchScoreDistribution,
@@ -59,6 +59,24 @@ export default async function DashboardPage(): Promise<JSX.Element> {
 
   const stats = computeDashboardStats((statsJobs ?? []) as DashboardStatsJob[]);
 
+  const { data: agentRunRows } = await insforge.database
+    .from("agent_runs")
+    .select("id, job_title_searched, jobs_found, completed_at")
+    .eq("user_id", data.user.id)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(10);
+
+  const { data: researchedJobRows } = await insforge.database
+    .from("jobs")
+    .select("id, company, company_research_completed_at")
+    .eq("user_id", data.user.id)
+    .not("company_research_completed_at", "is", null)
+    .order("company_research_completed_at", { ascending: false })
+    .limit(10);
+
+  const activity = computeRecentActivity(agentRunRows ?? [], researchedJobRows ?? []);
+
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <a
@@ -82,7 +100,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <RecentActivityCard activity={mockActivity} />
+          <RecentActivityCard activity={activity} />
           <CompanyResearchActivityChart data={mockCompanyResearchActivity} />
         </div>
 
