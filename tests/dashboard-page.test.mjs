@@ -42,13 +42,26 @@ test("dashboard page computes profile completeness from a real profiles read, ne
   assert.match(source, /jobTitlesSeeking: row\?\.job_titles_seeking \?\? \[\]/);
 });
 
-test("dashboard page only conditionally renders the banner, and reads only the profiles and jobs tables (AC-6, AC-10)", async () => {
+test("dashboard page only conditionally renders the banner, and reads only the profiles, jobs, and agent_runs tables (AC-6, AC-10)", async () => {
   const source = await readProjectFile("app/dashboard/page.tsx");
 
   assert.match(source, /\{!profileComplete \? <IncompleteProfileBanner \/> : null\}/);
 
   const fromCalls = [...source.matchAll(/\.from\("([^"]+)"\)/g)].map((match) => match[1]);
-  assert.deepEqual(fromCalls, ["profiles", "jobs"]);
+  assert.deepEqual(fromCalls, ["profiles", "jobs", "agent_runs", "jobs"]);
+});
+
+test("dashboard page computes real recent activity from the current user's agent_runs and jobs rows, never from mock data (feature 16)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /from "@\/lib\/dashboard-activity"/);
+  assert.match(source, /\.from\("agent_runs"\)/);
+  assert.match(source, /\.select\("id, job_title_searched, jobs_found, completed_at"\)/);
+  assert.match(source, /\.eq\("status", "completed"\)/);
+  assert.match(source, /\.select\("id, company, company_research_completed_at"\)/);
+  assert.match(source, /\.not\("company_research_completed_at", "is", null\)/);
+  assert.match(source, /computeRecentActivity\(/);
+  assert.doesNotMatch(source, /mockActivity/);
 });
 
 test("dashboard page computes real stat cards from the current user's jobs rows, never from mock data (feature 15)", async () => {
@@ -67,7 +80,7 @@ test("dashboard page composes stat cards, activity, and all three charts, in the
 
   assert.match(source, /from "@\/lib\/mock-dashboard"/);
   assert.match(source, /stats\.map\(\(stat\) => \(/);
-  assert.match(source, /<RecentActivityCard activity=\{mockActivity\} \/>/);
+  assert.match(source, /<RecentActivityCard activity=\{activity\} \/>/);
   assert.match(source, /<CompanyResearchActivityChart data=\{mockCompanyResearchActivity\} \/>/);
   assert.match(source, /<JobsFoundOverTimeChart data=\{mockJobsFoundOverTime\} \/>/);
   assert.match(source, /<MatchScoreDistributionChart data=\{mockMatchScoreDistribution\} \/>/);
