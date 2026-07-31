@@ -48,7 +48,10 @@ test("find-jobs page composes the shared Navbar and the interactive client compo
 test("find-jobs page fetches the caller's existing jobs server side, newest first (AC-1)", async () => {
   const source = await readProjectFile("app/find-jobs/page.tsx");
 
-  assert.match(source, /\.from\("jobs"\)\s*\.select\("\*"\)\s*\.order\("found_at", \{ ascending: false \}\)/);
+  assert.match(
+    source,
+    /\.from\("jobs"\)\s*\.select\("\*"\)\s*\.eq\("user_id", data\.user\.id\)\s*\.order\("found_at", \{ ascending: false \}\)/,
+  );
   assert.match(source, /const initialJobs = \(jobRows \?\? \[\]\) as JobRow\[\];/);
 });
 
@@ -356,7 +359,10 @@ test("a thrown error during the search request is caught and shown as a generic 
 test("the post-search refetch orders jobs by found_at descending, so the newest results show first", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /\.order\("found_at", \{ ascending: false \}\)/);
+  assert.match(
+    source,
+    /\.from\("jobs"\)\s*\.select\("\*"\)\s*\.eq\("user_id", userId\)\s*\.order\("found_at", \{ ascending: false \}\)/,
+  );
 });
 
 test("find-jobs files never use hardcoded hex colors or raw Tailwind color classes", async () => {

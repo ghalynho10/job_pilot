@@ -17,6 +17,14 @@ function copyResponseCookies(
   }
 }
 
+function shouldShowSessionError(request: NextRequest, hadSession: boolean, hasError: boolean): boolean {
+  if (hadSession || hasError) {
+    return true;
+  }
+
+  return /^\/find-jobs\/[^/]+$/.test(request.nextUrl.pathname);
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next({ request });
   const hadSession = Boolean(
@@ -39,7 +47,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
             appUrl: process.env.NEXT_PUBLIC_APP_URL,
             nodeEnv: process.env.NODE_ENV,
           }),
-          hadSession || Boolean(error),
+          shouldShowSessionError(request, hadSession, Boolean(error)),
         ),
       );
       copyResponseCookies(response, redirectResponse);

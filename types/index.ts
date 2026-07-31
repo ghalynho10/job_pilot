@@ -136,6 +136,7 @@ export type JobMatch = {
 export type JobRow = {
   id: string;
   run_id: string | null;
+  user_id: string;
   source: "search" | "url";
   source_url: string | null;
   external_apply_url: string | null;
@@ -145,9 +146,15 @@ export type JobRow = {
   salary: string | null;
   job_type: string | null;
   about_role: string | null;
+  responsibilities: string[] | null;
+  requirements: string[] | null;
+  nice_to_have: string[] | null;
+  benefits: string[] | null;
+  about_company: string | null;
   match_score: number | null;
   match_reason: string | null;
   matched_skills: string[] | null;
   missing_skills: string[] | null;
+  company_research: Record<string, unknown> | null;
   found_at: string;
 };
