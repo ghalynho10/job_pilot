@@ -49,6 +49,7 @@ export function JobDetailsPage({ job }: JobDetailsPageProps): JSX.Element {
         aboutCompany={job.about_company}
         aboutRole={job.about_role}
         benefits={normalizeStringList(job.benefits)}
+        externalJobUrl={externalJobUrl}
         niceToHave={normalizeStringList(job.nice_to_have)}
         requirements={normalizeStringList(job.requirements)}
         responsibilities={normalizeStringList(job.responsibilities)}
