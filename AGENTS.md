@@ -196,3 +196,8 @@ Key patterns:
 - Reference users with `auth.users(id)`; use `auth.uid()` in RLS policies.
 - For storage uploads, persist only the returned `key`, never a `url`. Storage never overwrites an existing key (a repeat upload to the same key silently succeeds under a renamed key instead), so target a fresh unique key per upload. A private bucket's URL never resolves without auth and is not durable; mint a signed URL (`createSignedUrl`) only at the point one is actually needed. See `context/library-docs.md`'s Storage section.
 <!-- INSFORGE:END -->
+
+## Agent skills
+
+- [browser](.agents/skills/browser/): `browserbase/skills`, browser automation conventions for Browserbase/Stagehand, relevant to `agent/research.ts`
+- [browser-use-to-stagehand](.agents/skills/browser-use-to-stagehand/): `browserbase/skills`, Stagehand v3 (`act`/`extract`/`observe`/`agent`) API patterns on Browserbase
