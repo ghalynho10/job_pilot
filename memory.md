@@ -1,74 +1,67 @@
-# Memory — Feature 12 completed and merged
+# Memory — Feature 13, Company Research Agent, complete
 
 Last updated: 2026-07-31
 
 ## What was built
 
-Feature 12, Job Details Page, is complete. It was designed, built, tested, verified, reviewed, fixed after review, and merged.
+Feature 13, Company Research Agent, is complete: designed, built, verified live, tested, and synced.
 
 Main code added or changed:
 
-- `app/find-jobs/[id]/page.tsx`, authenticated saved job detail route.
-- `components/job-details/*`, the server renderable detail page pieces.
-- `lib/job-details.ts`, shared display helpers for safe external links, nullable text, found date, structured string lists, and provider preview detection.
-- `components/find-jobs/FindJobsPage.tsx`, job title links now navigate to `/find-jobs/[id]`.
-- `app/find-jobs/page.tsx`, saved jobs are scoped to the signed in user.
-- `proxy.ts`, direct signed out job detail visits redirect to `/login?error=session`.
-- `types/index.ts`, `JobRow` now includes all detail fields read by the page.
-- `tests/job-details.test.mjs` and `tests/find-jobs-contract.test.mjs`, Feature 12 contract coverage.
-- `docs/specs/0008-job-details-page/`, Feature 12 spec.
-- `docs/reviews/2026-07-31-feature-12-verify.md`, final verify evidence.
-- `docs/reviews/2026-07-31-job-details-page.md` and `docs/reviews/2026-07-31-job-details-page-rereview.md`, review records.
-- `context/ui-registry.md`, Job Details patterns, including the preview description callout.
-- `context/progress-tracker.md`, Feature 12 marked complete.
+- `docs/specs/0009-company-research-agent/index.md` and `rationale.md`, Feature 13 spec, Status Accepted.
+- `migrations/20260731180810_add-jobs-company-research-completed-at.sql`, adds `jobs.company_research_completed_at timestamptz`, applied to the live project.
+- `agent/research.ts`, the research agent: `deriveCompanyHomepageUrl`, `runCompanyResearch`. One bounded Stagehand v3 session (homepage extract plus up to 3 sub pages, capped and prioritized by link kind, always closed in `finally`), then GPT-4o synthesis into a 9 field dossier, with a guaranteed fallback (job plus profile data only) when browsing fails or is thin.
+- `app/api/agent/research/route.ts`, `POST /api/agent/research`: auth check, `jobId` validation, scoped `id`+`user_id` job read, profile read with an empty-profile fallback, writes `company_research` and `company_research_completed_at` together only on success, fires `company_researched`, revalidates the specific job's page.
+- `components/job-details/CompanyResearchCard.tsx`, now a client component with idle, loading, error, and saved-dossier states, replacing Feature 12's disabled placeholder.
+- `components/job-details/JobDetailsPage.tsx`, passes `jobId` and `dossier` through.
+- `types/index.ts`, new `CompanyResearchDossier` type; `JobRow.company_research` typed to it; new `company_research_completed_at` field.
+- `.env.example`, `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` placeholders.
+- `package.json`/`package-lock.json`, new deps `@browserbasehq/sdk`, `@browserbasehq/stagehand`.
+- `tests/research-agent.test.mjs` and `tests/agent-research-route.test.mjs` (new), `tests/job-details.test.mjs` (extended). Full suite: 276/276 passing.
+- `AGENTS.md`, new "Agent skills" section recording two installed Browserbase skills (`browser`, `browser-use-to-stagehand`); `skills-lock.json` updated.
+- `context/progress-tracker.md` and `context/ui-registry.md`, Feature 13 marked complete, Phase advanced to Phase 5.
+- `docs/specs/0008-job-details-page/index.md`, Status corrected to Accepted (was stuck on "In Progress" despite Feature 12 being done) and both Follow-up items ticked, since Feature 13 is what they were waiting on.
+- `insforge.toml`, committed for the first time (pre-existing file, content unchanged, no secrets in it).
 
-Late debug fix:
-
-- A saved job description could end mid sentence with an ellipsis, for example `in t…`.
-- The detail page was not clipping it. The saved `about_role` value already came from the provider as a preview.
-- The UI now detects descriptions that end in `…` or `...` and shows a callout linking to the safe external job post. It does not invent missing text.
+All of the above landed in 7 separate commits on branch `browserbase` (not pushed to origin): feature code+deps+migration, tests, spec 0009, spec 0008 status fix, progress-tracker/ui-registry, agent skills tooling, insforge.toml.
 
 ## Decisions made
 
-- The job detail route is server rendered and reads exactly one `jobs` row scoped by both `id` and `user_id`.
-- Invalid ids, missing rows, and cross user rows all use the app not found state, so ownership is not leaked.
-- External job links use one resolver, preferring `external_apply_url`, then `source_url`, accepting only `http:` and `https:`.
-- Company Research stays as a disabled empty state in Feature 12. Feature 13 owns the real research agent and dossier rendering.
-- Saved job descriptions are treated as source data. If the provider only saved a preview, the app shows that preview honestly and links to the original post.
-- `normalizeStringList` accepts unknown legacy data and keeps only non blank strings, so malformed array values cannot crash the page.
+- The Research Company button is synchronous: it awaits the request, then calls `router.refresh()`. No background job in this slice.
+- No refresh/re-research action once a dossier exists; the card just shows the saved dossier.
+- Homepage URL derivation follows the saved job's redirect via `fetch(url, { redirect: "follow" })`, strips to the root domain; falls back to a `https://www.{company}.com` guess if that fails or lands on an Adzuna domain.
+- Stagehand's real installed API (v3, `@browserbasehq/stagehand@3.7.1`) differs from the object-form `stagehand.extract({ instruction, schema })` example that was in `context/build-plan.md`: the real signature is positional, `stagehand.extract(instruction: string, schema: ZodSchema, options?)`. Implemented against the real `.d.ts`, not the plan's snippet.
+- `revalidatePath` bug found live during `/check verify`: the original call, `revalidatePath("/find-jobs/[id]")`, is a silent no-op in Next.js without a `type` argument. Fixed to `revalidatePath(\`/find-jobs/${jobId}\`)` (the job's own resolved path). Spec 0009's AC-9 wording and the route test were both updated to match.
 
 ## Problems solved
 
-- Review found malformed structured arrays could crash the detail page. Fixed by filtering to strings before trimming. Regression test added.
-- Review found long job fact values were clipped. Fixed by replacing truncation with wrapping in the info cards.
-- Verify was originally blocked because there was no authenticated browser evidence. The engineer supplied real desktop and mobile screenshots, and the verify report now records the pass.
-- A later debug found that truncated job descriptions were provider previews, not CSS clipping. Fixed with the preview callout and safe source link.
+- First live research run only ever hit the fallback path (never real browsing), because `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` in `.env.local` were set to the identical value, a copy-paste mistake, not a code bug. User fixed the key; re-ran and confirmed via server logs that a real Browserbase session opens and extraction completes.
+- A stray, never-committed edit to `context/build-plan.md` (unrelated to Feature 13, about Feature 07's resume extraction) falsely claimed GPT-4o extraction returns "all profile field names." Verified against `ExtractedProfileFields` (in `types/index.ts`) and `agent/resume-extractor.ts`'s own system prompt, both of which explicitly exclude email and job-preference fields. Reverted to the accurate, originally-committed wording. Origin of that stray edit is unknown; it predated this session and was never committed.
 
 ## Current state
 
-- `main` is clean and up to date with `origin/main`.
-- Latest visible commit is `768fb8b added view job description for truncated job descriptions (#7)`.
-- Feature 12 is complete in the tracker.
-- Final gates after the debug fix passed:
-  - `npm test`, 252 tests passed.
-  - `npx tsc --noEmit` passed.
-  - `npm run lint` passed.
-  - `npm run build` passed with network access for the Google Fonts fetch.
+- Feature 13 fully verified live: real signed-in flow proven via throwaway InsForge accounts (email/password signup, session cookie injected into real Playwright browser requests), since this sandbox has no OAuth test credentials. Confirmed: auth gating, cross-user scoping (no leak), input validation, the idle/loading/error/saved-dossier UI states at desktop and mobile, a real research run with real Browserbase browsing, and DB persistence.
+- `npm test` (276/276), `npx tsc --noEmit`, `npm run lint`, `npm run build` all clean.
+- Spec 0009: Accepted. Spec 0008: Accepted (corrected this session).
+- `context/progress-tracker.md`: Feature 13 checked off, Phase 5 next.
+- Two Browserbase Agent Skills installed: `browserbase/skills@browser`, `browserbase/skills@browser-use-to-stagehand`.
+- `context/build-plan.md` is back to its clean, committed state.
+- Nothing pushed to `origin` this session; all 7 commits are local on `browserbase`.
 
 ## Next session starts with
 
-Start Feature 13, Company Research Agent.
+Start Feature 14, Dashboard Page — Full UI (per `context/progress-tracker.md` and `context/build-plan.md`'s Phase 5).
 
 Recommended first command:
 
 ```text
-/architect feature 13
+/architect feature 14
 ```
 
-Feature 13 should extend the existing Job Details page. The Company Research card already exists as a disabled empty state, and Feature 13 should replace or activate it with the real research flow.
+`context/build-plan.md` already has a fairly complete description of the dashboard (mock data first, four stat cards, recent activity, charts); confirm whether that's detailed enough to skip straight to `/develop`, matching the precedent set for Feature 13.
 
 ## Open questions
 
-- Feature 13 still needs its own spec and design decisions.
-- The full strategy for company research storage, refresh behavior, and failure states is not decided yet.
-- Some older verify gaps remain documented in their own reports, especially live PostHog event readback and simulated Adzuna failure paths. They are not blockers for Feature 12.
+- Three throwaway InsForge accounts created during verification (`jobpilot-verify*@example.com` pattern) still exist. Their `profiles`/`jobs` rows were deleted, but the `auth.users` rows themselves have no available delete path via CLI/REST/SDK (no admin endpoint exposed). Need manual deletion from the InsForge dashboard if desired.
+- Whether to push the 7 local commits on `browserbase` to origin, or open a PR, is undecided.
+- Feature 15/16 (Stats Bar, Recent Activity) should read `jobs.company_research_completed_at` for research timing, per spec 0009's own follow-up note — worth confirming when those are built.
