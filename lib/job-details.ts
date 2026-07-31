@@ -26,12 +26,15 @@ export function formatFoundAt(value: string): string {
   return date.toLocaleDateString();
 }
 
-export function normalizeStringList(value: string[] | null): string[] {
+export function normalizeStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value.map((item) => item.trim()).filter((item) => item.length > 0);
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 function parseSafeExternalUrl(value: string | null): string | null {
