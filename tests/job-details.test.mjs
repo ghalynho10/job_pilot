@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   formatFoundAt,
   formatNullableText,
+  isLikelyTruncatedDescription,
   isValidUuid,
   normalizeStringList,
   resolveExternalJobUrl,
@@ -179,6 +180,18 @@ test("structured text list normalization ignores malformed legacy entries instea
   assert.deepEqual(normalizeStringList({ value: ["React"] }), []);
 });
 
+test("job description preview detection catches saved text that ends at the source preview boundary", () => {
+  assert.equal(
+    isLikelyTruncatedDescription(
+      "This role is based out of the Boston office in t…",
+    ),
+    true,
+  );
+  assert.equal(isLikelyTruncatedDescription("This role is based out of the Boston office..."), true);
+  assert.equal(isLikelyTruncatedDescription("This role is based out of the Boston office."), false);
+  assert.equal(isLikelyTruncatedDescription(null), false);
+});
+
 test("uuid validation rejects malformed route ids before any database read (AC-2)", () => {
   assert.equal(isValidUuid("6f6d6c30-31ef-4f01-a0a1-17836e4d4db1"), true);
   assert.equal(isValidUuid("not-a-uuid"), false);
@@ -216,6 +229,7 @@ test("job details components render required screenshot sections and disabled re
   assert.doesNotMatch(researchSource, /fetch\("/);
   assert.doesNotMatch(researchSource, /\/api\/agent\/research/);
   assert.match(descriptionSource, /whitespace-pre-line/);
+  assert.match(descriptionSource, /Read the full job post/);
   assert.match(infoSource, /break-words text-base font-semibold text-text-primary/);
   assert.doesNotMatch(infoSource, /truncate text-base font-semibold/);
 });
@@ -238,6 +252,7 @@ test("job details page normalizes saved row values before child components rende
   assert.match(source, /matchedSkills=\{normalizeStringList\(job\.matched_skills\)\}/);
   assert.match(source, /missingSkills=\{normalizeStringList\(job\.missing_skills\)\}/);
   assert.match(source, /benefits=\{normalizeStringList\(job\.benefits\)\}/);
+  assert.match(source, /externalJobUrl=\{externalJobUrl\}/);
   assert.match(source, /niceToHave=\{normalizeStringList\(job\.nice_to_have\)\}/);
   assert.match(source, /requirements=\{normalizeStringList\(job\.requirements\)\}/);
   assert.match(source, /responsibilities=\{normalizeStringList\(job\.responsibilities\)\}/);
@@ -284,7 +299,12 @@ test("job description card renders only saved plain text and non empty structure
 
   assert.match(descriptionSource, /const description = aboutRole\?\.trim\(\);/);
   assert.match(descriptionSource, /const companyText = aboutCompany\?\.trim\(\);/);
+  assert.match(descriptionSource, /const isPreviewDescription = isLikelyTruncatedDescription\(description \?\? null\);/);
   assert.match(descriptionSource, /No job description was saved for this role\./);
+  assert.match(descriptionSource, /This saved description ends where the job source preview stops\./);
+  assert.match(descriptionSource, /href=\{externalJobUrl\}/);
+  assert.match(descriptionSource, /target="_blank"/);
+  assert.match(descriptionSource, /rel="noopener noreferrer"/);
   assert.match(descriptionSource, /<StructuredList label="Responsibilities" items=\{responsibilities\} \/>/);
   assert.match(descriptionSource, /<StructuredList label="Requirements" items=\{requirements\} \/>/);
   assert.match(descriptionSource, /<StructuredList label="Nice to have" items=\{niceToHave\} \/>/);

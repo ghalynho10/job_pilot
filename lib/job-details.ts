@@ -37,6 +37,10 @@ export function normalizeStringList(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
+export function isLikelyTruncatedDescription(value: string | null): boolean {
+  return /(?:…|\.\.\.)$/.test(value?.trim() ?? "");
+}
+
 function parseSafeExternalUrl(value: string | null): string | null {
   if (!value) {
     return null;
