@@ -171,6 +171,14 @@ test("job details helpers normalize nullable display values and structured text 
   assert.equal(formatFoundAt("not a date"), "—");
 });
 
+test("structured text list normalization ignores malformed legacy entries instead of throwing (AC-8)", () => {
+  assert.deepEqual(
+    normalizeStringList([" Build APIs ", 123, null, { value: "React" }, "", "Write tests"]),
+    ["Build APIs", "Write tests"],
+  );
+  assert.deepEqual(normalizeStringList({ value: ["React"] }), []);
+});
+
 test("uuid validation rejects malformed route ids before any database read (AC-2)", () => {
   assert.equal(isValidUuid("6f6d6c30-31ef-4f01-a0a1-17836e4d4db1"), true);
   assert.equal(isValidUuid("not-a-uuid"), false);
@@ -188,6 +196,7 @@ test("uuid validation accepts valid variants and rejects ids that could alter ro
 test("job details components render required screenshot sections and disabled research behavior (AC-4 through AC-11)", async () => {
   const pageSource = await readProjectFile("components/job-details/JobDetailsPage.tsx");
   const headerSource = await readProjectFile("components/job-details/JobHeader.tsx");
+  const infoSource = await readProjectFile("components/job-details/JobInfoCards.tsx");
   const researchSource = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
   const actionsSource = await readProjectFile("components/job-details/JobActions.tsx");
   const descriptionSource = await readProjectFile("components/job-details/JobDescriptionCard.tsx");
@@ -207,6 +216,8 @@ test("job details components render required screenshot sections and disabled re
   assert.doesNotMatch(researchSource, /fetch\("/);
   assert.doesNotMatch(researchSource, /\/api\/agent\/research/);
   assert.match(descriptionSource, /whitespace-pre-line/);
+  assert.match(infoSource, /break-words text-base font-semibold text-text-primary/);
+  assert.doesNotMatch(infoSource, /truncate text-base font-semibold/);
 });
 
 test("job details page passes one safe external url to both external actions (AC-4, AC-10)", async () => {

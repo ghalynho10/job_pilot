@@ -36,7 +36,7 @@ export function JobInfoCards({ salary, location, jobType, foundAt }: JobInfoCard
                 <Icon aria-hidden="true" className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-text-primary">{item.value}</p>
+                <p className="break-words text-base font-semibold text-text-primary">{item.value}</p>
                 <p className="mt-1 text-xs font-medium uppercase tracking-wide text-text-muted">{item.label}</p>
               </div>
             </div>
