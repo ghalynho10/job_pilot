@@ -100,11 +100,13 @@ test("JobRow includes every field the details page reads without any typed as an
     "benefits",
     "about_company",
     "company_research",
+    "company_research_completed_at",
   ]) {
     assert.match(source, new RegExp(`${field}:`));
   }
 
-  assert.match(source, /company_research: Record<string, unknown> \| null;/);
+  assert.match(source, /company_research: CompanyResearchDossier \| null;/);
+  assert.match(source, /company_research_completed_at: string \| null;/);
   assert.doesNotMatch(source, /company_research: any/);
 });
 
@@ -206,7 +208,7 @@ test("uuid validation accepts valid variants and rejects ids that could alter ro
   assert.equal(isValidUuid("' OR 1=1 --"), false);
 });
 
-test("job details components render required screenshot sections and disabled research behavior (AC-4 through AC-11)", async () => {
+test("job details components render required screenshot sections and the real research action (AC-4 through AC-13)", async () => {
   const pageSource = await readProjectFile("components/job-details/JobDetailsPage.tsx");
   const headerSource = await readProjectFile("components/job-details/JobHeader.tsx");
   const infoSource = await readProjectFile("components/job-details/JobInfoCards.tsx");
@@ -224,10 +226,8 @@ test("job details components render required screenshot sections and disabled re
   assert.match(headerSource, /View Job Post/);
   assert.match(actionsSource, /Apply Now at \{company\}/);
   assert.match(actionsSource, /rel="noopener noreferrer"/);
-  assert.match(researchSource, /disabled/);
-  assert.match(researchSource, /Company research for \{company\} arrives in the next feature\./);
-  assert.doesNotMatch(researchSource, /fetch\("/);
-  assert.doesNotMatch(researchSource, /\/api\/agent\/research/);
+  assert.match(researchSource, /"use client";/);
+  assert.match(researchSource, /fetch\("\/api\/agent\/research"/);
   assert.match(descriptionSource, /whitespace-pre-line/);
   assert.match(descriptionSource, /Read the full job post/);
   assert.match(infoSource, /break-words text-base font-semibold text-text-primary/);
@@ -240,6 +240,10 @@ test("job details page passes one safe external url to both external actions (AC
   assert.match(source, /const externalJobUrl = resolveExternalJobUrl\(job\);/);
   assert.match(source, /<JobHeader externalJobUrl=\{externalJobUrl\} job=\{job\} \/>/);
   assert.match(source, /<JobActions company=\{job\.company\} externalJobUrl=\{externalJobUrl\} \/>/);
+  assert.match(
+    source,
+    /<CompanyResearchCard company=\{job\.company\} dossier=\{job\.company_research\} jobId=\{job\.id\} \/>/,
+  );
 });
 
 test("job details page normalizes saved row values before child components render them (AC-5 through AC-8)", async () => {
@@ -313,18 +317,67 @@ test("job description card renders only saved plain text and non empty structure
   assert.match(listSource, /if \(items\.length === 0\) \{\s*return null;/);
 });
 
-test("company research card stays a disabled empty state with no side effects (AC-9)", async () => {
+test("company research card shows the empty state, an enabled button, and no dossier rendering with no saved research (AC-11)", async () => {
   const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
 
   assert.match(source, /Research Company/);
-  assert.match(source, /disabled/);
   assert.match(source, /No research yet/);
-  assert.match(source, /arrives in the next feature/);
-  assert.doesNotMatch(source, /fetch\(/);
+  assert.match(source, /dossier \? null : \(/);
+});
+
+test("company research card blocks the button while loading and shows an inline error on failure, never a partial dossier (AC-7, AC-11)", async () => {
+  const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
+
+  assert.match(source, /disabled=\{status === "loading"\}/);
+  assert.match(source, /Researching…/);
+  assert.match(source, /if \(!result\.success\) \{\s*setStatus\("error"\);\s*setErrorMessage\(result\.error\);\s*return;/);
+  assert.match(source, /Research failed/);
+  assert.match(source, /role="alert"/);
+});
+
+test("company research card renders the saved dossier's nine fields directly with no button once research exists (AC-11)", async () => {
+  const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
+
+  for (const field of [
+    "companyOverview",
+    "techStack",
+    "culture",
+    "whyThisRole",
+    "yourEdge",
+    "gapsToAddress",
+    "smartQuestions",
+    "interviewPrep",
+    "sources",
+  ]) {
+    assert.match(source, new RegExp(`dossier\\.${field}`));
+  }
+});
+
+test("company research card refreshes the router on success instead of managing DB state itself (AC-11)", async () => {
+  const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
+
+  assert.match(source, /router\.refresh\(\);/);
   assert.doesNotMatch(source, /insforge/);
   assert.doesNotMatch(source, /\.database/);
-  assert.doesNotMatch(source, /company_research/);
   assert.doesNotMatch(source, /stagehand/i);
+});
+
+test("company research card posts the job's own id as the request body, not the whole job or dossier (AC-11)", async () => {
+  const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
+
+  assert.match(
+    source,
+    /fetch\("\/api\/agent\/research", \{\s*method: "POST",\s*headers: \{ "Content-Type": "application\/json" \},\s*body: JSON\.stringify\(\{ jobId \}\),/,
+  );
+});
+
+test("company research card shows a generic error if the fetch call itself rejects, not only when the API responds with success:false (AC-11)", async () => {
+  const source = await readProjectFile("components/job-details/CompanyResearchCard.tsx");
+
+  assert.match(
+    source,
+    /\} catch \{\s*setStatus\("error"\);\s*setErrorMessage\("Something went wrong researching this company\. Please try again\."\);\s*\}/,
+  );
 });
 
 test("job details files use token classes, not hardcoded hex colors or raw Tailwind color classes (AC-11)", async () => {
