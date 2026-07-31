@@ -10,6 +10,8 @@
     "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@browserbasehq/sdk": "^2.16.0",
+    "@browserbasehq/stagehand": "^3.7.1",
     "@insforge/sdk": "^1.4.5",
     "@react-pdf/renderer": "^4.5.1",
     "lucide-react": "^1.25.0",

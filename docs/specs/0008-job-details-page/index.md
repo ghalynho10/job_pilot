@@ -1,7 +1,7 @@
 # 0008. Job details page
 
 **Date**: 2026-07-31
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
@@ -124,8 +124,8 @@ This project is tracking features through `context/build-plan.md` and `context/p
 
 ## Follow-up
 
-- [ ] Feature 13 should replace the company research empty state with the real Stagehand research action and saved dossier rendering.
-- [ ] If `company_research` already exists for legacy or manual rows before feature 13, leave it unrendered or show a minimal unavailable state in feature 12; do not design the dossier UI here.
+- [x] Feature 13 replaced the company research empty state with the real Stagehand research action and saved dossier rendering. See [spec 0009](../0009-company-research-agent/index.md).
+- [x] Resolved by feature 13's own design: `company_research` is written and rendered only through the new research flow; no legacy or manual rows existed to special case.
 
 ## Rationale
 

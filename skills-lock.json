@@ -13,6 +13,18 @@
       "skillPath": "skills/audit/SKILL.md",
       "computedHash": "52621740bc6bfde5b4ca778958fd7ac65cd400e377bd0338128db5c3e63a32aa"
     },
+    "browser": {
+      "source": "browserbase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/browser/SKILL.md",
+      "computedHash": "1db8101630cecd0782347bf67c9ccc1ab57f6ffe408f527612088ab55a392a5f"
+    },
+    "browser-use-to-stagehand": {
+      "source": "browserbase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/browser-use-to-stagehand/SKILL.md",
+      "computedHash": "8f24675943a6c4584223e7207b88b3277470e95f76e9cc1e55c549941b7ecc58"
+    },
     "check": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
