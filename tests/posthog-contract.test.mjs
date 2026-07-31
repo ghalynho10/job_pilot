@@ -80,14 +80,10 @@ test("the auth callback route no longer wires PostHog identify or capture", asyn
   assert.doesNotMatch(route, /posthog\.shutdown/);
 });
 
-test("OAuthButton and DashboardActions no longer import posthog-js", async () => {
+test("OAuthButton no longer imports posthog-js", async () => {
   const oauthButton = await readProjectFile("components/auth/OAuthButton.tsx");
-  const dashboardActions = await readProjectFile(
-    "components/dashboard/DashboardActions.tsx",
-  );
 
   assert.doesNotMatch(oauthButton, /from ["']posthog-js["']/);
-  assert.doesNotMatch(dashboardActions, /from ["']posthog-js["']/);
 });
 
 test("Navbar still resets PostHog identity on sign out", async () => {

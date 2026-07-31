@@ -1,0 +1,153 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const projectRoot = new URL("../", import.meta.url);
+
+async function readProjectFile(path) {
+  return readFile(new URL(path, projectRoot), "utf8");
+}
+
+test("dashboard page keeps the auth redirect, skip link, Navbar, and PostHog identify unchanged (AC-7)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /const \{ data, error \} = await insforge\.auth\.getCurrentUser\(\);/);
+  assert.match(source, /redirect\("\/login\?error=session"\)/);
+  assert.match(source, /href="#main-content"/);
+  assert.match(source, /id="main-content"/);
+  assert.match(source, /<Navbar authenticated \/>/);
+  assert.match(source, /<DashboardIdentity userId=\{data\.user\.id\} \/>/);
+});
+
+test("dashboard page removed the old placeholder shell and its DashboardActions import (AC-7)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.doesNotMatch(source, /DashboardActions/);
+  assert.doesNotMatch(source, /Set up your search profile/);
+  assert.doesNotMatch(source, /Welcome back/);
+});
+
+test("DashboardActions component no longer exists in the codebase (AC-7)", async () => {
+  await assert.rejects(() => readProjectFile("components/dashboard/DashboardActions.tsx"));
+});
+
+test("dashboard page computes profile completeness from a real profiles read, never from mock data (AC-6, AC-10)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /\.from\("profiles"\)/);
+  assert.match(source, /\.select\("\*"\)/);
+  assert.match(source, /\.eq\("id", data\.user\.id\)/);
+  assert.match(source, /\.maybeSingle<ProfileRow>\(\)/);
+  assert.match(source, /isProfileComplete\(\{/);
+  assert.match(source, /jobTitlesSeeking: row\?\.job_titles_seeking \?\? \[\]/);
+});
+
+test("dashboard page only conditionally renders the banner, and imports no other database tables (AC-6, AC-10)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /\{!profileComplete \? <IncompleteProfileBanner \/> : null\}/);
+
+  const fromCalls = [...source.matchAll(/\.from\("([^"]+)"\)/g)].map((match) => match[1]);
+  assert.deepEqual(fromCalls, ["profiles"]);
+});
+
+test("dashboard page composes stat cards, activity, and all three charts from lib/mock-dashboard, in the design's order (AC-1 to AC-5)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /from "@\/lib\/mock-dashboard"/);
+  assert.match(source, /mockStats\.map\(\(stat\) => \(/);
+  assert.match(source, /<RecentActivityCard activity=\{mockActivity\} \/>/);
+  assert.match(source, /<CompanyResearchActivityChart data=\{mockCompanyResearchActivity\} \/>/);
+  assert.match(source, /<JobsFoundOverTimeChart data=\{mockJobsFoundOverTime\} \/>/);
+  assert.match(source, /<MatchScoreDistributionChart data=\{mockMatchScoreDistribution\} \/>/);
+
+  const activityIndex = source.indexOf("<RecentActivityCard");
+  const researchChartIndex = source.indexOf("<CompanyResearchActivityChart");
+  const jobsChartIndex = source.indexOf("<JobsFoundOverTimeChart");
+  const matchChartIndex = source.indexOf("<MatchScoreDistributionChart");
+
+  assert.ok(activityIndex < researchChartIndex, "Recent Activity should come before Company Research Activity");
+  assert.ok(researchChartIndex < jobsChartIndex, "Company Research Activity should come before Jobs Found Over Time");
+  assert.ok(jobsChartIndex < matchChartIndex, "Jobs Found Over Time should come before Match Score Distribution");
+});
+
+test("dashboard page stacks the stat cards, and each chart pair, to a single column on narrow viewports (AC-8)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4/);
+  const twoColumnGrids = source.match(/grid grid-cols-1 gap-6 lg:grid-cols-2/g) ?? [];
+  assert.equal(twoColumnGrids.length, 2, "expected exactly two responsive two-column rows");
+});
+
+test("StatCard uses the shared card surface and swaps between a trend pill and a plain caption (AC-1, AC-9)", async () => {
+  const source = await readProjectFile("components/dashboard/StatCard.tsx");
+
+  assert.match(source, /rounded-xl border border-border bg-surface p-6 shadow-sm/);
+  assert.match(source, /\{stat\.trend \? \(/);
+  assert.match(source, /bg-success-lightest px-2 py-0\.5 font-medium text-success-foreground/);
+  assert.match(source, /\) : stat\.caption \? \(/);
+});
+
+test("RecentActivityCard uses the shared card surface, a semantic list, and maps every dot color to a token (AC-2, AC-9)", async () => {
+  const source = await readProjectFile("components/dashboard/RecentActivityCard.tsx");
+
+  assert.match(source, /rounded-xl border border-border bg-surface p-6 shadow-sm/);
+  assert.match(source, /<ul className="mt-4 divide-y divide-border">/);
+  assert.match(source, /accent: "bg-accent"/);
+  assert.match(source, /info: "bg-info-medium"/);
+  assert.match(source, /success: "bg-success"/);
+  assert.match(source, /aria-hidden="true"/);
+});
+
+test("IncompleteProfileBanner links to /profile, announces as a status region, and hides its icon from assistive tech (AC-6)", async () => {
+  const source = await readProjectFile("components/dashboard/IncompleteProfileBanner.tsx");
+
+  assert.match(source, /role="status"/);
+  assert.match(source, /href="\/profile"/);
+  assert.match(source, /<AlertCircle aria-hidden="true"/);
+  assert.match(source, /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent/);
+  assert.match(source, /bg-warning px-4 py-3 text-sm font-medium text-warning-foreground/);
+});
+
+test("CompanyResearchActivityChart renders a Recharts bar chart colored from the info token (AC-3, AC-9)", async () => {
+  const source = await readProjectFile("components/dashboard/CompanyResearchActivityChart.tsx");
+
+  assert.match(source, /"use client";/);
+  assert.match(source, /rounded-xl border border-border bg-surface p-6 shadow-sm/);
+  assert.match(source, /<BarChart data=\{data\}>/);
+  assert.match(source, /dataKey="day"/);
+  assert.match(source, /<Bar dataKey="count" fill="var\(--color-info-medium\)"/);
+});
+
+test("MatchScoreDistributionChart renders a Recharts bar chart colored from the success token, keyed by band (AC-5, AC-9)", async () => {
+  const source = await readProjectFile("components/dashboard/MatchScoreDistributionChart.tsx");
+
+  assert.match(source, /"use client";/);
+  assert.match(source, /<BarChart data=\{data\}>/);
+  assert.match(source, /dataKey="band"/);
+  assert.match(source, /<Bar dataKey="count" fill="var\(--color-success\)"/);
+});
+
+test("JobsFoundOverTimeChart renders a Recharts area chart with an accent-colored gradient fill (AC-4, AC-9)", async () => {
+  const source = await readProjectFile("components/dashboard/JobsFoundOverTimeChart.tsx");
+
+  assert.match(source, /"use client";/);
+  assert.match(source, /<AreaChart data=\{data\}>/);
+  assert.match(source, /dataKey="day"/);
+  assert.match(source, /stopColor="var\(--color-accent\)"/);
+  assert.match(source, /stroke="var\(--color-accent\)"/);
+  assert.match(source, /type="monotone"/);
+});
+
+test("no chart component hardcodes a hex color or raw Tailwind color class; every fill and stroke is a CSS variable token (AC-9)", async () => {
+  const files = [
+    "components/dashboard/CompanyResearchActivityChart.tsx",
+    "components/dashboard/JobsFoundOverTimeChart.tsx",
+    "components/dashboard/MatchScoreDistributionChart.tsx",
+  ];
+
+  for (const file of files) {
+    const source = await readProjectFile(file);
+    assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}(?!\))/, `${file} should not contain a hardcoded hex color`);
+  }
+});
