@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 3 — Find Jobs Page
+**Phase:** Phase 4 — Job Details Page
 **Last completed:** 11 Filter + Sort + Pagination
-**Next:** 12 Job Details Page — Full UI
+**Next:** /check verify 12 Job Details Page — Full UI
 
 ---
 
@@ -36,7 +36,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 4 — Job Details Page
 
-- [ ] 12 Job Details Page — Full UI
+- [ ] 12 Job Details Page — Full UI (built, awaiting /check verify and /test)
 - [ ] 13 Company Research Agent
 
 ### Phase 5 — Dashboard

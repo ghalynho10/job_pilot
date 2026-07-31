@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Building2, Search, Sparkles } from "lucide-react";
+import Link from "next/link";
 import posthog from "posthog-js";
 import { useMemo, useState, type FormEvent, type JSX } from "react";
 
@@ -142,6 +143,7 @@ export function FindJobsPage({
       const { data: freshJobs, error: fetchError } = await insforge.database
         .from("jobs")
         .select("*")
+        .eq("user_id", userId)
         .order("found_at", { ascending: false });
 
       if (fetchError) {
@@ -346,7 +348,14 @@ export function FindJobsPage({
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-sm text-text-primary">{job.title}</td>
+                          <td className="px-4 py-4 text-sm text-text-primary">
+                            <Link
+                              className="font-medium text-text-primary underline-offset-2 hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                              href={`/find-jobs/${job.id}`}
+                            >
+                              {job.title}
+                            </Link>
+                          </td>
                           <td className="px-4 py-4">
                             <MatchScoreBar matchScore={job.match_score} />
                           </td>

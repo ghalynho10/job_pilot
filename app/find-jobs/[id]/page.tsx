@@ -1,12 +1,25 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { JSX } from "react";
 
-import { FindJobsPage } from "@/components/find-jobs/FindJobsPage";
+import { JobDetailsPage } from "@/components/job-details/JobDetailsPage";
 import { Navbar } from "@/components/layout/Navbar";
 import { createInsforgeServer } from "@/lib/insforge-server";
+import { isValidUuid } from "@/lib/job-details";
 import type { JobRow } from "@/types";
 
-export default async function FindJobsRoutePage(): Promise<JSX.Element> {
+type FindJobDetailsRoutePageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function FindJobDetailsRoutePage({
+  params,
+}: FindJobDetailsRoutePageProps): Promise<JSX.Element> {
+  const { id } = await params;
+
+  if (!isValidUuid(id)) {
+    notFound();
+  }
+
   const insforge = await createInsforgeServer();
   const { data, error } = await insforge.auth.getCurrentUser();
 
@@ -14,21 +27,22 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
     redirect("/login?error=session");
   }
 
-  const { data: profileRow } = await insforge.database
-    .from("profiles")
-    .select("skills")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  const hasSkills = Boolean(profileRow?.skills && profileRow.skills.length > 0);
-
-  const { data: jobRows } = await insforge.database
+  const { data: jobRow, error: jobError } = await insforge.database
     .from("jobs")
     .select("*")
+    .eq("id", id)
     .eq("user_id", data.user.id)
-    .order("found_at", { ascending: false });
+    .maybeSingle();
 
-  const initialJobs = (jobRows ?? []) as JobRow[];
+  if (jobError) {
+    throw new Error("Job details could not be loaded.");
+  }
+
+  if (!jobRow) {
+    notFound();
+  }
+
+  const job = jobRow as JobRow;
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
@@ -39,11 +53,8 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
         Skip to content
       </a>
       <Navbar authenticated />
-      <main
-        className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-10 sm:px-8"
-        id="main-content"
-      >
-        <FindJobsPage hasSkills={hasSkills} initialJobs={initialJobs} userId={data.user.id} />
+      <main className="mx-auto max-w-[1440px] px-6 py-10 sm:px-8" id="main-content">
+        <JobDetailsPage job={job} />
       </main>
     </div>
   );

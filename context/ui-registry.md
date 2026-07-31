@@ -232,3 +232,37 @@ Last updated: 2026-07-30 (feature 10, Adzuna job discovery)
 | Pagination active page | `rounded-md border border-accent bg-accent-light px-3 py-1.5 text-sm font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`, `aria-current="page"` |
 
 Server `app/find-jobs/page.tsx` follows the exact `DashboardPage`/`ProfilePage` auth pattern (`createInsforgeServer`, redirect to `/login?error=session` if no session), then additionally reads the caller's `profiles.skills` and passes `hasSkills`/`userId` down to the client `FindJobsPage` component alongside the shared `Navbar`. Per spec [0006](../docs/specs/0006-adzuna-job-discovery/index.md), feature 10 replaced feature 09's static mock shell with a real search: `components/find-jobs/FindJobsPage.tsx` now owns controlled `jobTitle`/`location` inputs plus a single `status` state machine (`idle` / `loading` / `success` / `empty` / `error`) instead of the old `hasSearched` boolean. Submitting fires `job_search_started` client side, posts to `POST /api/agent/find`, then on success refetches the real saved rows via `insforge.database.from("jobs")` rather than rendering the old fixed `lib/mock-jobs.ts` array (deleted, nothing imports it anymore). The results table renders only once `status === "success"` and at least one job came back; a distinct empty banner shows when the search legitimately found zero jobs, and the error banner shows on any request failure. If the caller's profile has no skills recorded, the whole form is disabled up front and a warning banner explains why, so a search is never even attempted without something to score against. The filter input, both `<select>` dropdowns, and every pagination button are still exactly as static as feature 09 left them (no `onChange`/`onClick` wiring); feature 11 (Filter + Sort + Pagination) still owns wiring that markup to real behavior. The match score color bands here (green ≥90%, blue 80 to 89%, orange below 80%, now driven by `lib/match-score.ts` rather than the deleted `lib/mock-jobs.ts`) remain a page-local display rule, a different concern from feature 11's own High/Low Match semantics (`>= 70%` / `< 70%`) — don't conflate the two if reusing this bar elsewhere.
+
+### JobDetailsPage
+
+File: `app/find-jobs/[id]/page.tsx` (auth shell) + `components/job-details/*` (server-renderable detail components)
+
+Last updated: 2026-07-31
+
+| Property | Class |
+| --- | --- |
+| Page background | `bg-background` |
+| Main shell | `max-w-[1440px] px-6 py-10 sm:px-8` |
+| Detail column | `max-w-4xl gap-6` |
+| Back link | `inline-flex w-fit items-center gap-2 text-base font-medium text-text-secondary hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+| Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Header icon slot | `size-16 rounded-xl border border-border bg-surface-secondary` with `Building2` icon in `text-text-muted` |
+| Header title | `text-3xl font-semibold leading-tight text-text-primary` |
+| Match badge | `rounded-full bg-success-lightest px-3 py-1 text-sm font-medium text-success-foreground`; null score falls back to `bg-surface-secondary text-text-secondary` |
+| Secondary external action | `inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+| Info cards | `rounded-xl border border-border bg-surface p-4 shadow-sm`, grid `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` |
+| Info icon badges | `size-11 rounded-lg`, token tone per fact: salary `bg-success-lightest text-success`, location `bg-info-lightest text-info-foreground`, job type `bg-accent-muted text-accent`, date `bg-surface-secondary text-text-secondary` |
+| Section eyebrow | `text-xs font-semibold uppercase tracking-wide text-text-secondary` |
+| Body paragraph | `text-base font-medium leading-7 text-text-primary` |
+| Matched skill pill | `inline-flex items-center gap-1 rounded-full bg-success-lightest px-3 py-1 text-sm font-medium text-success-foreground` |
+| Missing skill pill | `inline-flex items-center gap-1 rounded-full bg-accent-muted px-3 py-1 text-sm font-medium text-accent` |
+| Company Research card | `overflow-hidden rounded-xl border border-border bg-surface shadow-sm`, header `border-b border-border p-6` |
+| Disabled Research Company action | `rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-70` |
+| Research empty state | `min-h-72 px-6 py-12 text-center`, icon box `size-14 rounded-xl bg-surface-secondary`, muted copy `text-text-muted` |
+| Primary Apply Now action | `min-h-12 w-full rounded-md bg-accent px-4 py-3 text-base font-medium text-accent-foreground hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+
+Server route follows the protected page pattern (`createInsforgeServer`, current user read, redirect to `/login?error=session` when the page itself sees no valid session). `proxy.ts` now also sends direct signed out `/find-jobs/[id]` visits to the same session-error login URL while leaving the broader "first time visitor gets plain /login" behavior intact. The job details row read is always `.eq("id", id).eq("user_id", data.user.id).maybeSingle()` after a UUID check, so invalid ids, missing rows, and cross-user rows all become not found without revealing ownership.
+
+`lib/job-details.ts` centralizes the small display rules: `resolveExternalJobUrl` accepts only parsed `http:` or `https:` urls and prefers `external_apply_url` over `source_url`; `formatNullableText` and `formatFoundAt` supply deliberate fallbacks; `normalizeStringList` trims and drops blank structured entries. Keep these helpers as the single source for job detail display normalization, rather than reimplementing url or nullable handling inside components.
+
+The Company Research card is intentionally an empty state for feature 12. Its button is a native disabled button and must not call `/api/agent/research`, start Browserbase or Stagehand, update `jobs.company_research`, or render dossier fields until feature 13.
