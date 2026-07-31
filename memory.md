@@ -1,42 +1,74 @@
-# Memory — Feature 11 (Filter + Sort + Pagination) built, verified, tested, merged
+# Memory — Feature 12 completed and merged
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 ## What was built
 
-Feature 11, Filter + Sort + Pagination on the Find Jobs page (spec `docs/specs/0007-filter-sort-pagination-find-jobs/`), designed, built, verified, and tested this session. Now merged to `main` via PR #6 ("Adzuna job search"), alongside feature 10's own follow-up commits.
+Feature 12, Job Details Page, is complete. It was designed, built, tested, verified, reviewed, fixed after review, and merged.
 
-- `lib/match-score.ts`: added shared `MATCH_THRESHOLD = 70` constant.
-- `agent/adzuna.ts`: now imports `MATCH_THRESHOLD` instead of its own duplicated `STRONG_MATCH_THRESHOLD = 70`.
-- `lib/find-jobs-filters.ts` (new): pure `filterJobs`, `sortJobs`, `paginateJobs` helpers (text + match-tier filter, three sort modes with null-score handling, page slicing).
-- `app/find-jobs/page.tsx`: now fetches the caller's `jobs` server side on page load (ordered `found_at` descending) and passes them to `FindJobsPage` as `initialJobs`, so a returning user sees their saved jobs without searching again.
-- `components/find-jobs/FindJobsPage.tsx`: filter text, match filter, sort, and page state wired to the previously inert filter box, match dropdown, sort dropdown, and pagination footer. Two new empty states ("no jobs yet" vs "no jobs match your filters"). Page resets to 1 on any filter/sort change; all four reset to defaults on a new search.
-- `tsconfig.json`: added `allowImportingTsExtensions` so `lib/find-jobs-filters.ts` can import `./match-score.ts` with an explicit extension — needed because the project's `node --experimental-strip-types` test runner has no path-alias resolution, so a real (non-type-only) cross-file import via the `@/` alias fails at runtime under `node --test` even though it works fine under Next's bundler.
-- Tests: `tests/find-jobs-filters.test.mjs` (new, 11 tests — real unit tests importing the helpers). `tests/find-jobs-contract.test.mjs` and `tests/agent-adzuna.test.mjs` updated (the old versions asserted the *pre*-feature-11 placeholder state, e.g. a hardcoded `PAGE_NUMBERS = [1, 2, 3, 8]` and "no `onChange` wired yet" — those assertions were flipped to test the real wiring). `tests/match-score.test.mjs` +1 test for `MATCH_THRESHOLD`'s real value. All contract-test titles for feature 11 tagged with their `AC-N` for traceability. Full suite: 227/227 passing.
-- `/check verify`: no browser MCP or OAuth-scriptable session available in this environment. Verified directly: AC-10 (unauthenticated `/find-jobs` → 307 to `/login`) via `curl`; `npm test`, `tsc --noEmit`, `next build` all clean. AC-1 through AC-9 (the actual filter/sort/pagination UI behavior) were confirmed by the engineer driving the real signed-in page themselves and reporting back — recorded as such in `verify.md`, not fabricated.
-- `docs/specs/0007-filter-sort-pagination-find-jobs/index.md` status: `Proposed` → `In Progress` → `Accepted`. `context/progress-tracker.md`: feature 11 marked `[x]`, "Next" now points to feature 12.
+Main code added or changed:
+
+- `app/find-jobs/[id]/page.tsx`, authenticated saved job detail route.
+- `components/job-details/*`, the server renderable detail page pieces.
+- `lib/job-details.ts`, shared display helpers for safe external links, nullable text, found date, structured string lists, and provider preview detection.
+- `components/find-jobs/FindJobsPage.tsx`, job title links now navigate to `/find-jobs/[id]`.
+- `app/find-jobs/page.tsx`, saved jobs are scoped to the signed in user.
+- `proxy.ts`, direct signed out job detail visits redirect to `/login?error=session`.
+- `types/index.ts`, `JobRow` now includes all detail fields read by the page.
+- `tests/job-details.test.mjs` and `tests/find-jobs-contract.test.mjs`, Feature 12 contract coverage.
+- `docs/specs/0008-job-details-page/`, Feature 12 spec.
+- `docs/reviews/2026-07-31-feature-12-verify.md`, final verify evidence.
+- `docs/reviews/2026-07-31-job-details-page.md` and `docs/reviews/2026-07-31-job-details-page-rereview.md`, review records.
+- `context/ui-registry.md`, Job Details patterns, including the preview description callout.
+- `context/progress-tracker.md`, Feature 12 marked complete.
+
+Late debug fix:
+
+- A saved job description could end mid sentence with an ellipsis, for example `in t…`.
+- The detail page was not clipping it. The saved `about_role` value already came from the provider as a preview.
+- The UI now detects descriptions that end in `…` or `...` and shows a callout linking to the safe external job post. It does not invent missing text.
 
 ## Decisions made
 
-- Centralized the match-score threshold (70) into `lib/match-score.ts`'s `MATCH_THRESHOLD`, imported by both `agent/adzuna.ts` and `lib/find-jobs-filters.ts`, per spec 0007's own stated invariant (was previously duplicated).
-- Filtering, sorting, and pagination are pure client-side derivations over one full fetch (all of a user's `jobs` rows), no new API route, no server round-trip per interaction. Accepted tradeoff: fetches the whole list even at large row counts; revisit with server-side pagination only if that becomes a real problem (spec 0007's own noted follow-up).
-- `allowImportingTsExtensions: true` added to `tsconfig.json` — a small, permanent project convention change (not feature-scoped) enabling real cross-file imports between `lib/*.ts` files that need to run under the raw `node --test` runner, not just under Next's bundler. Worth remembering if this comes up again: the project's test runner has no `@/` alias resolution, so any `lib/` file that needs both (a) a real runtime import of another local module and (b) to be executed directly by `node --test` (not just source-regex-matched) needs this pattern: relative import + explicit `.ts` extension.
+- The job detail route is server rendered and reads exactly one `jobs` row scoped by both `id` and `user_id`.
+- Invalid ids, missing rows, and cross user rows all use the app not found state, so ownership is not leaked.
+- External job links use one resolver, preferring `external_apply_url`, then `source_url`, accepting only `http:` and `https:`.
+- Company Research stays as a disabled empty state in Feature 12. Feature 13 owns the real research agent and dossier rendering.
+- Saved job descriptions are treated as source data. If the provider only saved a preview, the app shows that preview honestly and links to the original post.
+- `normalizeStringList` accepts unknown legacy data and keeps only non blank strings, so malformed array values cannot crash the page.
 
 ## Problems solved
 
-- `node --experimental-strip-types --test` couldn't resolve `@/lib/match-score` (a real, non-type-only import) — TS path aliases aren't resolved by node's raw ESM loader, only by Next's bundler/tsc. Type-only imports (`import type { X } from "@/types"`) are unaffected since `--experimental-strip-types` elides them entirely before resolution ever runs. Fixed by switching the value import to a relative path with an explicit `.ts` extension (`./match-score.ts`) plus the `allowImportingTsExtensions` tsconfig flag (otherwise tsc's `bundler` moduleResolution rejects `.ts`-extension imports with TS5097).
-- No browser MCP or OAuth-scriptable session available for `/check verify` (same environment limitation noted in the previous session's memory for feature 10) — handled the same way: curl for unauthenticated/HTTP-level checks, honest `BLOCKED` for anything needing a signed-in browser session, then the engineer manually drove the page and confirmed it worked, recorded in `verify.md` rather than fabricated.
+- Review found malformed structured arrays could crash the detail page. Fixed by filtering to strings before trimming. Regression test added.
+- Review found long job fact values were clipped. Fixed by replacing truncation with wrapping in the info cards.
+- Verify was originally blocked because there was no authenticated browser evidence. The engineer supplied real desktop and mobile screenshots, and the verify report now records the pass.
+- A later debug found that truncated job descriptions were provider previews, not CSS clipping. Fixed with the preview callout and safe source link.
 
 ## Current state
 
-- Feature 11 is fully done: Design (spec 0007, `Accepted`), Build, Verify (engineer-confirmed working), and Test (227/227) all complete.
-- Merged to `main` via PR #6, which also carried over feature 10's own uncommitted verify/test follow-up work from the prior session. `git status` is clean; `main` is up to date with `origin/main`. No open branch, no pending commits.
-- `context/progress-tracker.md`: "Last completed: 11 Filter + Sort + Pagination", "Next: 12 Job Details Page — Full UI".
+- `main` is clean and up to date with `origin/main`.
+- Latest visible commit is `768fb8b added view job description for truncated job descriptions (#7)`.
+- Feature 12 is complete in the tracker.
+- Final gates after the debug fix passed:
+  - `npm test`, 252 tests passed.
+  - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm run build` passed with network access for the Google Fonts fetch.
 
 ## Next session starts with
 
-Start feature 12, Job Details Page — Full UI (Phase 4). Per `context/build-plan.md`: job data from DB is already available from Phase 3, so wire real data for job info and match sections immediately; the Company Research section shows an empty state only in this feature (feature 13 builds the research agent). No spec exists yet for feature 12 — start with `/architect` (it's a full new UI page, a decision-owed case per `/develop`'s own gate), on a fresh branch off `main`.
+Start Feature 13, Company Research Agent.
+
+Recommended first command:
+
+```text
+/architect feature 13
+```
+
+Feature 13 should extend the existing Job Details page. The Company Research card already exists as a disabled empty state, and Feature 13 should replace or activate it with the real research flow.
 
 ## Open questions
 
-- Carried over from earlier sessions, still not blocking: orphan cleanup for staged-but-never-saved resume uploads; whether to ever complete a real human-driven Google/GitHub login to fully close the feature 02 verification gap; AC-5 (Adzuna failure path) and half of AC-7 (`job_found` PostHog event) from feature 10 remain unexercised by an automated run (noted in that feature's own verify report, not a feature-11 blocker).
+- Feature 13 still needs its own spec and design decisions.
+- The full strategy for company research storage, refresh behavior, and failure states is not decided yet.
+- Some older verify gaps remain documented in their own reports, especially live PostHog event readback and simulated Adzuna failure paths. They are not blockers for Feature 12.
