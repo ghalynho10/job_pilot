@@ -91,24 +91,26 @@ Use this split auth shell for sign-in entry points. Keep the shared navbar, one 
 
 ### DashboardPage
 
-File: `app/dashboard/page.tsx`
+File: `app/dashboard/page.tsx` (auth shell + composition) + `components/dashboard/*` (stat cards, activity, charts, banner)
 
-Last updated: 2026-07-17
+Last updated: 2026-07-31 (feature 14, Dashboard page UI)
 
 | Property | Class |
 | --- | --- |
 | Page background | `bg-background` |
-| Main layout | `max-w-[1440px] gap-6 px-6 py-10` |
-| Page heading | `text-3xl font-semibold text-text-primary` |
-| Eyebrow | `text-base font-medium text-accent` |
-| Empty-state surface | `rounded-md border border-border bg-surface p-6 shadow-sm` |
-| Surface heading | `text-xl font-semibold text-text-primary` |
-| Body text | `text-base leading-7 text-text-secondary` |
-| Primary action | `rounded-md bg-accent px-4 py-3 text-base font-medium text-accent-foreground hover:bg-accent-dark` |
-| Secondary action | `rounded-md border border-border bg-surface px-4 py-3 text-base font-medium text-text-primary hover:bg-surface-secondary` |
-| Focus | `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent` |
+| Main layout | `max-w-[1440px] gap-6 px-6 py-10 sm:px-8` |
+| Card surface (stat cards, Recent Activity, chart cards) | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Card heading (Recent Activity, chart titles) | `text-lg font-semibold text-text-primary` |
+| Stat label | `text-sm font-medium text-text-secondary` |
+| Stat value | `text-3xl font-semibold text-text-primary` |
+| Stat trend pill | `rounded-full bg-success-lightest px-2 py-0.5 text-sm font-medium text-success-foreground` |
+| Activity dot | `size-2 rounded-full`, tone per entry: `bg-accent`, `bg-info-medium`, `bg-success` |
+| Activity list divider | `divide-y divide-border` |
+| Incomplete profile banner | `rounded-lg bg-warning px-4 py-3 text-sm font-medium text-warning-foreground` with `AlertCircle`, `role="status"`, reusing `FindJobsPage`'s no-skills banner pattern |
+| Chart grid | `grid grid-cols-1 gap-6 lg:grid-cols-2` for the two chart rows, `grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4` for the stat cards |
+| Chart colors (Recharts, via CSS variable tokens) | Company Research Activity bar `var(--color-info-medium)`; Match Score Distribution bar `var(--color-success)`; Jobs Found Over Time area stroke `var(--color-accent)`, fill a gradient of the same token |
 
-Use as the authenticated landing shell and empty-state pattern. Pair the authenticated navbar with a concise account greeting, one bordered surface, and clear primary and secondary next-step actions.
+Per [spec 0010](../docs/specs/0010-dashboard-page-ui/index.md), feature 14 replaced the old empty-state placeholder shell (a welcome header, a paragraph, and a `DashboardActions` CTA card, now deleted) with the full mock data dashboard from `context/designs/dashboard.png`: four stat cards, a Recent Activity list, and three Recharts charts (`CompanyResearchActivityChart`, `JobsFoundOverTimeChart`, `MatchScoreDistributionChart`), all sourced from `lib/mock-dashboard.ts`. The one real read is the current user's `profiles` row, used only to compute `isProfileComplete` (`lib/profile-completion.ts`) for the conditional `IncompleteProfileBanner`; everything else is mock, to be wired to real data by features 15 to 17. `recharts` (v3) is this project's first charting dependency; every chart colors itself from the existing `--color-*` CSS variable tokens rather than a separate chart palette. Verified live against a real signed in throwaway InsForge account (created and fully deleted during the session): the incomplete-profile banner renders correctly when the account has no `profiles` row, and disappears once one satisfying `isProfileComplete` is inserted, at both desktop and mobile widths.
 
 ### ProfilePage
 
