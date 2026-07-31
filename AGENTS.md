@@ -201,3 +201,4 @@ Key patterns:
 
 - [browser](.agents/skills/browser/): `browserbase/skills`, browser automation conventions for Browserbase/Stagehand, relevant to `agent/research.ts`
 - [browser-use-to-stagehand](.agents/skills/browser-use-to-stagehand/): `browserbase/skills`, Stagehand v3 (`act`/`extract`/`observe`/`agent`) API patterns on Browserbase
+- [recharts](.agents/skills/recharts/): `ansanabria/skills`, Recharts chart type, customization, responsive sizing, and accessibility conventions, relevant to `components/dashboard/*Chart.tsx`
