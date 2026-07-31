@@ -133,6 +133,18 @@ export type JobMatch = {
   missingSkills: string[];
 };
 
+export type CompanyResearchDossier = {
+  companyOverview: string;
+  techStack: string[];
+  culture: string[];
+  whyThisRole: string;
+  yourEdge: string[];
+  gapsToAddress: string[];
+  smartQuestions: string[];
+  interviewPrep: string[];
+  sources: string[];
+};
+
 export type JobRow = {
   id: string;
   run_id: string | null;
@@ -155,6 +167,7 @@ export type JobRow = {
   match_reason: string | null;
   matched_skills: string[] | null;
   missing_skills: string[] | null;
-  company_research: Record<string, unknown> | null;
+  company_research: CompanyResearchDossier | null;
+  company_research_completed_at: string | null;
   found_at: string;
 };

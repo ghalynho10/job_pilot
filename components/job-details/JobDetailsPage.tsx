@@ -54,7 +54,7 @@ export function JobDetailsPage({ job }: JobDetailsPageProps): JSX.Element {
         requirements={normalizeStringList(job.requirements)}
         responsibilities={normalizeStringList(job.responsibilities)}
       />
-      <CompanyResearchCard company={job.company} />
+      <CompanyResearchCard company={job.company} dossier={job.company_research} jobId={job.id} />
       <JobActions company={job.company} externalJobUrl={externalJobUrl} />
     </div>
   );
