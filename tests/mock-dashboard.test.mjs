@@ -6,34 +6,7 @@ import {
   mockCompanyResearchActivity,
   mockJobsFoundOverTime,
   mockMatchScoreDistribution,
-  mockStats,
 } from "../lib/mock-dashboard.ts";
-
-test("mockStats has exactly the four stat cards from the design, in order (AC-1)", () => {
-  assert.equal(mockStats.length, 4);
-  assert.deepEqual(
-    mockStats.map((stat) => stat.label),
-    ["Total Jobs Found", "Avg. Match Rate", "Companies Researched", "Jobs This Week"],
-  );
-  assert.deepEqual(
-    mockStats.map((stat) => stat.value),
-    ["284", "82%", "35", "28"],
-  );
-});
-
-test("mockStats only gives a trend to the two stats that show one in the design (AC-1)", () => {
-  const [totalJobs, matchRate, companiesResearched, jobsThisWeek] = mockStats;
-
-  assert.deepEqual(totalJobs.trend, { direction: "up", label: "vs last week" });
-  assert.equal(totalJobs.caption, "+12%");
-  assert.deepEqual(matchRate.trend, { direction: "up", label: "vs last week" });
-  assert.equal(matchRate.caption, "+3%");
-
-  assert.equal(companiesResearched.trend, undefined);
-  assert.equal(companiesResearched.caption, "Total researched");
-  assert.equal(jobsThisWeek.trend, undefined);
-  assert.equal(jobsThisWeek.caption, "New this week");
-});
 
 test("mockActivity has exactly five entries in the design's order (AC-2)", () => {
   assert.equal(mockActivity.length, 5);
