@@ -1,4 +1,7 @@
-export type WorkAuthorization = "citizen" | "permanent_resident" | "visa_required";
+export type WorkAuthorization =
+  | "citizen"
+  | "permanent_resident"
+  | "visa_required";
 
 export type ExperienceLevel = "junior" | "mid" | "senior" | "lead";
 

@@ -27,7 +27,10 @@ interface ProfileFormProps {
 const MAX_WORK_EXPERIENCE_ENTRIES = 3;
 const MAX_PROJECTS = 5;
 
-const WORK_AUTHORIZATION_OPTIONS: { value: WorkAuthorization; label: string }[] = [
+const WORK_AUTHORIZATION_OPTIONS: {
+  value: WorkAuthorization;
+  label: string;
+}[] = [
   { value: "citizen", label: "Citizen" },
   { value: "permanent_resident", label: "Permanent Resident" },
   { value: "visa_required", label: "Visa Required" },
@@ -48,14 +51,16 @@ const HIGHEST_DEGREE_OPTIONS: { value: HighestDegree; label: string }[] = [
   { value: "doctorate", label: "Doctorate" },
 ];
 
-const REMOTE_PREFERENCE_OPTIONS: { value: RemotePreference; label: string }[] = [
-  { value: "remote", label: "Remote" },
-  { value: "onsite", label: "Onsite" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "any", label: "Any" },
-];
+const REMOTE_PREFERENCE_OPTIONS: { value: RemotePreference; label: string }[] =
+  [
+    { value: "remote", label: "Remote" },
+    { value: "onsite", label: "Onsite" },
+    { value: "hybrid", label: "Hybrid" },
+    { value: "any", label: "Any" },
+  ];
 
-const labelClass = "text-xs font-medium uppercase tracking-wide text-text-secondary";
+const labelClass =
+  "text-xs font-medium uppercase tracking-wide text-text-secondary";
 const inputClass =
   "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-secondary";
 
@@ -96,7 +101,10 @@ export function ProfileForm({
   const [skillInput, setSkillInput] = useState("");
   const [industryInput, setIndustryInput] = useState("");
 
-  const updateField = <K extends keyof Profile>(key: K, value: Profile[K]): void => {
+  const updateField = <K extends keyof Profile>(
+    key: K,
+    value: Profile[K],
+  ): void => {
     onProfileChange({ ...profile, [key]: value });
   };
 
@@ -208,8 +216,7 @@ export function ProfileForm({
         Profile Information
       </h2>
       <p className="mt-1 text-sm text-text-secondary">
-        This context is used to accurately represent you in agent
-        interactions.
+        This context is used to accurately represent you in agent interactions.
       </p>
 
       <div className="mt-6 space-y-6 border-t border-border pt-6">
@@ -257,7 +264,9 @@ export function ProfileForm({
             <input
               className={inputClass}
               id="linkedinUrl"
-              onChange={(event) => updateField("linkedinUrl", event.target.value)}
+              onChange={(event) =>
+                updateField("linkedinUrl", event.target.value)
+              }
               type="url"
               value={profile.linkedinUrl}
             />
@@ -266,7 +275,9 @@ export function ProfileForm({
             <input
               className={inputClass}
               id="portfolioUrl"
-              onChange={(event) => updateField("portfolioUrl", event.target.value)}
+              onChange={(event) =>
+                updateField("portfolioUrl", event.target.value)
+              }
               type="url"
               value={profile.portfolioUrl}
             />
@@ -302,7 +313,9 @@ export function ProfileForm({
           <input
             className={inputClass}
             id="currentTitle"
-            onChange={(event) => updateField("currentTitle", event.target.value)}
+            onChange={(event) =>
+              updateField("currentTitle", event.target.value)
+            }
             type="text"
             value={profile.currentTitle}
           />
@@ -439,7 +452,9 @@ export function ProfileForm({
           <SectionHeading>Work Experience</SectionHeading>
           <button
             className="flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-text-muted"
-            disabled={profile.workExperience.length >= MAX_WORK_EXPERIENCE_ENTRIES}
+            disabled={
+              profile.workExperience.length >= MAX_WORK_EXPERIENCE_ENTRIES
+            }
             onClick={addWorkExperience}
             type="button"
           >
@@ -570,7 +585,9 @@ export function ProfileForm({
             <input
               className={inputClass}
               id="fieldOfStudy"
-              onChange={(event) => updateEducation("fieldOfStudy", event.target.value)}
+              onChange={(event) =>
+                updateEducation("fieldOfStudy", event.target.value)
+              }
               type="text"
               value={profile.education.fieldOfStudy}
             />
@@ -784,7 +801,11 @@ export function ProfileForm({
         </p>
       ) : null}
       {saveSuccess ? (
-        <p aria-live="polite" className="mt-2 text-sm text-success" role="status">
+        <p
+          aria-live="polite"
+          className="mt-2 text-sm text-success"
+          role="status"
+        >
           Profile saved.
         </p>
       ) : null}

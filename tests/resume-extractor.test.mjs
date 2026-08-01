@@ -76,18 +76,30 @@ test("extractedProfileSchema coerces an out of range experienceLevel and educati
 
   assert.equal(result.experienceLevel, "");
   assert.equal(result.education.highestDegree, "");
-  assert.equal(result.education.fieldOfStudy, "Physics", "sibling fields on the same object must survive one bad enum field");
+  assert.equal(
+    result.education.fieldOfStudy,
+    "Physics",
+    "sibling fields on the same object must survive one bad enum field",
+  );
 });
 
 test("extractedProfileSchema coerces a malformed yearsExperience to empty string rather than failing the whole extraction", () => {
-  const result = extractedProfileSchema.parse(validExtraction({ yearsExperience: "about 8 years" }));
+  const result = extractedProfileSchema.parse(
+    validExtraction({ yearsExperience: "about 8 years" }),
+  );
 
   assert.equal(result.yearsExperience, "");
-  assert.equal(result.fullName, "Jane Doe", "the rest of the extraction must still come through");
+  assert.equal(
+    result.fullName,
+    "Jane Doe",
+    "the rest of the extraction must still come through",
+  );
 });
 
 test("extractedProfileSchema falls back to an empty array when skills is missing or the wrong type", () => {
-  const result = extractedProfileSchema.parse(validExtraction({ skills: "TypeScript, React" }));
+  const result = extractedProfileSchema.parse(
+    validExtraction({ skills: "TypeScript, React" }),
+  );
 
   assert.deepEqual(result.skills, []);
 });
@@ -115,7 +127,10 @@ test("extractedProfileSchema caps workExperience at the 3 most recent entries in
 
 test("extractedProfileSchema never produces a field for email or job preferences", () => {
   const parsed = extractedProfileSchema.parse(
-    validExtraction({ email: "jane@example.com", jobTitlesSeeking: "Staff Engineer" }),
+    validExtraction({
+      email: "jane@example.com",
+      jobTitlesSeeking: "Staff Engineer",
+    }),
   );
 
   assert.equal("email" in parsed, false);
@@ -130,24 +145,43 @@ test("extractedProfileSchema safeParse fails outright when GPT-4o returns valid 
   const asString = extractedProfileSchema.safeParse("just a string");
   const asNull = extractedProfileSchema.safeParse(null);
 
-  assert.equal(asArray.success, false, "an array response has no fields to coerce and must fail validation");
+  assert.equal(
+    asArray.success,
+    false,
+    "an array response has no fields to coerce and must fail validation",
+  );
   assert.equal(asString.success, false);
   assert.equal(asNull.success, false);
 });
 
 test("extractedProfileSchema falls back to an empty projects array when projects is missing or wrong type (AC-2)", () => {
   const noProjects = extractedProfileSchema.parse(validExtraction());
-  assert.deepEqual(noProjects.projects, [], "missing projects must default to empty array");
+  assert.deepEqual(
+    noProjects.projects,
+    [],
+    "missing projects must default to empty array",
+  );
 
-  const wrongType = extractedProfileSchema.parse(validExtraction({ projects: "not an array" }));
-  assert.deepEqual(wrongType.projects, [], "wrong type for projects must fall back to empty array");
+  const wrongType = extractedProfileSchema.parse(
+    validExtraction({ projects: "not an array" }),
+  );
+  assert.deepEqual(
+    wrongType.projects,
+    [],
+    "wrong type for projects must fall back to empty array",
+  );
 });
 
 test("extractedProfileSchema keeps only projects with a non empty name and caps at 5 (AC-1, AC-4)", () => {
   const result = extractedProfileSchema.parse(
     validExtraction({
       projects: [
-        { name: "App One", description: "First", url: "https://one.com", technologies: ["Go"] },
+        {
+          name: "App One",
+          description: "First",
+          url: "https://one.com",
+          technologies: ["Go"],
+        },
         { name: "", description: "No name" },
         { name: "App Two" },
         { name: "App Three" },
@@ -158,10 +192,22 @@ test("extractedProfileSchema keeps only projects with a non empty name and caps 
     }),
   );
 
-  assert.equal(result.projects.length, 5, "must filter nameless projects first, then cap at 5 named projects");
-  assert.equal(result.projects[0].name, "App One", "project with a name must come through");
+  assert.equal(
+    result.projects.length,
+    5,
+    "must filter nameless projects first, then cap at 5 named projects",
+  );
+  assert.equal(
+    result.projects[0].name,
+    "App One",
+    "project with a name must come through",
+  );
   assert.equal(result.projects[0].technologies.length, 1);
-  assert.equal(result.projects.every((p) => p.name.length > 0), true, "projects without a name must be filtered out");
+  assert.equal(
+    result.projects.every((p) => p.name.length > 0),
+    true,
+    "projects without a name must be filtered out",
+  );
 });
 
 test("extractProfileFromResumeText handles the GPT-4o call, JSON parsing, and validation failures it cannot unit test directly (no network mocking in this project)", async () => {

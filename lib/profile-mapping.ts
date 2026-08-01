@@ -48,19 +48,22 @@ export function mapProfileToRow(
     phone: toNullableTrimmed(profile.phone),
     location: toNullableTrimmed(profile.location),
     current_title: toNullableTrimmed(profile.currentTitle),
-    experience_level: profile.experienceLevel === "" ? null : profile.experienceLevel,
+    experience_level:
+      profile.experienceLevel === "" ? null : profile.experienceLevel,
     years_experience: years === null || years < 0 ? null : years,
     skills: dedupeTrimmedList(profile.skills),
     industries: dedupeTrimmedList(profile.industries),
     work_experience: profile.workExperience,
     education: profile.education,
     job_titles_seeking: splitCommaList(profile.jobTitlesSeeking),
-    remote_preference: profile.remotePreference === "" ? null : profile.remotePreference,
+    remote_preference:
+      profile.remotePreference === "" ? null : profile.remotePreference,
     preferred_locations: splitCommaList(profile.preferredLocations),
     salary_expectation: toNullableTrimmed(profile.salaryExpectation),
     linkedin_url: toNullableTrimmed(profile.linkedinUrl),
     portfolio_url: toNullableTrimmed(profile.portfolioUrl),
-    work_authorization: profile.workAuthorization === "" ? null : profile.workAuthorization,
+    work_authorization:
+      profile.workAuthorization === "" ? null : profile.workAuthorization,
     projects: profile.projects,
   };
 }
@@ -75,7 +78,8 @@ export function mapProfileRowToProfile(row: ProfileRow): Profile {
     portfolioUrl: row.portfolio_url ?? "",
     // The DB column has no CHECK constraint; this app only ever writes values
     // from these unions via mapProfileToRow, so the cast is safe.
-    workAuthorization: (row.work_authorization as WorkAuthorization | null) ?? "",
+    workAuthorization:
+      (row.work_authorization as WorkAuthorization | null) ?? "",
     currentTitle: row.current_title ?? "",
     experienceLevel: (row.experience_level as ExperienceLevel | null) ?? "",
     yearsExperience: row.years_experience ?? "",

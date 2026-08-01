@@ -12,7 +12,8 @@ function mapRowToProfile(row: ProfileRow): Profile {
     location: row.location ?? "",
     linkedinUrl: row.linkedin_url ?? "",
     portfolioUrl: row.portfolio_url ?? "",
-    workAuthorization: (row.work_authorization as Profile["workAuthorization"]) ?? "",
+    workAuthorization:
+      (row.work_authorization as Profile["workAuthorization"]) ?? "",
     currentTitle: row.current_title ?? "",
     experienceLevel: (row.experience_level as Profile["experienceLevel"]) ?? "",
     yearsExperience: row.years_experience ?? "",
@@ -26,7 +27,8 @@ function mapRowToProfile(row: ProfileRow): Profile {
       graduationYear: "",
     },
     jobTitlesSeeking: (row.job_titles_seeking ?? []).join(", "),
-    remotePreference: (row.remote_preference as Profile["remotePreference"]) ?? "",
+    remotePreference:
+      (row.remote_preference as Profile["remotePreference"]) ?? "",
     salaryExpectation: row.salary_expectation ?? "",
     preferredLocations: (row.preferred_locations ?? []).join(", "),
     projects: row.projects ?? null,
@@ -35,7 +37,11 @@ function mapRowToProfile(row: ProfileRow): Profile {
 
 export async function POST(
   req: NextRequest,
-): Promise<NextResponse<ActionResult<{ jobsFound: number; strongMatches: number; message: string }>>> {
+): Promise<
+  NextResponse<
+    ActionResult<{ jobsFound: number; strongMatches: number; message: string }>
+  >
+> {
   try {
     const guard = await guardPaidRoute({ requireAgentSwitch: true });
 
@@ -71,7 +77,10 @@ export async function POST(
     if (profileError) {
       console.error("[api/agent/find]", profileError);
       return NextResponse.json(
-        { success: false, error: "Something went wrong loading your profile. Please try again." },
+        {
+          success: false,
+          error: "Something went wrong loading your profile. Please try again.",
+        },
         { status: 500 },
       );
     }
@@ -96,17 +105,28 @@ export async function POST(
     );
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 500 },
+      );
     }
 
     const { jobsFound, strongMatches } = result.data;
     const message = `Found ${jobsFound} jobs and saved ${strongMatches} strong matches.`;
 
-    return NextResponse.json({ success: true, jobsFound, strongMatches, message });
+    return NextResponse.json({
+      success: true,
+      jobsFound,
+      strongMatches,
+      message,
+    });
   } catch (error) {
     console.error("[api/agent/find]", error);
     return NextResponse.json(
-      { success: false, error: "Something went wrong searching for jobs. Please try again." },
+      {
+        success: false,
+        error: "Something went wrong searching for jobs. Please try again.",
+      },
       { status: 500 },
     );
   }

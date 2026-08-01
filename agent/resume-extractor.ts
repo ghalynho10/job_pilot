@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import type { ExtractedProfileFields } from "@/types";
 
-const WORK_AUTHORIZATION_VALUES = ["citizen", "permanent_resident", "visa_required"] as const;
+const WORK_AUTHORIZATION_VALUES = [
+  "citizen",
+  "permanent_resident",
+  "visa_required",
+] as const;
 const EXPERIENCE_LEVEL_VALUES = ["junior", "mid", "senior", "lead"] as const;
 const HIGHEST_DEGREE_VALUES = [
   "high_school",
@@ -16,7 +20,9 @@ const HIGHEST_DEGREE_VALUES = [
 const workAuthorizationSchema = z
   .enum([...WORK_AUTHORIZATION_VALUES, ""])
   .catch("");
-const experienceLevelSchema = z.enum([...EXPERIENCE_LEVEL_VALUES, ""]).catch("");
+const experienceLevelSchema = z
+  .enum([...EXPERIENCE_LEVEL_VALUES, ""])
+  .catch("");
 const highestDegreeSchema = z.enum([...HIGHEST_DEGREE_VALUES, ""]).catch("");
 
 const workExperienceEntrySchema = z.object({
@@ -51,9 +57,7 @@ export const extractedProfileSchema = z.object({
   workAuthorization: workAuthorizationSchema,
   currentTitle: z.string().catch(""),
   experienceLevel: experienceLevelSchema,
-  yearsExperience: z
-    .union([z.number(), z.literal("")])
-    .catch(""),
+  yearsExperience: z.union([z.number(), z.literal("")]).catch(""),
   skills: z.array(z.string()).catch([]),
   industries: z.array(z.string()).catch([]),
   workExperience: z
@@ -103,7 +107,10 @@ Return ONLY valid JSON matching this shape:
 
 export async function extractProfileFromResumeText(
   text: string,
-): Promise<{ success: true; data: ExtractedProfileFields } | { success: false; error: string }> {
+): Promise<
+  | { success: true; data: ExtractedProfileFields }
+  | { success: false; error: string }
+> {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -120,7 +127,10 @@ export async function extractProfileFromResumeText(
 
     const rawContent = response.choices[0]?.message.content;
     if (!rawContent) {
-      return { success: false, error: "Extraction returned no content. Please try again." };
+      return {
+        success: false,
+        error: "Extraction returned no content. Please try again.",
+      };
     }
 
     let parsedJson: unknown;
@@ -128,18 +138,27 @@ export async function extractProfileFromResumeText(
       parsedJson = JSON.parse(rawContent);
     } catch (parseError) {
       console.error("[agent/resume-extractor]", parseError);
-      return { success: false, error: "Extraction returned an unreadable response. Please try again." };
+      return {
+        success: false,
+        error: "Extraction returned an unreadable response. Please try again.",
+      };
     }
 
     const validated = extractedProfileSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("[agent/resume-extractor]", validated.error);
-      return { success: false, error: "Extraction returned an unexpected response. Please try again." };
+      return {
+        success: false,
+        error: "Extraction returned an unexpected response. Please try again.",
+      };
     }
 
     return { success: true, data: validated.data };
   } catch (error) {
     console.error("[agent/resume-extractor]", error);
-    return { success: false, error: "Something went wrong extracting your profile. Please try again." };
+    return {
+      success: false,
+      error: "Something went wrong extracting your profile. Please try again.",
+    };
   }
 }
