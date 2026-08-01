@@ -120,9 +120,9 @@ code in `lib/access.ts`, `lib/access-rules.ts`, `app/private-beta/page.tsx`, `mi
 Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and linked from the portfolio, but nothing has decided where it deploys or how production is configured. `insforge.toml` currently lists `allowed_redirect_urls = ["http://localhost:3000/callback"]`, localhost only, so Google and GitHub sign in will fail on the deployed origin and no visitor gets far enough to meet the gate at all. `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` are also read in code but missing from `.env.example`.
 **Done when:** a host and origin are chosen, that origin is in `allowed_redirect_urls`, Google and GitHub sign in both work on the deployed site, every environment variable the app reads is present in `.env.example` and set in production, and the deployed app serves the access gate as specced.
 - [x] Design it (spec): [0013-deploy-target-production-config](../specs/0013-deploy-target-production-config/index.md)
-- [ ] Build it: `/develop deploy target and production config`
+- [x] Build it: `/develop deploy target and production config`
   - [x] Create the Vercel project (production branch `main`) and set the production environment variables, including the two PostHog public vars (AC-1, AC-4)
-  - [ ] Add the production origin to `insforge.toml` `allowed_redirect_urls` and the production callback URL to the Google and GitHub OAuth apps, keeping localhost (AC-2, AC-3)
+  - [x] Add the production origin to `insforge.toml` `allowed_redirect_urls` and the production callback URL to the Google and GitHub OAuth apps, keeping localhost (AC-2, AC-3)
   - [x] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` (AC-4)
   - [x] Add `maxDuration` and `force-dynamic` to the research route and correct the early-return note in `context/library-docs.md` (AC-6)
 code in `app/api/agent/research/route.ts`, `.env.example`
