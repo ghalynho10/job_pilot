@@ -2,8 +2,8 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { runCompanyResearch } from "@/agent/research";
+import { guardPaidRoute } from "@/lib/access";
 import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
-import { createInsforgeServer } from "@/lib/insforge-server";
 import { createPostHogServer } from "@/lib/posthog-server";
 import type { ActionResult, CompanyResearchDossier, JobRow, ProfileRow } from "@/types";
 
@@ -11,17 +11,13 @@ export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<ActionResult<{ data: CompanyResearchDossier }>>> {
   try {
-    const insforge = await createInsforgeServer();
-    const { data: authData, error: authError } = await insforge.auth.getCurrentUser();
+    const guard = await guardPaidRoute({ requireAgentSwitch: true });
 
-    if (authError || !authData.user) {
-      return NextResponse.json(
-        { success: false, error: "You must be signed in to research a company." },
-        { status: 401 },
-      );
+    if (!guard.ok) {
+      return guard.response;
     }
 
-    const userId = authData.user.id;
+    const { insforge, userId, userEmail } = guard;
 
     const body: unknown = await req.json();
     const jobId =
@@ -76,7 +72,7 @@ export async function POST(
 
     const profile = profileRow
       ? mapProfileRowToProfile(profileRow as ProfileRow)
-      : buildEmptyProfile(authData.user.email);
+      : buildEmptyProfile(userEmail);
 
     const result = await runCompanyResearch(job, profile);
 

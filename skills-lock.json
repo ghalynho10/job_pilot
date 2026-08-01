@@ -31,6 +31,12 @@
       "skillPath": "skills/check/SKILL.md",
       "computedHash": "288897c225abcb5c5cc0e417dc05c5fa41a4309d04adca8ac48e33b61e89fba1"
     },
+    "checkpoint": {
+      "source": "ghalynho10/skills",
+      "sourceType": "github",
+      "skillPath": "skills/checkpoint/SKILL.md",
+      "computedHash": "fe027fbb722cd092adaf96bdca60247c411f7f6b0da1f798c9371c099f840f39"
+    },
     "debug": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",

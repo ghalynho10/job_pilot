@@ -183,3 +183,13 @@ export type JobRow = {
   company_research_completed_at: string | null;
   found_at: string;
 };
+
+export type UserAccessStatus = "pending" | "approved" | "blocked";
+
+export type UserAccessRow = {
+  user_id: string;
+  status: UserAccessStatus;
+  approved_at: string | null;
+  notes: string | null;
+  created_at: string;
+};

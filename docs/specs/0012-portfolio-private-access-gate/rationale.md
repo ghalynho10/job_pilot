@@ -50,22 +50,22 @@ Four load bearing questions were open when this spec was drafted. Three were put
 
 ### Panel 3: Where the page level gate lives
 
-**Option A — An `app/(app)/` route group layout (chosen)**: move `dashboard/`, `profile/`, and `find-jobs/` under a route group with one `layout.tsx` doing auth then approval.
+**Option A — An `app/(app)/` route group layout**: move `dashboard/`, `profile/`, and `find-jobs/` under a route group with one `layout.tsx` doing auth then approval.
 
 - **Pros**: Defines the check once. Today the `getCurrentUser` plus `redirect("/login?error=session")` block is copy pasted at `app/dashboard/page.tsx:67`, `app/profile/page.tsx:14`, `app/find-jobs/page.tsx:11`, and `app/find-jobs/[id]/page.tsx:24`; adding an approval check inline would make that four copies of two checks. Route groups do not affect URLs, so `proxy.ts`'s matcher and every existing link keep working untouched. The next protected page inherits both checks automatically.
 - **Cons**: Three directories move, so the diff shows renames and is larger to read than a four line addition.
 
-**Option B — Inline in each of the four pages**: add the approval check beside the existing guard.
+**Option B — Inline in each of the four pages (chosen)**: add one shared `requireApprovedPage` call beside the existing guard in each page.
 
-- **Pros**: Smallest possible diff, nothing moves, lowest risk of breaking a route by accident.
-- **Cons**: Institutionalises the duplication at the exact moment it was about to double. Four places to keep in sync, and the fifth page someone adds will be guarded from memory or not at all.
+- **Pros**: Smallest possible diff, nothing moves, lowest risk of breaking a route by accident. Nothing has to be unwound when billing supersedes this gate. The existing page contract tests keep passing as written, since no file moves and no block is deleted.
+- **Cons**: Institutionalises the duplication at the exact moment it was about to double. Four places to keep in sync, and the fifth page someone adds will be guarded from memory or not at all. Softened, but not removed, by putting the rule in `requireApprovedPage` so what repeats is one call rather than the logic.
 
 **Option C — In `proxy.ts`**: check approval in the edge proxy alongside the session refresh.
 
 - **Pros**: One place, runs before the page even renders, covers any route the matcher lists including future ones.
 - **Cons**: Wrong tool. `proxy.ts` runs on the edge runtime and currently only touches cookies through `updateSession`. Adding a `user_access` lookup means a database round trip on every matched request including asset and prefetch traffic, using a database client the file does not have and that the edge runtime does not suit. It also puts application authorisation logic in a file whose job is session transport.
 
-**Decision**: Option A. The duplication is real today and about to get worse, and the URL preserving property of route groups makes the move cheap in every way except diff size.
+**Decision**: Option B, revised after a cross check review on 2026-08-01. Option A was chosen first, on the argument that the duplication is real today and about to get worse. The review pushed back on the cost side and won the point: the route group adds no security, since the page gate is cosmetic and `guardPaidRoute` is the actual boundary, and it is the largest and highest regression part of the diff, forcing four existing contract test files to be repointed. Weighed against a feature the Follow-up section already marks as superseded by billing, paying down that duplication inside a temporary gate is not worth the churn. Option B ships the same protection with four added lines. The duplication cost is accepted and written into Consequences rather than argued away.
 
 ### Panel 4: What the unapproved user sees
 
@@ -77,14 +77,14 @@ Four load bearing questions were open when this spec was drafted. Three were put
 **Option B — Render the private beta panel in place on each page**.
 
 - **Pros**: No redirect, the URL stays where the user put it, no flash.
-- **Cons**: The panel has to be wired into four pages, which reintroduces the duplication Panel 3 just removed. The navbar also stays rendered around it, so the screen still shows navigation that goes nowhere useful.
+- **Cons**: The panel has to be wired into four pages, and unlike Panel 3's one line call this means four copies of real markup. The navbar also stays rendered around it, so the screen still shows navigation that goes nowhere useful.
 
 **Decision**: Option A.
 
 ## Rationale
 
-The through line in all four panels is that the security boundary is the server route, and everything else is user experience. That is why the gate is checked twice: `guardPaidRoute` in each of the four paid routes is what actually protects the money, because a `curl` with a valid session cookie never renders a layout, and the route group layout exists purely so an unapproved user gets a sensible screen instead of a wall of failed requests. Reading those two as redundant would be the mistake; dropping either one loses something the other does not provide.
+The through line in all four panels is that the security boundary is the server route, and everything else is user experience. That is why the gate is checked twice: `guardPaidRoute` in each of the four paid routes is what actually protects the money, because a `curl` with a valid session cookie never renders a page, and the page level redirect exists purely so an unapproved user gets a sensible screen instead of a wall of failed requests. Reading those two as redundant would be the mistake; dropping either one loses something the other does not provide.
 
-The second through line is that this feature is deliberately temporary and should cost as little as possible to remove. Confining the `user_access` read to `isUserApproved` means the billing work in scope features 1 to 3 replaces one function body. Choosing a table over an environment allowlist means the shape the gate leaves behind, per account state keyed on `auth.users`, is the shape billing needs anyway.
+The second through line is that this feature is deliberately temporary and should cost as little as possible to remove. That is what decided Panel 3 on review: a route group refactor is good hygiene in code expected to last, and the wrong spend in code with a planned end date. Confining the `user_access` read to `isUserApproved` means the billing work in scope features 1 to 3 replaces one function body. Choosing a table over an environment allowlist means the shape the gate leaves behind, per account state keyed on `auth.users`, is the shape billing needs anyway.
 
 The two corrections to the original proposal both come from reading what is actually in the repository rather than what the plan assumed. The resume routes were not in the proposed plan and are two live GPT-4o call sites. The `profiles_update` policy is what rules out the obvious cheap place to store an approval flag. Neither is visible from the feature description alone.

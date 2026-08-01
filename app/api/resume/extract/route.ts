@@ -8,7 +8,7 @@ import "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 
 import { extractProfileFromResumeText } from "@/agent/resume-extractor";
-import { createInsforgeServer } from "@/lib/insforge-server";
+import { guardPaidRoute } from "@/lib/access";
 import type { ActionResult, ExtractedProfileFields } from "@/types";
 
 const MIN_EXTRACTABLE_TEXT_LENGTH = 50;
@@ -17,17 +17,13 @@ export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<ActionResult<{ data: ExtractedProfileFields }>>> {
   try {
-    const insforge = await createInsforgeServer();
-    const { data: authData, error: authError } = await insforge.auth.getCurrentUser();
+    const guard = await guardPaidRoute({ requireAgentSwitch: false });
 
-    if (authError || !authData.user) {
-      return NextResponse.json(
-        { success: false, error: "You must be signed in to extract a resume." },
-        { status: 401 },
-      );
+    if (!guard.ok) {
+      return guard.response;
     }
 
-    const userId = authData.user.id;
+    const { insforge, userId } = guard;
 
     const body: unknown = await req.json();
     const resumeKey =

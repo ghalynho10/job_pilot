@@ -8,21 +8,38 @@ async function readProjectFile(path) {
   return readFile(new URL(path, projectRoot), "utf8");
 }
 
-test("agent find route checks auth before reading anything, returning 401 when unauthenticated", async () => {
+test("agent find route guards on auth and approval before reading anything, and the kill switch applies", async () => {
   const source = await readProjectFile("app/api/agent/find/route.ts");
 
-  assert.match(source, /insforge\.auth\.getCurrentUser\(\)/);
-  const authCheckIndex = source.indexOf("if (authError || !authData.user) {");
+  const guardIndex = source.indexOf("await guardPaidRoute({ requireAgentSwitch: true })");
   const bodyReadIndex = source.indexOf("await req.json()");
 
-  assert.ok(authCheckIndex !== -1, "auth check not found");
+  assert.ok(guardIndex !== -1, "guardPaidRoute not called with requireAgentSwitch: true");
   assert.ok(
-    authCheckIndex < bodyReadIndex,
-    "auth must be checked before the request body is even read",
+    guardIndex < bodyReadIndex,
+    "the guard must run before the request body is even read",
   );
   assert.match(
-    source.slice(authCheckIndex, authCheckIndex + 250),
-    /status: 401/,
+    source.slice(guardIndex, guardIndex + 200),
+    /if \(!guard\.ok\) \{\s*return guard\.response;/,
+    "a denied guard must short circuit the route",
+  );
+});
+
+test("agent find route denies before parsing, so a bad body from an unapproved caller is 403 and never 400", async () => {
+  const source = await readProjectFile("app/api/agent/find/route.ts");
+
+  const guardIndex = source.indexOf("guardPaidRoute");
+  const validationIndex = source.indexOf('typeof jobTitle !== "string"');
+  const profileReadIndex = source.indexOf('.from("profiles")');
+
+  assert.ok(
+    guardIndex < validationIndex && guardIndex < profileReadIndex,
+    "the guard must sit above body validation and every database read",
+  );
+  assert.ok(
+    !source.includes("insforge.auth.getCurrentUser()"),
+    "the route must not keep its own hand rolled auth block alongside the guard",
   );
 });
 

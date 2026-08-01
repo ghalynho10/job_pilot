@@ -275,6 +275,20 @@ URL saved to profiles table
 | job_id     | uuid        | Optional — related job           |
 | created_at | timestamptz |                                  |
 
+### `user_access`
+
+Whether an account may use the paid parts of the app. One row per user, and no row means not approved. See `docs/specs/0012-portfolio-private-access-gate/index.md`.
+
+| Column      | Type        | Notes                                             |
+| ----------- | ----------- | ------------------------------------------------- |
+| user_id     | uuid        | Primary key, references auth.users                |
+| status      | text        | pending / approved / blocked, defaults to pending |
+| approved_at | timestamptz | Optional, set when access was granted             |
+| notes       | text        | Optional, free text for the project owner         |
+| created_at  | timestamptz |                                                   |
+
+Access: select own row only. This is the one table application code never writes. `authenticated` holds `SELECT` and nothing else, because the broad default privileges are explicitly revoked in the migration, and there is no insert, update, or delete policy. Only admin SQL grants access. Read it through `isUserApproved` in `lib/access.ts`, never directly.
+
 ---
 
 ## InsForge Storage

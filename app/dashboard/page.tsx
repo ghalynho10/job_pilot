@@ -10,6 +10,7 @@ import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDi
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Navbar } from "@/components/layout/Navbar";
+import { requireApprovedPage } from "@/lib/access";
 import { computeRecentActivity } from "@/lib/dashboard-activity";
 import {
   computeCompanyResearchActivity,
@@ -69,6 +70,8 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   if (error || !data.user) {
     redirect("/login?error=session");
   }
+
+  await requireApprovedPage(insforge, data.user.id);
 
   const [
     { data: row, error: profileError },

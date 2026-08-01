@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { CompletionIndicator } from "@/components/profile/CompletionIndicator";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 import { Navbar } from "@/components/layout/Navbar";
+import { requireApprovedPage } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { deriveProfileCompletion } from "@/lib/profile-completion";
 import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
@@ -16,6 +17,8 @@ export default async function ProfilePage(): Promise<JSX.Element> {
   if (error || !data.user) {
     redirect("/login?error=session");
   }
+
+  await requireApprovedPage(insforge, data.user.id);
 
   const { data: row, error: profileError } = await insforge.database
     .from("profiles")

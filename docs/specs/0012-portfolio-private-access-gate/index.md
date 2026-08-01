@@ -1,7 +1,7 @@
 # 0012. Portfolio private access gate
 
 **Date**: 2026-08-01
-**Status**: Proposed
+**Status**: Accepted
 
 ## Summary
 
@@ -16,7 +16,7 @@ Approval state lives in a new `user_access` table that the user themself cannot 
 **User stories**:
 - As the project owner, I want to deploy JobPilot and link it from my portfolio so recruiters can see it, without any visitor being able to run up my Adzuna, Browserbase, or OpenAI bill.
 - As the project owner, I want to approve a specific person (a recruiter, a friend) by hand so I can give a real demo to whoever I choose.
-- As the project owner, I want a single switch that pauses the expensive agents immediately if something goes wrong, without a code change or a redeploy of application logic.
+- As the project owner, I want a single switch that pauses the two agent routes immediately if something goes wrong, without a code change or a redeploy of application logic. This switch deliberately does not cover the two resume routes, which also reach GPT-4o, so an incident confined to resume generation still needs a code change or a revoked provider key. Accepted because the agent routes are the expensive, long running ones and blast radius matters more there.
 - As a signed in visitor who is not approved, I want a clear screen telling me access is private while billing is being finished, rather than a broken page or a silent error.
 - As an approved user, I want the app to behave exactly as it did before this gate existed.
 
@@ -30,22 +30,24 @@ Approval state lives in a new `user_access` table that the user themself cannot 
 - **AC-7**: Those same four routes return `401` with a generic message when there is no session, preserving today's behaviour.
 - **AC-8**: With `ENABLE_AGENT_RUNS=false`, `POST /api/agent/find` and `POST /api/agent/research` return `503` for an approved user before any external call, while `POST /api/resume/extract` and `POST /api/resume/generate` keep working for an approved user. Any other value of the variable, including it being unset, empty, or `true`, allows the agent routes to run.
 - **AC-9**: `user_access` has row level security enabled with a select own row policy and no insert, update, or delete policy and no matching grant to `authenticated`. An authenticated user attempting to insert or update their own `user_access` row through the SDK is denied by the database, not by application code.
-- **AC-10**: The signed in check is defined once for the protected pages. The four page level copies of the `getCurrentUser` plus `redirect("/login?error=session")` block are removed and replaced by a single route group layout. Page URLs are unchanged and `proxy.ts`'s matcher still covers them.
+- **AC-10**: The approval redirect for the protected pages is one shared call, `requireApprovedPage`, exported from `lib/access.ts` and called at the top of each of the four pages. No page contains its own inline `user_access` query or its own copy of the redirect target. The four pages stay exactly where they are, so page URLs, file paths, and `proxy.ts`'s matcher are all unchanged, and the existing `getCurrentUser` plus `redirect("/login?error=session")` block in each page is left as it is.
 - **AC-11**: `lib/access.ts` exposes `agentRunsEnabled` as a pure function taking the flag value as an argument, following the injectable arguments pattern in `lib/auth-routing.ts`, so it is unit testable without process environment mutation. No call site outside `lib/access.ts` queries `user_access` directly.
 - **AC-12**: `ENABLE_AGENT_RUNS` is added to `.env.example` and to the environment variable table in `context/code-standards.md`, and `user_access` is documented in `context/architecture.md`'s schema section. `types/index.ts` gains a `UserAccessRow` type. No `any` is introduced.
 - **AC-13**: Existing auth, profile save, resume upload, resume extract, resume generate, job search, and company research flows behave identically for an approved user. `npx tsc --noEmit`, `npm run lint`, `npm test`, and `npm run build` all pass.
 
 ## Decision
 
-**Chosen option**: A dedicated read only `user_access` table, one shared `lib/access.ts` helper, a route group layout for the page gate, and the same helper re-checked in every paid route
+**Chosen option**: A dedicated read only `user_access` table, one shared `lib/access.ts` helper called at the top of each protected page, and the same helper re-checked in every paid route
 
 Approval is a single row per user in a new `user_access` table. It is a separate table rather than a column on `profiles` because `profiles` carries a `profiles_update` policy that lets a user update their own row, so an approval flag there would be self grantable straight through PostgREST. `user_access` gets a select own row policy and nothing else, so only admin SQL through the InsForge CLI can grant access.
 
-`lib/access.ts` holds three layered exports: `agentRunsEnabled` (pure, injectable), `isUserApproved` (the one place `user_access` is read), and `guardPaidRoute` (the route handler guard that runs auth, then approval, then optionally the kill switch, returning either the client and user id or a ready made denial response).
+`lib/access.ts` holds four layered exports: `agentRunsEnabled` (pure, injectable), `isUserApproved` (the one place `user_access` is read), `guardPaidRoute` (the route handler guard that runs auth, then approval, then optionally the kill switch, returning either the client and user id or a ready made denial response), and `requireApprovedPage` (the page level counterpart, which takes the already fetched client and user id, and calls `redirect("/private-beta")` itself when the user is not approved).
 
-The page gate moves `dashboard/`, `profile/`, and `find-jobs/` under an `app/(app)/` route group with one `layout.tsx` doing auth plus approval once. Route groups do not change URLs, so `proxy.ts`'s matcher is untouched for those paths. This also removes the four copies of the signed in check that exist today.
+The page gate is one added line at the top of each of the four protected pages, `await requireApprovedPage(insforge, data.user.id)`, placed straight after the existing signed in check and before the page's own data reads. The four pages stay where they are. Their existing `getCurrentUser` plus `redirect("/login?error=session")` blocks stay as they are too.
 
-The gate is checked twice on purpose. The layout is the user experience: it sends the unapproved user somewhere sensible. The route guard is the security boundary: a hand crafted `curl` with a valid session cookie never touches the layout, so each paid route re-checks on its own.
+A route group with a shared layout was considered and rejected. It would remove those four duplicated auth blocks, but it adds no security (the layout is cosmetic, see the security model below), it is the largest and highest regression part of the diff, it forces four existing contract test files to be repointed, and this whole feature is meant to be deleted when billing lands. Paying down that duplication is not worth doing inside a temporary gate. The tradeoff accepted in exchange: the approval redirect now appears in four places rather than one, so a fifth protected page can forget it. `requireApprovedPage` keeps the actual rule in one file, so what is duplicated is a single call, not the logic.
+
+The gate is checked twice on purpose. The page call is the user experience: it sends the unapproved user somewhere sensible. The route guard is the security boundary: a hand crafted `curl` with a valid session cookie never renders a page, so each paid route re-checks on its own.
 
 **Billing seam**: `isUserApproved` is the single function that billing later replaces with a subscription plus usage check. Because no call site reads `user_access` directly, that swap changes one function body and nothing else.
 
@@ -100,8 +102,9 @@ No new HTTP endpoint. Four existing routes gain a guard, and one new page route 
 | Call | Where | Key inputs | Key outputs | Auth | Key errors |
 |---|---|---|---|---|---|
 | `agentRunsEnabled(flag)` | `lib/access.ts` | `string \| undefined` | `boolean` | none, pure | never throws |
-| `isUserApproved(insforge, userId)` | `lib/access.ts` | cookie scoped client, user id | `boolean` | relies on the caller's session for RLS scoping | never throws; a query error is logged and returns `false` |
+| `isUserApproved(insforge, userId)` | `lib/access.ts` | cookie scoped client, user id | `boolean` | relies on the caller's session for RLS scoping | never throws; a query error is logged and returns `false`. A clean query with no row (`.maybeSingle()` gives `null` and no error) also returns `false`, on the same path, with no log. This is the ordinary case for every new signup, not an error |
 | `guardPaidRoute({ requireAgentSwitch })` | `lib/access.ts` | whether the kill switch applies | `{ ok: true, insforge, userId }` or `{ ok: false, response }` | creates the server client and reads the session itself | returns the denial response rather than throwing |
+| `requireApprovedPage(insforge, userId)` | `lib/access.ts` | the page's already created client and user id | `Promise<void>`, or never returns because it redirected | assumes the caller already checked the session | not approved calls `redirect("/private-beta")`, which throws by design in Next.js and must not be wrapped in a `try` block |
 | `POST /api/agent/find` | `app/api/agent/find/route.ts` | unchanged | unchanged | `guardPaidRoute({ requireAgentSwitch: true })` | new `403`, new `503` |
 | `POST /api/agent/research` | `app/api/agent/research/route.ts` | unchanged | unchanged | `guardPaidRoute({ requireAgentSwitch: true })` | new `403`, new `503` |
 | `POST /api/resume/extract` | `app/api/resume/extract/route.ts` | unchanged | unchanged | `guardPaidRoute({ requireAgentSwitch: false })` | new `403` |
@@ -123,16 +126,18 @@ Denial responses use the project's `{ success, error }` wrapper from `context/co
 - A missing `user_access` row means not approved. Nothing creates rows on signup.
 - `isUserApproved` is the only place in the codebase that queries `user_access`.
 - `guardPaidRoute` runs before request body parsing and before any database read in every route that calls it, so a denial costs one auth call and one indexed primary key lookup and nothing else.
-- Every paid route re-checks approval on the server. The layout gate is user experience only and is never the security boundary.
+- Every paid route re-checks approval on the server. The page gate is user experience only and is never the security boundary.
+- Every route handler that reaches a paid module (anything under `agent/`, the resume extractor, the resume generator) calls `guardPaidRoute`. Unlike the page gate, this one is enforced by a test rather than left to memory, because a forgotten page only costs a missing redirect while a forgotten route costs money.
 - `agentRunsEnabled` defaults to allowing. Only the exact string `"false"` disables, so a missing or misspelled variable never silently breaks a working deployment.
-- `/private-beta` lives outside the `(app)` route group, so the layout's redirect can never target a page that redirects back into it.
+- `/private-beta` never calls `requireApprovedPage`. It does the opposite check, sending an approved user to `/dashboard`, so the redirect can never target a page that redirects back into it.
+- Every protected page calls `requireApprovedPage`. Adding a fifth protected page means adding that call; nothing enforces it automatically, which is the accepted cost of skipping the route group.
 - All styling uses tokens from `context/ui-tokens.md`. No raw hex values, no raw Tailwind color classes.
 
 **Security model**:
 
 The threat is cost, not data. Row level security already stops any user reading another user's rows, and this feature does not weaken that. What it adds is a spend boundary.
 
-The real boundary is server side and per route. The layout redirect is cosmetic: anyone can skip it by posting directly to a route with a valid session cookie, which is exactly why `guardPaidRoute` is called in all four paid routes rather than being trusted to the layout. `guardPaidRoute` reads `user_access` through the caller's own cookie scoped client, so RLS scopes the lookup to their row and no service key is introduced anywhere.
+The real boundary is server side and per route. The page redirect is cosmetic: anyone can skip it by posting directly to a route with a valid session cookie, which is exactly why `guardPaidRoute` is called in all four paid routes rather than being trusted to the pages. `guardPaidRoute` reads `user_access` through the caller's own cookie scoped client, so RLS scopes the lookup to their row and no service key is introduced anywhere.
 
 The privilege escalation to avoid is self approval. Putting the flag on `profiles` would have handed it to the user, because `profiles_update` lets them update their own row. `user_access` is granted `SELECT` only.
 
@@ -158,30 +163,32 @@ Denial messages are generic and identical regardless of whether the row is missi
 
 Build approach for this feature is Skateboard, per the `docs/scope/scope.md` header: the thinnest usable whole first. Tasks 1 to 3 are that whole, a working server side spend boundary. Tasks 4 to 6 grow it into a decent user experience on top. If work stops after task 3 the money is already safe, which is the property that matters here.
 
-1. Add `migrations/<timestamp>_create-user-access.sql` creating `user_access` with the check constraint, RLS enabled, the select own row policy, and `GRANT SELECT` only. Apply it to the linked InsForge project with the `insforge-cli` skill. Satisfies **AC-9**
+1. Add `migrations/<timestamp>_create-user-access.sql` creating `user_access` with the check constraint, RLS enabled, the select own row policy, and `GRANT SELECT` only. Carry a comment in the file saying the missing insert, update, and delete grants are deliberate, a second layer behind the missing policies, so a later migration does not undo it with a blanket grant. Every other table in this project grants broadly and leans on row level security alone, so `user_access` is the first one where the omission is load bearing. Apply it to the linked InsForge project with the `insforge-cli` skill. Satisfies **AC-9**
 2. Add `UserAccessStatus` and `UserAccessRow` to `types/index.ts`, document `user_access` in `context/architecture.md`'s schema section, and add `ENABLE_AGENT_RUNS` to `.env.example` and to `context/code-standards.md`'s environment variable table. Satisfies **AC-12**
-3. Write `lib/access.ts` with `agentRunsEnabled`, `isUserApproved`, and `guardPaidRoute`, logging errors under an `[lib/access]` prefix and returning the documented status codes and generic messages. Satisfies **AC-11**, and the response contract behind **AC-6**, **AC-7**, **AC-8**
+3. Write `lib/access.ts` with `agentRunsEnabled`, `isUserApproved`, `guardPaidRoute`, and `requireApprovedPage`, treating a missing row and a query error as the same `false` result but logging only the error, under an `[lib/access]` prefix, and returning the documented status codes and generic messages. Satisfies **AC-11**, and the response contract behind **AC-6**, **AC-7**, **AC-8**
 4. Replace the hand rolled auth block at the top of all four paid routes with `guardPaidRoute`, `requireAgentSwitch: true` for the two agent routes and `false` for the two resume routes, placing the call before body parsing and before any database read. Leave `app/api/resume/signed-url/route.ts` untouched. Satisfies **AC-6**, **AC-7**, **AC-8**
-5. Create the `app/(app)/` route group, move `dashboard/`, `profile/`, and `find-jobs/` into it, add `app/(app)/layout.tsx` doing auth then approval then render, and delete the now redundant redirect block from each of the four pages while leaving their own data reads alone. Satisfies **AC-3**, **AC-5**, **AC-10**
-6. Add `app/private-beta/page.tsx` outside the route group, with its own signed out redirect to `/login`, an approved redirect to `/dashboard`, no app navbar, the signed in account shown, and sign out reusing `actions/auth.ts`. Add `"/private-beta"` to `proxy.ts`'s matcher. Satisfies **AC-2**, **AC-4**
-7. Add `tests/access.test.mjs` covering `agentRunsEnabled` and `isUserApproved` across every case above, and extend `tests/agent-find-route.test.mjs`, `tests/agent-research-route.test.mjs`, `tests/resume-extract-route.test.mjs`, and `tests/resume-generate-route.test.mjs` to assert the denial status codes and that the agent and provider mocks are never invoked. Satisfies **AC-6**, **AC-7**, **AC-8**, **AC-11**
-8. Verify a real run: an unapproved second account through all four pages and all four routes, then approved through SQL and re-checked, plus `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build`. Satisfies **AC-1**, **AC-2**, **AC-5**, **AC-13**
-9. Run `/imprint` to record the private beta screen in `context/ui-registry.md`, and update `context/progress-tracker.md`, per root project rules
+5. Add one `await requireApprovedPage(insforge, data.user.id)` call to each of `app/dashboard/page.tsx`, `app/profile/page.tsx`, `app/find-jobs/page.tsx`, and `app/find-jobs/[id]/page.tsx`, placed straight after that page's existing signed in check and before its own data reads. Do not move any file, do not touch the existing `redirect("/login?error=session")` blocks, and do not wrap the call in a `try` block, because the redirect inside it works by throwing. Satisfies **AC-3**, **AC-5**, **AC-10**
+6. Add `app/private-beta/page.tsx`, with its own signed out redirect to `/login`, an approved redirect to `/dashboard`, no app navbar, the signed in account shown, and sign out reusing `actions/auth.ts`. Add `"/private-beta"` to `proxy.ts`'s matcher. Satisfies **AC-2**, **AC-4**
+7. Add `tests/access.test.mjs` covering `agentRunsEnabled` and `isUserApproved` across every case above, and extend `tests/agent-find-route.test.mjs`, `tests/agent-research-route.test.mjs`, `tests/resume-extract-route.test.mjs`, and `tests/resume-generate-route.test.mjs` to assert the denial status codes and that the agent and provider mocks are never invoked. Two of these assertions carry the guard ordering rather than just the status code, and both matter more than they look: post a deliberately malformed body as an unapproved user and expect `403`, never `400`, which fails the moment someone moves body parsing above the guard. Then add a coverage test that reads every file under `app/api/**/route.ts`, and asserts that any one importing a paid module (anything under `agent/`, the resume extractor, the resume generator) also imports `guardPaidRoute`. That test is what stops a fifth paid route shipping ungated, which is the one failure mode here that silently costs money. Satisfies **AC-6**, **AC-7**, **AC-8**, **AC-11**
+8. Extend the four page contract test files, `tests/dashboard-page.test.mjs`, `tests/profile-contract.test.mjs`, `tests/find-jobs-contract.test.mjs`, and `tests/job-details.test.mjs`, with one assertion each that the page source calls `requireApprovedPage`. These files read their page by literal path and assert the existing `getCurrentUser` plus `redirect("/login?error=session")` block is present. Because task 5 moves no file and deletes no block, every existing assertion in them still holds, so this is an addition rather than a rewrite. Satisfies **AC-10**, and keeps **AC-13**'s `npm test` green
+9. Verify a real run: an unapproved second account through all four pages and all four routes, then approved through SQL and re-checked, plus `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build`. Satisfies **AC-1**, **AC-2**, **AC-5**, **AC-13**
+10. Run `/imprint` to record the private beta screen in `context/ui-registry.md`, and update `context/progress-tracker.md`, per root project rules
 
 ## Consequences
 
 **Positive**:
 - The app can be deployed and linked publicly today, with the spend boundary enforced server side on every paid route rather than hidden behind a user interface that anyone can skip.
 - Two paid routes that the original request overlooked, resume extract and resume generate, are now covered. Both call GPT-4o and were reachable by any signed in visitor.
-- The four duplicated page guards collapse into one route group layout, so the next protected page inherits both checks for free.
+- The page gate is four added lines and no file moves, so three working pages carry almost no regression risk and nothing has to be unwound when billing supersedes this feature.
 - `isUserApproved` gives billing a single, named seam. Scope features 1 to 3 replace one function body rather than editing every call site.
 - `ENABLE_AGENT_RUNS` is a real incident control: one environment variable change stops the two most expensive paths without a code change.
 
 **Negative / tradeoffs**:
 - Granting access is manual SQL through the InsForge CLI. There is no admin user interface, so every new demo user costs the owner a command. Accepted deliberately: an admin surface is more work than the gate itself and billing supersedes it.
-- Moving three route directories into `app/(app)/` is a larger diff than an inline check and will show up as file renames in review. Worth it once, because it removes four copies of a guard that would otherwise become five.
+- The approval redirect is called in four places, so a fifth protected page can silently forget it and nothing catches that. This is the duplication a route group layout would have removed, and it is accepted deliberately because this gate is temporary. The rule itself still lives in one file, `lib/access.ts`; only the call is repeated.
+- The four existing copies of the signed in check stay as they are. This feature does not pay that debt down.
 - Every protected page render now costs one extra indexed primary key lookup against `user_access`, and every paid route call costs the same. Negligible, but non zero, and it is not cached.
-- The gate is checked in two places on purpose, so an approval rule change means editing the layout and the guard if the rule ever diverges. Kept in one file to keep that divergence unlikely.
+- The gate is checked in two places on purpose, the page and the route, so an approval rule change means editing both if the rule ever diverges. Both read `isUserApproved`, which keeps that divergence unlikely.
 
 **Neutral**:
 - One new table, select only, no writes from application code.
@@ -194,6 +201,8 @@ Build approach for this feature is Skateboard, per the `docs/scope/scope.md` hea
 - [ ] `insforge.toml` has `allowed_redirect_urls = ["http://localhost:3000/callback"]`, localhost only. Production OAuth will not work until the deployed origin is added. Required for deployment, but a separate change from this gate.
 - [ ] `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` are read in code but missing from `.env.example`.
 - [ ] Server actions in `actions/profile.ts` and `actions/jobs.ts` stay ungated. They are cheap database writes already scoped by RLS, and an unapproved user cannot reach the interface that triggers them. Revisit if a paid call is ever added to a server action.
+- [ ] Client side router cache staleness on a revoked user. If the owner moves someone from `approved` to `blocked` while that person is signed in, Next.js may serve a page they already visited from the client router cache on a soft navigation, without asking the server, so the app can look open to them for a while. No money leaks, because `guardPaidRoute` still returns `403` on the actual paid call, but the user experience contradicts the gate. Check the installed Next.js version's caching docs during the build rather than assuming, per the root `AGENTS.md` warning, and if it bites, a `revalidate` or `dynamic` setting on the four protected pages is the fix.
+- [ ] Two of the **AC-6** checks in `verify.md`, no Browserbase session appearing in the Browserbase dashboard and no OpenAI usage delta, can only be run by a human looking at a provider dashboard. They are the strongest evidence that a `403` truly costs nothing, and they will realistically be run once, at first verification, and never again. The mocked provider tests plus the malformed body ordering test in build task 7 are the repeatable stand in. Worth knowing that the repeatable layer is a proxy for the real one, not the same thing.
 - [ ] No admin surface for approving users. If manual SQL becomes tedious before billing lands, a minimal owner only page is the natural next step.
 
 ## Rationale

@@ -74,5 +74,6 @@ export const config = {
     "/dashboard/:path*",
     "/profile/:path*",
     "/find-jobs/:path*",
+    "/private-beta",
   ],
 };

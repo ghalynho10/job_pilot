@@ -27,6 +27,22 @@ test("job details route uses async params, redirects signed out users, and hides
   assert.match(source, /if \(!jobRow\) \{\s*notFound\(\);/);
 });
 
+test("job details page sends an unapproved user to the private beta screen before reading the job", async () => {
+  const source = await readProjectFile("app/find-jobs/[id]/page.tsx");
+
+  const redirectIndex = source.indexOf('redirect("/login?error=session")');
+  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
+  const readIndex = source.indexOf('.from("jobs")');
+
+  assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
+  assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
+  assert.ok(gateIndex < readIndex, "the gate must run before the job row is read");
+  assert.ok(
+    !source.includes("user_access"),
+    "the page must go through requireApprovedPage, never query user_access itself",
+  );
+});
+
 test("proxy sends direct signed out job detail visits to the session error login URL (AC-1)", async () => {
   const source = await readProjectFile("proxy.ts");
 
