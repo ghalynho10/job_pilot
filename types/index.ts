@@ -162,6 +162,7 @@ export type JobRow = {
   user_id: string;
   source: "search" | "url";
   source_url: string | null;
+  external_id: string | null;
   external_apply_url: string | null;
   title: string;
   company: string;
