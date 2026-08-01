@@ -233,4 +233,26 @@ test("extractProfileFromResumeText handles the GPT-4o call, JSON parsing, and va
     /\} catch \(error\) \{\s*console\.error\("\[agent\/resume-extractor\]", error\);\s*return \{ success: false, error: "Something went wrong extracting your profile\. Please try again\." \};/,
     "any other failure (e.g. the OpenAI call itself throwing) must be caught by the top level try/catch, never crash the route",
   );
+
+  const maxTokensMatch = source.match(/max_tokens:\s*(\d+),/);
+  assert.ok(
+    maxTokensMatch && Number(maxTokensMatch[1]) >= 1600,
+    "max_tokens must stay high enough for a resume with 3 detailed jobs and 5 projects, or GPT-4o truncates mid-JSON (finish_reason: length) and every extraction fails with 'unreadable response'; a live repro with such a resume needed 1369 completion tokens",
+  );
+
+  assert.match(
+    source,
+    /"description" must combine the project's summary line AND every bullet point listed under it/,
+    "the prompt must tell GPT-4o to fold every bullet point under a project into description, or it defaults to a one-line summary and drops all bullet detail; confirmed live with a repro resume where description came back as only the first line until this instruction was added",
+  );
+  assert.match(
+    source,
+    /each bullet point on its own line separated by "\\\\n"/,
+    "the prompt must require newline separated bullet points in description, or GPT-4o defaults to joining them into one run-on sentence with semicolons instead of matching the resume's line-per-bullet layout; confirmed live across 3 repro runs before this instruction was added",
+  );
+  assert.match(
+    source,
+    /"technologies" must list every specific language, framework, library, tool, or platform named anywhere in the project's text.*whether or not it is introduced with a label/,
+    "the prompt must tell GPT-4o to recognize technology names without a 'Technologies:' or 'Built with' label, or it folds an unlabeled trailing tech list into description and leaves technologies empty; confirmed live with a real resume project whose tech stack was a plain comma/semicolon separated line with no label",
+  );
 });

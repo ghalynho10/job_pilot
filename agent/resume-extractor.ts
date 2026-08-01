@@ -84,7 +84,7 @@ Rules:
 - experienceLevel must be exactly one of "junior", "mid", "senior", "lead", or "" if unclear.
 - education.highestDegree must be exactly one of "high_school", "associate", "bachelor", "master", "doctorate", or "" if unclear.
 - workExperience holds at most the 3 most recent or most relevant roles, most recent first.
-- projects holds at most 5 personal or portfolio projects listed on the resume, if any. Each project must have a "name" (required). "description", "url", and "technologies" are optional and only included when the resume explicitly states them. Return [] (empty array) if the resume has no projects section.
+- projects holds at most 5 personal or portfolio projects listed on the resume, if any. Each project must have a "name" (required). "url" is optional and only included when the resume explicitly states it. "description" must combine the project's summary line AND every bullet point listed under it into one string, with each bullet point on its own line separated by "\\n" (a newline), matching the line-per-bullet layout in the resume, not just the first line and not joined into one sentence, so no detail listed under the project is dropped. "technologies" must list every specific language, framework, library, tool, or platform named anywhere in the project's text (summary line, bullets, or a trailing tech list), whether or not it is introduced with a label like "Technologies:" or "Built with"; do not require a label to recognize it, and do not omit a technology from "technologies" just because it also appears in "description". Return [] (empty array) if the resume has no projects section.
 - Never include any job preference fields (desired titles, remote preference, salary, preferred locations) and never include an email field; there is no field for them in the response.
 
 Return ONLY valid JSON matching this shape:
@@ -118,7 +118,7 @@ export async function extractProfileFromResumeText(
       model: "gpt-4o",
       response_format: { type: "json_object" },
       temperature: 0.3,
-      max_tokens: 900,
+      max_tokens: 2000,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: text },

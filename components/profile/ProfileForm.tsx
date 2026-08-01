@@ -100,6 +100,9 @@ export function ProfileForm({
 }: ProfileFormProps): JSX.Element {
   const [skillInput, setSkillInput] = useState("");
   const [industryInput, setIndustryInput] = useState("");
+  const [technologiesDrafts, setTechnologiesDrafts] = useState<
+    Record<number, string>
+  >({});
 
   const updateField = <K extends keyof Profile>(
     key: K,
@@ -191,6 +194,24 @@ export function ProfileForm({
       "projects",
       projects.map((p, i) => (i === index ? { ...p, [key]: value } : p)),
     );
+  };
+
+  const commitTechnologiesDraft = (index: number): void => {
+    const draft = technologiesDrafts[index];
+    if (draft === undefined) return;
+    updateProject(
+      index,
+      "technologies",
+      draft
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0),
+    );
+    setTechnologiesDrafts((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const addProject = (): void => {
@@ -695,19 +716,19 @@ export function ProfileForm({
                 <input
                   className={inputClass}
                   id={`project-technologies-${index}`}
+                  onBlur={() => commitTechnologiesDraft(index)}
                   onChange={(event) =>
-                    updateProject(
-                      index,
-                      "technologies",
-                      event.target.value
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter((t) => t.length > 0),
-                    )
+                    setTechnologiesDrafts((prev) => ({
+                      ...prev,
+                      [index]: event.target.value,
+                    }))
                   }
                   placeholder="React, TypeScript, PostgreSQL"
                   type="text"
-                  value={(project.technologies ?? []).join(", ")}
+                  value={
+                    technologiesDrafts[index] ??
+                    (project.technologies ?? []).join(", ")
+                  }
                 />
               </FormField>
             </div>

@@ -323,6 +323,26 @@ test("profile form's Save Profile button is wired to the onSave prop, disabled w
   assert.match(source, /\{saveSuccess \? \(/);
 });
 
+test("project technologies input does not re-derive its displayed value from a trimmed/filtered array on every keystroke", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.doesNotMatch(
+    source,
+    /id=\{`project-technologies-\$\{index\}`\}\s*onChange=\{\(event\) =>\s*updateProject\(\s*index,\s*"technologies",/,
+    "onChange must not call updateProject with a live split/trim/filter of the typed value: since the input's value is derived from that same array, an empty trailing segment (typed while composing a second entry after a comma) gets filtered out and immediately overwrites the DOM value, silently eating the comma and gluing the next keystrokes onto the first word, so the user can never type a second technology",
+  );
+  assert.match(
+    source,
+    /technologiesDrafts\[index\] \?\?\s*\(project\.technologies \?\? \[\]\)\.join\(", "\)/,
+    "the technologies input must show the raw in-progress draft while typing (not a value recomputed from the committed array), and only fall back to the committed, formatted list once there is no draft",
+  );
+  assert.match(
+    source,
+    /onBlur=\{\(\) => commitTechnologiesDraft\(index\)\}/,
+    "the trim/filter/commit into project.technologies must happen on blur, not on every keystroke, so typing is never disrupted",
+  );
+});
+
 test("profile editor owns the shared profile state and reads the staged resume from an external store, wiring both children to it", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
