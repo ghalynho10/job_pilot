@@ -1,5 +1,5 @@
 [auth]
-allowed_redirect_urls = ["http://localhost:3000/callback"]
+allowed_redirect_urls = ["http://localhost:3000/callback", "https://job-pilot-blond.vercel.app/callback"]
 require_email_verification = true
 verify_email_method = "code"
 reset_password_method = "code"
