@@ -126,7 +126,7 @@ Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and li
   - [x] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` (AC-4)
   - [x] Add `maxDuration` and `force-dynamic` to the research route and correct the early-return note in `context/library-docs.md` (AC-6)
 code in `app/api/agent/research/route.ts`, `.env.example`
-- [ ] Verify it: `/check verify deploy target and production config`
+- [x] Verify it: `/check verify deploy target and production config`
 - [ ] Test it: `/test deploy target and production config`
 
 ## Foundation (Billing)
