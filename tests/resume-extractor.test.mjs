@@ -135,6 +135,35 @@ test("extractedProfileSchema safeParse fails outright when GPT-4o returns valid 
   assert.equal(asNull.success, false);
 });
 
+test("extractedProfileSchema falls back to an empty projects array when projects is missing or wrong type (AC-2)", () => {
+  const noProjects = extractedProfileSchema.parse(validExtraction());
+  assert.deepEqual(noProjects.projects, [], "missing projects must default to empty array");
+
+  const wrongType = extractedProfileSchema.parse(validExtraction({ projects: "not an array" }));
+  assert.deepEqual(wrongType.projects, [], "wrong type for projects must fall back to empty array");
+});
+
+test("extractedProfileSchema keeps only projects with a non empty name and caps at 5 (AC-1, AC-4)", () => {
+  const result = extractedProfileSchema.parse(
+    validExtraction({
+      projects: [
+        { name: "App One", description: "First", url: "https://one.com", technologies: ["Go"] },
+        { name: "", description: "No name" },
+        { name: "App Two" },
+        { name: "App Three" },
+        { name: "App Four" },
+        { name: "App Five" },
+        { name: "App Six" },
+      ],
+    }),
+  );
+
+  assert.equal(result.projects.length, 5, "must filter nameless projects first, then cap at 5 named projects");
+  assert.equal(result.projects[0].name, "App One", "project with a name must come through");
+  assert.equal(result.projects[0].technologies.length, 1);
+  assert.equal(result.projects.every((p) => p.name.length > 0), true, "projects without a name must be filtered out");
+});
+
 test("extractProfileFromResumeText handles the GPT-4o call, JSON parsing, and validation failures it cannot unit test directly (no network mocking in this project)", async () => {
   const source = await readProjectFile("agent/resume-extractor.ts");
 

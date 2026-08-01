@@ -61,6 +61,7 @@ export function mapProfileToRow(
     linkedin_url: toNullableTrimmed(profile.linkedinUrl),
     portfolio_url: toNullableTrimmed(profile.portfolioUrl),
     work_authorization: profile.workAuthorization === "" ? null : profile.workAuthorization,
+    projects: profile.projects,
   };
 }
 
@@ -91,6 +92,7 @@ export function mapProfileRowToProfile(row: ProfileRow): Profile {
     remotePreference: (row.remote_preference as RemotePreference | null) ?? "",
     salaryExpectation: row.salary_expectation ?? "",
     preferredLocations: (row.preferred_locations ?? []).join(", "),
+    projects: row.projects ?? null,
   };
 }
 
@@ -119,5 +121,6 @@ export function buildEmptyProfile(email: string): Profile {
     remotePreference: "",
     salaryExpectation: "",
     preferredLocations: "",
+    projects: null,
   };
 }

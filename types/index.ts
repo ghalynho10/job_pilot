@@ -27,6 +27,13 @@ export type Education = {
   graduationYear: string;
 };
 
+export type Project = {
+  name: string;
+  description?: string;
+  url?: string;
+  technologies?: string[];
+};
+
 export type Profile = {
   fullName: string;
   email: string;
@@ -46,6 +53,7 @@ export type Profile = {
   remotePreference: RemotePreference | "";
   salaryExpectation: string;
   preferredLocations: string;
+  projects: Project[] | null;
 };
 
 export type ProfileCompletion = {
@@ -88,6 +96,7 @@ export type ProfileRow = {
   portfolio_url: string | null;
   work_authorization: string | null;
   resume_pdf_url: string | null;
+  projects: Project[] | null;
   is_complete: boolean;
   created_at: string;
   updated_at: string;
@@ -119,6 +128,7 @@ export type ExtractedProfileFields = Pick<
   | "industries"
   | "workExperience"
   | "education"
+  | "projects"
 >;
 
 export type GeneratedResumeContent = {
