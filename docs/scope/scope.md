@@ -27,7 +27,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | P | Recent activity (real data) | Existing | existing |
 | Q | Analytics charts (real data) | Existing | existing |
 | 0 | Portfolio private access gate | Foundation (Access gate) | done |
-| 0a | Deploy target and production config | Foundation (Access gate) | in-progress |
+| 0a | Deploy target and production config | Foundation (Access gate) | done |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
@@ -116,7 +116,7 @@ code in `lib/access.ts`, `lib/access-rules.ts`, `app/private-beta/page.tsx`, `mi
 - [x] Verify it: `/check verify portfolio private access gate`
 - [x] Test it: `/test`
 
-### 0a. Deploy target and production config · in-progress · small
+### 0a. Deploy target and production config · done · small
 Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and linked from the portfolio, but nothing has decided where it deploys or how production is configured. `insforge.toml` currently lists `allowed_redirect_urls = ["http://localhost:3000/callback"]`, localhost only, so Google and GitHub sign in will fail on the deployed origin and no visitor gets far enough to meet the gate at all. `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` are also read in code but missing from `.env.example`.
 **Done when:** a host and origin are chosen, that origin is in `allowed_redirect_urls`, Google and GitHub sign in both work on the deployed site, every environment variable the app reads is present in `.env.example` and set in production, and the deployed app serves the access gate as specced.
 - [x] Design it (spec): [0013-deploy-target-production-config](../specs/0013-deploy-target-production-config/index.md)
