@@ -115,7 +115,12 @@ test("treats a negative years of experience as null rather than storing a negati
 
 test("passes work experience and education through unchanged", () => {
   const workExperience = [{ company: "Acme", jobTitle: "QA" }];
-  const education = { highestDegree: "bachelor", fieldOfStudy: "CS", institutionName: "", graduationYear: "" };
+  const education = {
+    highestDegree: "bachelor",
+    fieldOfStudy: "CS",
+    institutionName: "",
+    graduationYear: "",
+  };
   const row = mapProfileToRow(
     { ...baseProfile, workExperience, education },
     "user-1",
@@ -127,7 +132,11 @@ test("passes work experience and education through unchanged", () => {
 });
 
 test("always takes id and email from the session values passed in, not from the profile object", () => {
-  const row = mapProfileToRow(baseProfile, "the-real-user-id", "session@example.com");
+  const row = mapProfileToRow(
+    baseProfile,
+    "the-real-user-id",
+    "session@example.com",
+  );
 
   assert.equal(row.id, "the-real-user-id");
   assert.equal(row.email, "session@example.com");
@@ -247,7 +256,11 @@ test("round trips a fully populated, already-normalized profile through both map
     projects: null,
   };
 
-  const row = mapProfileToRow(normalizedProfile, "user-1", normalizedProfile.email);
+  const row = mapProfileToRow(
+    normalizedProfile,
+    "user-1",
+    normalizedProfile.email,
+  );
   const fullRow = {
     id: "user-1",
     cover_letter_tone: null,
@@ -282,7 +295,12 @@ test("buildEmptyProfile pre-fills only the email field, leaving everything else 
 test("round trips projects through both mapping directions", () => {
   const profile = buildEmptyProfile("proj@example.com");
   profile.projects = [
-    { name: "My App", description: "A web app", url: "https://github.com/me/app", technologies: ["React", "TypeScript"] },
+    {
+      name: "My App",
+      description: "A web app",
+      url: "https://github.com/me/app",
+      technologies: ["React", "TypeScript"],
+    },
     { name: "CLI Tool", description: "", url: "", technologies: [] },
   ];
 
