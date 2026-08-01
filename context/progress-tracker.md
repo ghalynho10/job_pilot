@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 6 — Access gate (built, not yet verified)
-**Last completed:** 18 Portfolio private access gate (build only)
-**Next:** `/check verify portfolio private access gate`, then `/test`
+**Phase:** Phase 7 — Billing (not started)
+**Last completed:** 18 Portfolio private access gate (verified, tested)
+**Next:** `/architect billing foundation`
 
 ---
 
@@ -48,7 +48,11 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ### Phase 6 — Access gate
 
-- [x] 18 Portfolio private access gate (built, awaiting `/check verify` and `/test`)
+- [x] 18 Portfolio private access gate (verified, tested, accepted)
+
+### Phase 7 — Billing
+
+- [ ] 1 Billing foundation (subscription data model + Stripe setup)
 
 ---
 
