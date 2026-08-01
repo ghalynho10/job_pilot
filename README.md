@@ -4,6 +4,17 @@ A full stack AI-powered job hunting assistant. Set up your profile once, upload 
 
 Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
 
+![Dashboard screenshot](./public/screenshot-dashboard.png)
+*Dashboard — stats, recent activity, and match-score analytics*
+
+> **Note on the live demo:** every agent run costs real money (OpenAI, Adzuna, Browserbase), so signed-in access to the paid features is manually approved. If you hit the private-beta screen, [email me](mailto:mghalynho@gmail.com) and I'll approve your account — usually within a day.
+
+## Why I built this
+
+Job searching as a developer means the same repetitive loop: search boards, read postings, guess whether you're a fit, then dig through a company's site to prep before applying. I built JobPilot to automate the parts of that loop that don't need a human — discovery and scoring — while keeping the actual decision to apply in my hands.
+
+It's also a testbed for an AI-agent-driven development workflow (see [Working on this project](#working-on-this-project)): most of this codebase was built through a structured spec → build → verify → test cycle rather than ad hoc prompting.
+
 ## What it does
 
 - **Job discovery** — searches [Adzuna](https://www.adzuna.com) by title and location (IT jobs only), scores every result 0–100 against your profile with GPT-4o, and explains the match
@@ -12,12 +23,21 @@ Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
 - **Dashboard** — stats bar, recent activity feed, and PostHog-powered analytics charts (jobs found over time, match score distribution, company research activity)
 - **Auth** — Google and GitHub OAuth via InsForge, PKCE cookies owned server-side
 
-See [context/project-overview.md](context/project-overview.md) for the full user flow and feature scope.
+JobPilot never auto-submits applications — applying is always an explicit, one-click handoff to the employer's own posting.
+
+See [context/project-overview.md](./context/project-overview.md) for the full user flow and feature scope.
+
+## By the numbers
+
+- 65+ commits, built end-to-end solo
+- 350+ tests (`node:test`, source-contract style), `tsc --noEmit` and ESLint clean
+- TypeScript strict throughout — no `any`
+- 9 core context docs read by the build agent before every feature, keeping architecture decisions consistent across the whole build
 
 ## Stack
 
 | Layer | Tool |
-|---|---|
+| --- | --- |
 | Framework | Next.js 16 (App Router), React 19, TypeScript strict |
 | Auth + DB + Storage + Realtime | [InsForge](https://insforge.dev) |
 | Job discovery | Adzuna API |
@@ -28,22 +48,22 @@ See [context/project-overview.md](context/project-overview.md) for the full user
 | Styling | Tailwind CSS + shadcn/ui |
 | Hosting | Vercel |
 
-Full architecture, folder structure, data flow, and invariants: [context/architecture.md](context/architecture.md).
+Full architecture, folder structure, data flow, and invariants: [context/architecture.md](./context/architecture.md).
 
 ## Getting started
 
-```bash
+```
 npm install
 cp .env.example .env.local   # fill in the values below
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open <http://localhost:3000>.
 
 ### Environment variables
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `NEXT_PUBLIC_APP_URL` | Used in OAuth callback URLs |
 | `NEXT_PUBLIC_INSFORGE_URL` | InsForge project URL |
 | `NEXT_PUBLIC_INSFORGE_ANON_KEY` | InsForge anon key |
@@ -54,11 +74,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | `BROWSERBASE_API_KEY` / `BROWSERBASE_PROJECT_ID` | Company research sessions |
 | `ENABLE_AGENT_RUNS` | Kill switch for the two agent routes (find, research) |
 
-`NEXT_PUBLIC_` variables are inlined into the client bundle at build time — never put a secret behind that prefix. Full reference: [context/code-standards.md](context/code-standards.md#environment-variables).
+`NEXT_PUBLIC_` variables are inlined into the client bundle at build time — never put a secret behind that prefix. Full reference: [context/code-standards.md](./context/code-standards.md#environment-variables).
 
 ### Testing
 
-```bash
+```
 npm test
 ```
 
@@ -66,7 +86,7 @@ Runs `node:test` against `tests/*.test.mjs`.
 
 ## Project structure
 
-```text
+```
 app/            Pages and API routes only — no business logic
 agent/          All agent logic (Adzuna discovery, matching, research, extraction) — never touches React
 actions/        Server Actions for UI-triggered mutations (profile save, job status)
@@ -80,25 +100,25 @@ docs/reviews/   Point-in-time code reviews
 migrations/     Versioned InsForge SQL migrations
 ```
 
-Full folder breakdown and system boundaries: [context/architecture.md](context/architecture.md#folder-structure).
+Full folder breakdown and system boundaries: [context/architecture.md](./context/architecture.md#folder-structure).
 
 ## Working on this project
 
-This repo is built with an AI-agent-driven workflow described in [AGENTS.md](AGENTS.md). Before implementing anything, the agent reads, in order:
+This repo is built with an AI-agent-driven workflow described in [AGENTS.md](./AGENTS.md). Before implementing anything, the agent reads, in order:
 
-1. [context/project-overview.md](context/project-overview.md) — what JobPilot is, the user flow, in/out of scope
-2. [context/architecture.md](context/architecture.md) — stack, folder structure, data flow, DB schema, invariants
-3. [context/ui-tokens.md](context/ui-tokens.md) — design tokens
-4. [context/ui-rules.md](context/ui-rules.md) — UI conventions
-5. [context/ui-registry.md](context/ui-registry.md) — component patterns already established
-6. [context/code-standards.md](context/code-standards.md) — TypeScript, Next.js, naming, error handling, and PostHog event conventions
-7. [context/library-docs.md](context/library-docs.md) — project-specific notes for third party libraries
-8. [context/build-plan.md](context/build-plan.md)
-9. [context/progress-tracker.md](context/progress-tracker.md)
+1. [context/project-overview.md](./context/project-overview.md) — what JobPilot is, the user flow, in/out of scope
+2. [context/architecture.md](./context/architecture.md) — stack, folder structure, data flow, DB schema, invariants
+3. [context/ui-tokens.md](./context/ui-tokens.md) — design tokens
+4. [context/ui-rules.md](./context/ui-rules.md) — UI conventions
+5. [context/ui-registry.md](./context/ui-registry.md) — component patterns already established
+6. [context/code-standards.md](./context/code-standards.md) — TypeScript, Next.js, naming, error handling, and PostHog event conventions
+7. [context/library-docs.md](./context/library-docs.md) — project-specific notes for third party libraries
+8. [context/build-plan.md](./context/build-plan.md)
+9. [context/progress-tracker.md](./context/progress-tracker.md)
 
-The build follows a **skateboard approach**: ship the thinnest usable whole first, then grow it. Current scope and status live in [docs/scope/scope.md](docs/scope/scope.md); each feature there links to a design spec under `docs/specs/`.
+The build follows a **skateboard approach**: ship the thinnest usable whole first, then grow it. Current scope and status live in [docs/scope/scope.md](./docs/scope/scope.md); each feature there links to a design spec under `docs/specs/`.
 
-Slash-command workflow (see [AGENTS.md](AGENTS.md) for the full skill list):
+Slash-command workflow (see [AGENTS.md](./AGENTS.md) for the full skill list):
 
 - `/architect` — design a feature before building it
 - `/develop` — build from an approved spec
@@ -110,11 +130,17 @@ Slash-command workflow (see [AGENTS.md](AGENTS.md) for the full skill list):
 
 ### InsForge backend
 
-This project uses [InsForge](https://insforge.dev) for database, auth, storage, and edge functions — project `JSM_JobPilot` (`https://s74xxncd.us-east.insforge.app`). Backend credentials live in `.env.local` (app) and `.insforge/project.json` (CLI) — never hardcoded or committed. See the InsForge section of [AGENTS.md](AGENTS.md) for the skill breakdown (`insforge`, `insforge-cli`, `insforge-debug`, `insforge-integrations`).
+This project uses [InsForge](https://insforge.dev) for database, auth, storage, and edge functions. Backend credentials live in `.env.local` (app) and `.insforge/project.json` (CLI) — never hardcoded or committed. See the InsForge section of [AGENTS.md](./AGENTS.md) for the skill breakdown (`insforge`, `insforge-cli`, `insforge-debug`, `insforge-integrations`).
+
+## Roadmap
+
+Shipped: the full core product — auth, profile and resume tools, job discovery and matching, company research, dashboard analytics, and a private-access gate for cost control on the public deployment.
+
+Next up: a billing foundation (subscription data model + Stripe setup), Stripe Checkout with webhook-driven activation, then free-tier usage caps that prompt an upgrade at the limit. Each needs a design spec before any code is written.
 
 ## Deployment
 
-Hosted on Vercel (Hobby plan), production branch `main`, auto-deploy on push. See [docs/specs/0013-deploy-target-production-config](docs/specs/0013-deploy-target-production-config/index.md) for the full production configuration decisions (OAuth callback URLs, env vars, `maxDuration` on the research route).
+Hosted on Vercel (Hobby plan), production branch `main`, auto-deploy on push. See [docs/specs/0013-deploy-target-production-config](./docs/specs/0013-deploy-target-production-config/index.md) for the full production configuration decisions (OAuth callback URLs, env vars, `maxDuration` on the research route).
 
 ## License
 
