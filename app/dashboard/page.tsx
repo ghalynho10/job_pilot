@@ -9,15 +9,16 @@ import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDi
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Navbar } from "@/components/layout/Navbar";
+import {
+  computeCompanyResearchActivity,
+  computeJobsFoundOverTime,
+  computeMatchScoreDistribution,
+  type ChartsSourceJob,
+} from "@/lib/dashboard-charts";
 import { computeRecentActivity } from "@/lib/dashboard-activity";
 import { computeDashboardStats, type DashboardStatsJob } from "@/lib/dashboard-stats";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
-import {
-  mockCompanyResearchActivity,
-  mockJobsFoundOverTime,
-  mockMatchScoreDistribution,
-} from "@/lib/mock-dashboard";
 import type { ProfileRow } from "@/types";
 
 export default async function DashboardPage(): Promise<JSX.Element> {
@@ -28,11 +29,15 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     redirect("/login?error=session");
   }
 
-  const { data: row } = await insforge.database
+  const { data: row, error: profileError } = await insforge.database
     .from("profiles")
     .select("*")
     .eq("id", data.user.id)
     .maybeSingle<ProfileRow>();
+
+  if (profileError) {
+    console.error("[app/dashboard]", profileError);
+  }
 
   const profileComplete = isProfileComplete({
     fullName: row?.full_name ?? "",
@@ -52,14 +57,22 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     jobTitlesSeeking: row?.job_titles_seeking ?? [],
   });
 
-  const { data: statsJobs } = await insforge.database
+  const { data: statsJobs, error: statsJobsError } = await insforge.database
     .from("jobs")
-    .select("match_score, company_research, found_at")
+    .select("match_score, company_research, found_at, company_research_completed_at")
     .eq("user_id", data.user.id);
 
-  const stats = computeDashboardStats((statsJobs ?? []) as DashboardStatsJob[]);
+  if (statsJobsError) {
+    console.error("[app/dashboard]", statsJobsError);
+  }
 
-  const { data: agentRunRows } = await insforge.database
+  const rows = (statsJobs ?? []) as (DashboardStatsJob & ChartsSourceJob)[];
+  const stats = computeDashboardStats(rows);
+  const jobsFoundOverTime = computeJobsFoundOverTime(rows);
+  const matchScoreDistribution = computeMatchScoreDistribution(rows);
+  const companyResearchActivity = computeCompanyResearchActivity(rows);
+
+  const { data: agentRunRows, error: agentRunsError } = await insforge.database
     .from("agent_runs")
     .select("id, job_title_searched, jobs_found, completed_at")
     .eq("user_id", data.user.id)
@@ -67,13 +80,21 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     .order("completed_at", { ascending: false })
     .limit(10);
 
-  const { data: researchedJobRows } = await insforge.database
+  if (agentRunsError) {
+    console.error("[app/dashboard]", agentRunsError);
+  }
+
+  const { data: researchedJobRows, error: researchedJobsError } = await insforge.database
     .from("jobs")
     .select("id, company, company_research_completed_at")
     .eq("user_id", data.user.id)
     .not("company_research_completed_at", "is", null)
     .order("company_research_completed_at", { ascending: false })
     .limit(10);
+
+  if (researchedJobsError) {
+    console.error("[app/dashboard]", researchedJobsError);
+  }
 
   const activity = computeRecentActivity(agentRunRows ?? [], researchedJobRows ?? []);
 
@@ -101,12 +122,12 @@ export default async function DashboardPage(): Promise<JSX.Element> {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <RecentActivityCard activity={activity} />
-          <CompanyResearchActivityChart data={mockCompanyResearchActivity} />
+          <CompanyResearchActivityChart data={companyResearchActivity} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <JobsFoundOverTimeChart data={mockJobsFoundOverTime} />
-          <MatchScoreDistributionChart data={mockMatchScoreDistribution} />
+          <JobsFoundOverTimeChart data={jobsFoundOverTime} />
+          <MatchScoreDistributionChart data={matchScoreDistribution} />
         </div>
       </main>
     </div>

@@ -69,21 +69,30 @@ test("dashboard page computes real stat cards from the current user's jobs rows,
 
   assert.match(source, /from "@\/lib\/dashboard-stats"/);
   assert.match(source, /\.from\("jobs"\)/);
-  assert.match(source, /\.select\("match_score, company_research, found_at"\)/);
+  assert.match(source, /\.select\("match_score, company_research, found_at, company_research_completed_at"\)/);
   assert.match(source, /\.eq\("user_id", data\.user\.id\)/);
   assert.match(source, /computeDashboardStats\(/);
   assert.doesNotMatch(source, /mockStats/);
 });
 
+test("dashboard page computes real chart data from the current user's jobs rows, never from mock data (feature 17)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(source, /from "@\/lib\/dashboard-charts"/);
+  assert.match(source, /computeJobsFoundOverTime\(/);
+  assert.match(source, /computeMatchScoreDistribution\(/);
+  assert.match(source, /computeCompanyResearchActivity\(/);
+  assert.doesNotMatch(source, /mockJobsFoundOverTime|mockMatchScoreDistribution|mockCompanyResearchActivity/);
+});
+
 test("dashboard page composes stat cards, activity, and all three charts, in the design's order (AC-1 to AC-5)", async () => {
   const source = await readProjectFile("app/dashboard/page.tsx");
 
-  assert.match(source, /from "@\/lib\/mock-dashboard"/);
   assert.match(source, /stats\.map\(\(stat\) => \(/);
   assert.match(source, /<RecentActivityCard activity=\{activity\} \/>/);
-  assert.match(source, /<CompanyResearchActivityChart data=\{mockCompanyResearchActivity\} \/>/);
-  assert.match(source, /<JobsFoundOverTimeChart data=\{mockJobsFoundOverTime\} \/>/);
-  assert.match(source, /<MatchScoreDistributionChart data=\{mockMatchScoreDistribution\} \/>/);
+  assert.match(source, /<CompanyResearchActivityChart data=\{companyResearchActivity\} \/>/);
+  assert.match(source, /<JobsFoundOverTimeChart data=\{jobsFoundOverTime\} \/>/);
+  assert.match(source, /<MatchScoreDistributionChart data=\{matchScoreDistribution\} \/>/);
 
   const activityIndex = source.indexOf("<RecentActivityCard");
   const researchChartIndex = source.indexOf("<CompanyResearchActivityChart");
@@ -173,5 +182,151 @@ test("no chart component hardcodes a hex color or raw Tailwind color class; ever
   for (const file of files) {
     const source = await readProjectFile(file);
     assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}(?!\))/, `${file} should not contain a hardcoded hex color`);
+  }
+});
+
+// --- spec 0011 (feature 17, analytics charts wired to real data) ---
+// The AC numbers below refer to docs/specs/0011-analytics-charts-real-data/index.md,
+// not to spec 0010's AC numbers used by the tests above.
+
+const CHART_EMPTY_STATES = [
+  {
+    file: "components/dashboard/CompanyResearchActivityChart.tsx",
+    copy: "No companies researched in the last 7 days.",
+  },
+  {
+    file: "components/dashboard/JobsFoundOverTimeChart.tsx",
+    copy: "No jobs found in the last 30 days.",
+  },
+  {
+    file: "components/dashboard/MatchScoreDistributionChart.tsx",
+    copy: "No jobs scored 50% or higher yet.",
+  },
+];
+
+test("each chart shows the shared empty state treatment, with copy naming its own empty condition (spec 0011 AC-4)", async () => {
+  for (const { file, copy } of CHART_EMPTY_STATES) {
+    const source = await readProjectFile(file);
+
+    assert.match(
+      source,
+      /rounded-lg bg-surface-secondary px-4 py-3 text-sm font-medium text-text-secondary/,
+      `${file} should reuse the FindJobsPage empty state treatment`,
+    );
+    assert.match(source, /role="status"/, `${file}'s empty state should announce itself`);
+    assert.ok(
+      source.includes(copy),
+      `${file} should name its own empty condition, expected copy: ${copy}`,
+    );
+  }
+});
+
+test("each chart derives its empty state from the data it was given, not from a separate flag (spec 0011 AC-4)", async () => {
+  for (const { file } of CHART_EMPTY_STATES) {
+    const source = await readProjectFile(file);
+
+    assert.match(
+      source,
+      /const total = data\.reduce\(/,
+      `${file} should total the data it renders`,
+    );
+    assert.match(source, /total === 0 \? \(/, `${file} should branch on that total`);
+  }
+});
+
+test("the empty state replaces the chart rather than rendering alongside it (spec 0011 AC-4)", async () => {
+  for (const { file } of CHART_EMPTY_STATES) {
+    const source = await readProjectFile(file);
+
+    const branchIndex = source.indexOf("total === 0 ? (");
+    const containerIndex = source.indexOf("<ResponsiveContainer");
+
+    assert.ok(branchIndex !== -1, `${file} should have an empty state branch`);
+    assert.ok(
+      branchIndex < containerIndex,
+      `${file} should render the chart only in the non-empty branch`,
+    );
+  }
+});
+
+test("only JobsFoundOverTimeChart thins its axis ticks, since only it renders 30 of them (spec 0011 AC-5)", async () => {
+  const jobsFound = await readProjectFile("components/dashboard/JobsFoundOverTimeChart.tsx");
+  assert.match(
+    jobsFound,
+    /interval="preserveStartEnd"/,
+    "the 30 point axis thins its labels by available width and always keeps both ends, so today is never left unlabeled",
+  );
+  assert.doesNotMatch(
+    jobsFound,
+    /interval=\{\d+\}/,
+    "a fixed numeric interval drops the final tick (30 points step 5 stops at index 25) and does not adapt to width",
+  );
+
+  for (const file of [
+    "components/dashboard/CompanyResearchActivityChart.tsx",
+    "components/dashboard/MatchScoreDistributionChart.tsx",
+  ]) {
+    const source = await readProjectFile(file);
+    assert.doesNotMatch(
+      source,
+      /interval=/,
+      `${file} renders few enough ticks that it should not thin them`,
+    );
+  }
+});
+
+test("lib/mock-dashboard.ts keeps the shared types but no longer carries any mock data (spec 0011 AC-8)", async () => {
+  const source = await readProjectFile("lib/mock-dashboard.ts");
+
+  for (const type of [
+    "DashboardStat",
+    "DashboardActivityEntry",
+    "DashboardDayCount",
+    "DashboardScoreBand",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`export type ${type} =`),
+      `${type} is still imported by the real data path and must stay exported`,
+    );
+  }
+
+  assert.doesNotMatch(
+    source,
+    /mockJobsFoundOverTime|mockMatchScoreDistribution|mockCompanyResearchActivity|mockStats|mockActivity/,
+    "every mock constant is superseded by a real compute function and must not come back",
+  );
+});
+
+test("the chart compute module reads the database only, with no PostHog query path (spec 0011 AC-7)", async () => {
+  const source = await readProjectFile("lib/dashboard-charts.ts");
+
+  assert.doesNotMatch(source, /posthog/i, "this feature adds no PostHog read path");
+  assert.doesNotMatch(
+    source,
+    /fetch\(|process\.env/,
+    "the compute functions are pure; they take rows in and never reach out",
+  );
+});
+
+test("the dashboard logs every failed read instead of rendering a failure as an empty account (spec 0011 AC-4 guard)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  for (const errorName of [
+    "profileError",
+    "statsJobsError",
+    "agentRunsError",
+    "researchedJobsError",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`error: ${errorName}`),
+      `the read producing ${errorName} should destructure its error`,
+    );
+    assert.match(
+      source,
+      new RegExp(`if \\(${errorName}\\) \\{\\s*console\\.error\\("\\[app/dashboard\\]", ${errorName}\\);`),
+      `${errorName} should be logged with the project's route prefix, so a backend failure is not silently shown as the empty state`,
+    );
   }
 });
