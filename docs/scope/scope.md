@@ -121,7 +121,7 @@ Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and li
 **Done when:** a host and origin are chosen, that origin is in `allowed_redirect_urls`, Google and GitHub sign in both work on the deployed site, every environment variable the app reads is present in `.env.example` and set in production, and the deployed app serves the access gate as specced.
 - [x] Design it (spec): [0013-deploy-target-production-config](../specs/0013-deploy-target-production-config/index.md)
 - [ ] Build it: `/develop deploy target and production config`
-  - [ ] Create the Vercel project (production branch `main`) and set the production environment variables, including the two PostHog public vars (AC-1, AC-4)
+  - [x] Create the Vercel project (production branch `main`) and set the production environment variables, including the two PostHog public vars (AC-1, AC-4)
   - [ ] Add the production origin to `insforge.toml` `allowed_redirect_urls` and the production callback URL to the Google and GitHub OAuth apps, keeping localhost (AC-2, AC-3)
   - [x] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` (AC-4)
   - [x] Add `maxDuration` and `force-dynamic` to the research route and correct the early-return note in `context/library-docs.md` (AC-6)
