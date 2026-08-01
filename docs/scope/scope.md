@@ -26,6 +26,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | O | Stats bar (real data) | Existing | existing |
 | P | Recent activity (real data) | Existing | existing |
 | Q | Analytics charts (real data) | Existing | existing |
+| 0 | Portfolio private access gate | Foundation (Access gate) | in-progress |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
@@ -99,6 +100,19 @@ code in `lib/dashboard-activity.ts`
 ### Q. Analytics charts (real data) · existing
 Jobs found over time, match score distribution, company research activity, from real Postgres rows.
 code in `lib/dashboard-charts.ts`
+
+## Foundation (Access gate)
+
+### 0. Portfolio private access gate · in-progress · medium
+A temporary approval gate so the app can be deployed and linked from the portfolio without any signed in visitor being able to run up the Adzuna, Browserbase, or OpenAI bill. Public homepage and login stay open, unapproved users get a private beta screen, and all four paid routes re-check approval server side, plus an `ENABLE_AGENT_RUNS` kill switch for the two agent routes. Superseded by billing (features 1 to 3) when that lands.
+**Done when:** an unapproved signed in user is redirected to `/private-beta` from every protected page and gets `403` from all four paid routes with no provider call made; an approved user's experience is unchanged; `ENABLE_AGENT_RUNS=false` pauses both agent routes; and `user_access` is select only so no user can approve themself.
+- [x] Design it (spec): [0012-portfolio-private-access-gate](../specs/0012-portfolio-private-access-gate/index.md)
+- [ ] Build it: `/develop portfolio private access gate`
+  - [ ] Access state and shared helper: `user_access` migration with select only RLS, `UserAccessRow` type, `lib/access.ts`
+  - [ ] Route gate: `guardPaidRoute` in both agent routes and both resume routes, above body parsing
+  - [ ] Page gate: `app/(app)/` route group layout plus the `/private-beta` screen
+- [ ] Verify it: `/check verify portfolio private access gate`
+- [ ] Test it: `/test`
 
 ## Foundation (Billing)
 
