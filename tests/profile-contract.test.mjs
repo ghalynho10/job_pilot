@@ -39,6 +39,22 @@ test("profile page redirects to login when there is no authenticated session", a
   );
 });
 
+test("profile page sends an unapproved user to the private beta screen before reading the profile", async () => {
+  const source = await readProjectFile("app/profile/page.tsx");
+
+  const redirectIndex = source.indexOf('redirect("/login?error=session")');
+  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
+  const readIndex = source.indexOf('.from("profiles")');
+
+  assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
+  assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
+  assert.ok(gateIndex < readIndex, "the gate must run before the profile row is read");
+  assert.ok(
+    !source.includes("user_access"),
+    "the page must go through requireApprovedPage, never query user_access itself",
+  );
+});
+
 test("profile page uses the server InsForge client, never the browser client", async () => {
   const source = await readProjectFile("app/profile/page.tsx");
 

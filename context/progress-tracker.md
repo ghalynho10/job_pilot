@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 5 — Dashboard (complete)
-**Last completed:** 17 Analytics Charts — Real Data
-**Next:** none, all 17 planned features are built, verified, and tested
+**Phase:** Phase 6 — Access gate (built, not yet verified)
+**Last completed:** 18 Portfolio private access gate (build only)
+**Next:** `/check verify portfolio private access gate`, then `/test`
 
 ---
 
@@ -45,6 +45,10 @@ Update this file after every completed feature. Any AI agent reading this should
 - [x] 15 Stats Bar — Real Data
 - [x] 16 Recent Activity — Real Data
 - [x] 17 Analytics Charts — Real Data
+
+### Phase 6 — Access gate
+
+- [x] 18 Portfolio private access gate (built, awaiting `/check verify` and `/test`)
 
 ---
 
@@ -93,10 +97,13 @@ Update this file after every completed feature. Any AI agent reading this should
 - Post-merge cleanup of `docs/reviews/2026-07-31-dashboard-page.md`'s remaining open minors, after PR #9 merged: `lib/mock-dashboard.ts` renamed to `lib/dashboard-types.ts` (it held no mocks, just the four shared dashboard types; all 8 importers plus its test updated); `app/dashboard/page.tsx`'s four independent reads (`profiles`, `jobs` stats/charts, `agent_runs`, researched `jobs`) now run through one `Promise.all` instead of four serial `await`s, each still logging its own `error`; the `computeDashboardStats`/`computeCompanyResearchActivity` split between `company_research` and `company_research_completed_at` got a lockstep comment at both sites rather than a column merge, since the one write path (`app/api/agent/research/route.ts`) already sets both together and a merge would need a real semantic decision; the UTC-chart-vs-rolling-168h-stat-card divergence got a permanent note in `context/ui-registry.md` instead of just living in the review doc; and the `dashboard-charts`/`dashboard-activity` import order in `app/dashboard/page.tsx` was alphabetized. Left open by choice: the O(n) five-pass filter in `computeMatchScoreDistribution` (irrelevant at current volumes), the ambiguous "50-60%"/"60-70%" band label overlap (a design call, not a code bug), and the `.select<...>()` typing nit on `statsJobs` (no generic-array precedent exists in this codebase's InsForge usage; would require duplicating the select string as a type with no established pattern to follow). Full suite: 327/327, `tsc`, lint, and `npm run build` all clean.
 - Fixed the two pre-existing findings noted alongside the dashboard review (not introduced by feature 15-17, tracked since the feature 17 verify): `statsJobs`' missing `.limit()` and `agent/adzuna.ts`'s lack of cross-run dedupe. `app/dashboard/page.tsx` gained `fetchAllStatsJobs`, a module level helper that pages the `jobs` stats/charts query with `.order("id", { ascending: true }).range(from, from + STATS_PAGE_SIZE - 1)` (`STATS_PAGE_SIZE = 1000`) until a page comes back short, so PostgREST's default row cap can no longer silently truncate a heavy user's "Total Jobs Found" or chart totals; replaces the single unbounded `.select()` inside the same `Promise.all` slot. `agent/adzuna.ts` now dedupes by Adzuna's own job id: migration `20260801034411_add-jobs-external-id.sql` (applied via `npx @insforge/cli db migrations up`) adds `jobs.external_id text` plus a partial unique index, `jobs_user_id_external_id_key` on `(user_id, external_id) WHERE external_id IS NOT NULL`, so the guarantee holds even under two concurrent searches, not just when the app remembers to check first; every insert now sets `external_id: adzunaJob.id`, and before scoring, one query fetches this user's already-saved `external_id`s scoped to the incoming result set (skipped entirely when Adzuna returns nothing, avoiding an empty `.in()`), and the loop `continue`s past any job already owned, before it reaches the GPT-4o scorer, without filtering the `adzunaJobs` array itself (preserves the existing "every returned job is looped, never pre-filtered" invariant the source-contract tests already encode). `types.JobRow` gained `external_id: string | null`. New tests: 5 in `tests/agent-adzuna.test.mjs` (the dedupe lookup shape and its position before the loop/scorer, the skip-before-score ordering, no `.filter()` on the result array, `external_id` on every insert, the empty-results guard) and 1 in `tests/dashboard-page.test.mjs` (the pagination loop's order/range/short-page-stops-it shape); the existing `.from()` call-order contract test was updated, not weakened, since `fetchAllStatsJobs` being a module level helper genuinely moves its `.from("jobs")` earlier in the file than `Promise.all`'s four reads, though all four still fire together at runtime. Every new assertion was confirmed to fail against the real pre-fix source (stashing only the source changes, keeping the new tests) before trusting it. Full suite: 332/332, `tsc`, lint, and `npm run build` all clean. Migration applied directly to the live `JSM_JobPilot` backend (additive: new nullable column, new index; nothing dropped or altered).
 
+- `/develop` built feature 18, the portfolio private access gate, to spec 0012. New `user_access` table (select only, applied to the live `JSM_JobPilot` backend), `lib/access-rules.ts` plus `lib/access.ts` holding the gate, `guardPaidRoute` at the top of all four paid routes above body parsing, `requireApprovedPage` in the four protected pages, and a new `/private-beta` screen. Three build time findings worth carrying: (1) InsForge grants broad data privileges on public tables by default, so the migration has to `REVOKE` before granting `SELECT`, otherwise the "no write grant" second layer the spec wanted does not exist (row level security would still deny, but only one layer would). Verified live: `has_table_privilege` for `authenticated` is select true, insert/update/delete false, `anon` false throughout. (2) `lib/access.ts` cannot be imported by the test runner because bare Node cannot resolve `next/server`, so the pure and injectable half lives in `lib/access-rules.ts` (no runtime imports) and is re-exported; that is what makes `agentRunsEnabled` and `isUserApproved` genuinely unit testable rather than only unit testable in principle. (3) The shared `Navbar` renders the Dashboard, Find Jobs, and Profile links whatever props it gets, so `/private-beta` cannot use it at all. A new suite guard test walks `app/api/**/route.ts` and fails if any route importing a paid module is missing `guardPaidRoute`, which is the one failure mode here that silently costs money. 355/355 tests, `tsc`, lint, and `npm run build` all clean. Not yet done: a real run with a second unapproved account, which is `/check verify`'s job.
+
 ---
 
 ## Notes
 
 - Add `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_INSFORGE_URL`, and `NEXT_PUBLIC_INSFORGE_ANON_KEY` to `.env.local` before testing OAuth.
+- `ENABLE_AGENT_RUNS` is optional and defaults to on. Set it to exactly `false` to pause job search and company research without a redeploy of application logic; it does not affect the two resume routes or page access.
 - Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.local` before testing analytics.
 - Production build verification is pending because the sandbox could not fetch Inter from Google Fonts. Auth tests, TypeScript, and ESLint pass.

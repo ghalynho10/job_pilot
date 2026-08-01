@@ -195,7 +195,12 @@ Key patterns:
 - Database inserts take an array: `insert([{ ... }])`.
 - Reference users with `auth.users(id)`; use `auth.uid()` in RLS policies.
 - For storage uploads, persist only the returned `key`, never a `url`. Storage never overwrites an existing key (a repeat upload to the same key silently succeeds under a renamed key instead), so target a fresh unique key per upload. A private bucket's URL never resolves without auth and is not durable; mint a signed URL (`createSignedUrl`) only at the point one is actually needed. See `context/library-docs.md`'s Storage section.
+- InsForge grants broad data privileges (`SELECT, INSERT, UPDATE`) on public tables to `anon` and `authenticated` by default, even with no matching row level security policy. A table meant to be read only for users must `REVOKE ALL ... FROM anon, authenticated;` before granting the narrower privilege back, or row level security is the only thing standing between a user and a write, not the privilege grant too. See `migrations/20260801120001_create-user-access.sql`.
 <!-- INSFORGE:END -->
+
+## Build approach
+
+Skateboard: ship the thinnest usable whole first, then grow it. Mirrors the header of `docs/scope/scope.md`.
 
 ## Agent skills
 

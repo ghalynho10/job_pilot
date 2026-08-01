@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { createElement, type ComponentProps, type ReactElement } from "react";
 
 import { generateResumeContent } from "@/agent/resume-generator";
-import { createInsforgeServer } from "@/lib/insforge-server";
+import { guardPaidRoute } from "@/lib/access";
 import { mapProfileRowToProfile } from "@/lib/profile-mapping";
 import type { ProfileRow } from "@/types";
 
@@ -16,17 +16,13 @@ type GenerateResumeResult = { success: true } | { success: false; error: string 
 
 export async function POST(): Promise<NextResponse<GenerateResumeResult>> {
   try {
-    const insforge = await createInsforgeServer();
-    const { data: authData, error: authError } = await insforge.auth.getCurrentUser();
+    const guard = await guardPaidRoute({ requireAgentSwitch: false });
 
-    if (authError || !authData.user) {
-      return NextResponse.json(
-        { success: false, error: "You must be signed in to generate a resume." },
-        { status: 401 },
-      );
+    if (!guard.ok) {
+      return guard.response;
     }
 
-    const userId = authData.user.id;
+    const { insforge, userId } = guard;
 
     const { data: row, error: readError } = await insforge.database
       .from("profiles")

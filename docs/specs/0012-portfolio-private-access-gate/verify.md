@@ -35,8 +35,8 @@ DELETE FROM user_access WHERE user_id = '<uuid>';
 ## Approved user, pages
 
 - [ ] As APPROVED, visit `/dashboard`, `/profile`, `/find-jobs`, and `/find-jobs/<id>` → all four render their existing content with no visible change from before this feature → AC-5
-- [ ] Confirm the URLs are unchanged by the route group move: no `/(app)/` segment appears in any address, and `proxy.ts`'s matcher still lists `/dashboard/:path*`, `/profile/:path*`, `/find-jobs/:path*` (plus the new `/private-beta`) → AC-10
-- [ ] Search the four page files for `redirect("/login` → none remain; the only page level auth redirect for these routes is in `app/(app)/layout.tsx` → AC-10
+- [ ] Confirm no page file moved: `app/dashboard/page.tsx`, `app/profile/page.tsx`, `app/find-jobs/page.tsx`, and `app/find-jobs/[id]/page.tsx` are all still at those paths, and `proxy.ts`'s matcher still lists `/dashboard/:path*`, `/profile/:path*`, `/find-jobs/:path*` (plus the new `/private-beta`) → AC-10
+- [ ] Search the four page files for `requireApprovedPage` → each one calls it exactly once, after its signed in check and before its data reads, and none of them queries `user_access` itself → AC-10
 
 ## Paid routes
 
@@ -59,9 +59,10 @@ For each of `POST /api/agent/find`, `POST /api/agent/research`, `POST /api/resum
 
 - [ ] Inspect the applied schema: `user_access` exists with `user_id` primary key referencing `auth.users(id) ON DELETE CASCADE`, the `status` check constraint over `pending`/`approved`/`blocked`, and RLS enabled → AC-9
 - [ ] Confirm the only policy is `user_access_select` and the only grant to `authenticated` is `SELECT`. No insert, update, or delete policy or grant exists → AC-9
-- [ ] As APPROVED, attempt `insforge.database.from("user_access").insert([...])` and an `.update(...)` on their own row → both denied by the database, not by application code → AC-9
+- [ ] As APPROVED, attempt `insforge.database.from("user_access").insert([...])`, an `.update(...)`, and a `.delete()` on their own row → all three denied by the database, not by application code. The delete matters as much as the other two: deleting your own row does not grant access, but it does let a blocked user erase the owner's record of that decision → AC-9
 - [ ] As APPROVED, select from `user_access` without a filter → exactly one row comes back, their own → AC-9
 - [ ] Grep the codebase for `user_access` → the only runtime read is inside `lib/access.ts`; no route, page, layout, or action queries it directly → AC-11
+- [ ] Grep every `app/api/**/route.ts` → each one importing a paid module (anything under `agent/`, the resume extractor, the resume generator) also imports `guardPaidRoute`. `app/api/resume/signed-url/route.ts` imports none of them and correctly does not guard → AC-6
 
 ## Docs and types
 
@@ -75,6 +76,14 @@ For each of `POST /api/agent/find`, `POST /api/agent/research`, `POST /api/resum
 - [ ] `npm run lint` → no lint errors → all ACs
 - [ ] `npm test` → all pass, including `tests/access.test.mjs` covering `agentRunsEnabled` over `undefined`, `""`, `"true"`, `"false"`, `"FALSE"` (only exact lowercase `"false"` disables) and `isUserApproved` over missing row, `pending`, `blocked`, `approved`, and a query error (an error returns `false`, never throws); plus the four extended route tests asserting the denial status codes and that the agent and provider mocks are never invoked → AC-6, AC-7, AC-8, AC-11
 - [ ] `npm run build` → production build succeeds and all existing routes are still listed, with `/private-beta` added → all ACs
+
+## Build time additions
+
+Three things the build discovered that the criteria above do not name. Added by `/develop` on 2026-08-01.
+
+- [ ] The privilege layer really is narrow, not just policy free. InsForge grants broad data privileges on public tables by default, so the migration revokes before granting. Confirm with `has_table_privilege('authenticated','user_access', ...)`: `SELECT` true, `INSERT` / `UPDATE` / `DELETE` all false, and every privilege false for `anon`. Without the revoke, row level security alone still denies the write, but the second layer AC-9 asks for would not exist → AC-9
+- [ ] The gate splits across two files, not one. `lib/access-rules.ts` holds `agentRunsEnabled` and `isUserApproved` and has no runtime imports, so the test runner can load it; `lib/access.ts` holds `guardPaidRoute` and `requireApprovedPage` and re-exports the other two. The split exists because bare Node cannot resolve `next/server`, which is what made AC-11's "unit testable" impossible as a single file. Confirm every app import still comes from `lib/access`, and that `isUserApproved` is still the only reader of `user_access` → AC-11
+- [ ] A fifth paid route cannot ship ungated. `tests/access.test.mjs` walks every `app/api/**/route.ts` and fails if one importing a paid module (anything under `agent/`, the resume extractor, the resume generator) does not import `guardPaidRoute`. Confirm it currently counts exactly 4, and that deleting a guard call makes it fail → AC-6
 
 ## Acceptance-criteria coverage
 

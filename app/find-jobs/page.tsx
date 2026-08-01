@@ -3,6 +3,7 @@ import type { JSX } from "react";
 
 import { FindJobsPage } from "@/components/find-jobs/FindJobsPage";
 import { Navbar } from "@/components/layout/Navbar";
+import { requireApprovedPage } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import type { JobRow } from "@/types";
 
@@ -13,6 +14,8 @@ export default async function FindJobsRoutePage(): Promise<JSX.Element> {
   if (error || !data.user) {
     redirect("/login?error=session");
   }
+
+  await requireApprovedPage(insforge, data.user.id);
 
   const { data: profileRow } = await insforge.database
     .from("profiles")

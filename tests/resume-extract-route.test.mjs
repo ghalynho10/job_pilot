@@ -32,14 +32,28 @@ test("resume extract route imports pdf-parse/worker before pdf-parse itself, and
   );
 });
 
-test("resume extract route checks auth before reading anything", async () => {
+test("resume extract route guards on auth and approval before reading anything", async () => {
   const source = await readProjectFile("app/api/resume/extract/route.ts");
 
-  assert.match(source, /insforge\.auth\.getCurrentUser\(\)/);
+  const guardIndex = source.indexOf("await guardPaidRoute({ requireAgentSwitch: false })");
+  const bodyReadIndex = source.indexOf("await req.json()");
+  const storageIndex = source.indexOf("createSignedUrl(resumeKey)");
+
+  assert.notEqual(
+    guardIndex,
+    -1,
+    "guardPaidRoute must be called with requireAgentSwitch: false, since the kill switch covers agent runs only",
+  );
+  assert.ok(guardIndex < bodyReadIndex, "the guard must run before the request body is read");
+  assert.ok(guardIndex < storageIndex, "must reject before touching storage");
   assert.match(
-    source,
-    /if \(authError \|\| !authData\.user\) \{/,
-    "must reject an unauthenticated request before touching storage",
+    source.slice(guardIndex, guardIndex + 200),
+    /if \(!guard\.ok\) \{\s*return guard\.response;/,
+    "a denied guard must short circuit the route",
+  );
+  assert.ok(
+    !source.includes("insforge.auth.getCurrentUser()"),
+    "the route must not keep its own hand rolled auth block alongside the guard",
   );
 });
 

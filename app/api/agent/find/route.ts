@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { runJobSearch } from "@/agent/adzuna";
-import { createInsforgeServer } from "@/lib/insforge-server";
+import { guardPaidRoute } from "@/lib/access";
 import type { ActionResult, Profile, ProfileRow } from "@/types";
 
 function mapRowToProfile(row: ProfileRow): Profile {
@@ -36,17 +36,13 @@ export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<ActionResult<{ jobsFound: number; strongMatches: number; message: string }>>> {
   try {
-    const insforge = await createInsforgeServer();
-    const { data: authData, error: authError } = await insforge.auth.getCurrentUser();
+    const guard = await guardPaidRoute({ requireAgentSwitch: true });
 
-    if (authError || !authData.user) {
-      return NextResponse.json(
-        { success: false, error: "You must be signed in to search for jobs." },
-        { status: 401 },
-      );
+    if (!guard.ok) {
+      return guard.response;
     }
 
-    const userId = authData.user.id;
+    const { insforge, userId } = guard;
 
     const body: unknown = await req.json();
     const jobTitle =

@@ -11,15 +11,23 @@ async function readProjectFile(path) {
 test("research route requires a signed in session before any database or agent work (AC-1)", async () => {
   const source = await readProjectFile("app/api/agent/research/route.ts");
 
-  const authIndex = source.indexOf("insforge.auth.getCurrentUser()");
+  const guardIndex = source.indexOf("await guardPaidRoute({ requireAgentSwitch: true })");
   const jobQueryIndex = source.indexOf('.from("jobs")');
-  assert.notEqual(authIndex, -1);
+  const bodyReadIndex = source.indexOf("await req.json()");
+
+  assert.notEqual(guardIndex, -1, "guardPaidRoute not called with requireAgentSwitch: true");
   assert.notEqual(jobQueryIndex, -1);
-  assert.ok(authIndex < jobQueryIndex, "auth must be checked before the job row is read");
+  assert.ok(guardIndex < jobQueryIndex, "the guard must run before the job row is read");
+  assert.ok(guardIndex < bodyReadIndex, "the guard must run before the request body is read");
 
   assert.match(
-    source,
-    /if \(authError \|\| !authData\.user\) \{\s*return NextResponse\.json\(\s*\{ success: false, error: "You must be signed in to research a company\." \},\s*\{ status: 401 \},/,
+    source.slice(guardIndex, guardIndex + 200),
+    /if \(!guard\.ok\) \{\s*return guard\.response;/,
+    "a denied guard must short circuit the route",
+  );
+  assert.ok(
+    !source.includes("insforge.auth.getCurrentUser()"),
+    "the route must not keep its own hand rolled auth block alongside the guard",
   );
 });
 
@@ -51,8 +59,11 @@ test("research route falls back to an empty profile instead of crashing when no 
 
   assert.match(
     source,
-    /const profile = profileRow\s*\? mapProfileRowToProfile\(profileRow as ProfileRow\)\s*: buildEmptyProfile\(authData\.user\.email\);/,
+    /const profile = profileRow\s*\? mapProfileRowToProfile\(profileRow as ProfileRow\)\s*: buildEmptyProfile\(userEmail\);/,
   );
+  // userEmail comes from the guard, which reads it off the authenticated
+  // session, so the fallback address still cannot be supplied by the caller.
+  assert.match(source, /const \{ insforge, userId, userEmail \} = guard;/);
 });
 
 test("research route writes company_research and company_research_completed_at together, scoped to id and user id (AC-9)", async () => {

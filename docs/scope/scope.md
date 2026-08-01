@@ -26,7 +26,8 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | O | Stats bar (real data) | Existing | existing |
 | P | Recent activity (real data) | Existing | existing |
 | Q | Analytics charts (real data) | Existing | existing |
-| 0 | Portfolio private access gate | Foundation (Access gate) | in-progress |
+| 0 | Portfolio private access gate | Foundation (Access gate) | done |
+| 0a | Deploy target and production config | Foundation (Access gate) | planned |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
@@ -103,16 +104,22 @@ code in `lib/dashboard-charts.ts`
 
 ## Foundation (Access gate)
 
-### 0. Portfolio private access gate · in-progress · medium
+### 0. Portfolio private access gate · done · medium
 A temporary approval gate so the app can be deployed and linked from the portfolio without any signed in visitor being able to run up the Adzuna, Browserbase, or OpenAI bill. Public homepage and login stay open, unapproved users get a private beta screen, and all four paid routes re-check approval server side, plus an `ENABLE_AGENT_RUNS` kill switch for the two agent routes. Superseded by billing (features 1 to 3) when that lands.
 **Done when:** an unapproved signed in user is redirected to `/private-beta` from every protected page and gets `403` from all four paid routes with no provider call made; an approved user's experience is unchanged; `ENABLE_AGENT_RUNS=false` pauses both agent routes; and `user_access` is select only so no user can approve themself.
 - [x] Design it (spec): [0012-portfolio-private-access-gate](../specs/0012-portfolio-private-access-gate/index.md)
-- [ ] Build it: `/develop portfolio private access gate`
-  - [ ] Access state and shared helper: `user_access` migration with select only RLS, `UserAccessRow` type, `lib/access.ts`
-  - [ ] Route gate: `guardPaidRoute` in both agent routes and both resume routes, above body parsing
-  - [ ] Page gate: `app/(app)/` route group layout plus the `/private-beta` screen
-- [ ] Verify it: `/check verify portfolio private access gate`
-- [ ] Test it: `/test`
+- [x] Build it: `/develop portfolio private access gate`
+  - [x] Access state and shared helper: `user_access` migration with select only RLS, `UserAccessRow` type, `lib/access.ts`
+  - [x] Route gate: `guardPaidRoute` in both agent routes and both resume routes, above body parsing
+  - [x] Page gate: `requireApprovedPage` called in the four protected pages plus the `/private-beta` screen
+code in `lib/access.ts`, `lib/access-rules.ts`, `app/private-beta/page.tsx`, `migrations/20260801120001_create-user-access.sql`
+- [x] Verify it: `/check verify portfolio private access gate`
+- [x] Test it: `/test`
+
+### 0a. Deploy target and production config · needs a decision · small
+Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and linked from the portfolio, but nothing has decided where it deploys or how production is configured. `insforge.toml` currently lists `allowed_redirect_urls = ["http://localhost:3000/callback"]`, localhost only, so Google and GitHub sign in will fail on the deployed origin and no visitor gets far enough to meet the gate at all. `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` are also read in code but missing from `.env.example`.
+**Done when:** a host and origin are chosen, that origin is in `allowed_redirect_urls`, Google and GitHub sign in both work on the deployed site, every environment variable the app reads is present in `.env.example` and set in production, and the deployed app serves the access gate as specced.
+- [ ] Design it (spec): `/architect deploy target and production config`
 
 ## Foundation (Billing)
 
