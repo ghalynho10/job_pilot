@@ -280,8 +280,8 @@ const session = await bb.sessions.create({
 });
 ```
 
-**Important — Browserbase runs independently from your Next.js server:**
-Browserbase sessions run on Browserbase's cloud infrastructure, not inside your Next.js API route. The API route triggers the Browserbase session and returns a response while the session continues running independently on Browserbase's platform. Do not add `maxDuration` or any timeout configuration to Next.js API routes to accommodate Browserbase session length.
+**Important — the research route blocks for the full session:**
+The Browserbase session itself runs on Browserbase's cloud infrastructure, but the API route (`app/api/agent/research/route.ts`) awaits the entire session plus synthesis before responding. It does not return early while the session continues. Because the request stays open for the full run, the route exports `maxDuration` (300, the highest allowed on the Vercel Hobby plan) and `dynamic = "force-dynamic"` to maximize its allowed execution window. Do not remove that configuration; the route needs every second the plan allows.
 
 **Rules:**
 

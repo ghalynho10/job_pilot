@@ -7,6 +7,11 @@ import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping
 import { createPostHogServer } from "@/lib/posthog-server";
 import type { ActionResult, CompanyResearchDossier, JobRow, ProfileRow } from "@/types";
 
+// This route blocks the request for the full Browserbase session plus synthesis.
+// maxDuration = 300 is the highest allowed execution window on the Vercel Hobby plan.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
 ): Promise<NextResponse<ActionResult<{ data: CompanyResearchDossier }>>> {
