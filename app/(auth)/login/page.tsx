@@ -3,7 +3,6 @@ import Image from "next/image";
 import type { JSX } from "react";
 
 import {
-  signInWithEmail,
   signInWithGitHub,
   signInWithGoogle,
 } from "@/actions/auth";
@@ -105,37 +104,6 @@ export default async function LoginPage({
             ) : null}
 
             <div className="flex flex-col gap-3">
-              {/* TEMPORARY — email/password form for /check verify only. Remove before merge. */}
-              <form action={signInWithEmail} className="flex flex-col gap-3 rounded-md border border-border bg-surface-secondary p-4">
-                <p className="text-sm font-medium text-text-secondary">Test sign in (temporary)</p>
-                <input
-                  className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                  name="email"
-                  placeholder="Email"
-                  required
-                  type="email"
-                />
-                <input
-                  className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
-                  name="password"
-                  placeholder="Password"
-                  required
-                  type="password"
-                />
-                <button
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
-                  type="submit"
-                >
-                  Sign in with Email
-                </button>
-              </form>
-
-              <div className="flex items-center gap-3 py-1">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-text-muted">or continue with</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-
               <form action={signInWithGoogle}>
                 <OAuthButton provider="Google" />
               </form>
