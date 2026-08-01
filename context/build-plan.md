@@ -431,17 +431,20 @@ Wire recent activity list to real InsForge DB data for current user.
 
 ---
 
-### 17 Analytics Charts — PostHog Data
+### 17 Analytics Charts — Real Data
 
-Wire three dashboard charts to real PostHog event data for current user.
+Wire three dashboard charts to real InsForge DB data for current user.
+
+The original PostHog query design for this feature was superseded before it was built: the needed columns already live on the `jobs` rows this page fetches, so no PostHog read path, personal API key, or project ID is introduced. See `docs/specs/0011-analytics-charts-real-data/`.
 
 **Logic:**
 
-- Jobs Found Over Time — query PostHog for job_found events where distinctId = current userId, last 30 days, group by day
-- Match Score Distribution — query PostHog for job_found events, extract matchScore property, group into ranges: 50-60, 60-70, 70-80, 80-90, 90-100
-- Company Research Activity — query PostHog for company_researched events where distinctId = current userId, last 7 days, group by day
+- Jobs Found Over Time — count jobs.found_at per UTC calendar day, 30 day window (the 29 days before today plus today), zero filled, short date labels
+- Match Score Distribution — bucket jobs.match_score into 50-60, 60-70, 70-80, 80-90, 90-100, all time, lower bound inclusive and upper bound exclusive except the top band which includes 100, nulls and scores below 50 excluded
+- Company Research Activity — count jobs.company_research_completed_at per UTC calendar day, rolling 7 day window, zero filled, weekday labels
+- All three derived by pure functions in lib/dashboard-charts.ts from the single user scoped jobs query the page already runs, no second query
 - All three charts rendered with recharts
-- Empty state shown for each chart when no data exists yet
+- Empty state shown for each chart when its own window totals zero
 
 ---
 
