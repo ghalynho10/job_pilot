@@ -123,8 +123,9 @@ Surfaced by spec 0012. The access gate exists so JobPilot can be deployed and li
 - [ ] Build it: `/develop deploy target and production config`
   - [ ] Create the Vercel project (production branch `main`) and set the production environment variables, including the two PostHog public vars (AC-1, AC-4)
   - [ ] Add the production origin to `insforge.toml` `allowed_redirect_urls` and the production callback URL to the Google and GitHub OAuth apps, keeping localhost (AC-2, AC-3)
-  - [ ] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` (AC-4)
-  - [ ] Add `maxDuration` and `force-dynamic` to the research route and correct the early-return note in `context/library-docs.md` (AC-6)
+  - [x] Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.example` (AC-4)
+  - [x] Add `maxDuration` and `force-dynamic` to the research route and correct the early-return note in `context/library-docs.md` (AC-6)
+code in `app/api/agent/research/route.ts`, `.env.example`
 - [ ] Verify it: `/check verify deploy target and production config`
 - [ ] Test it: `/test deploy target and production config`
 

@@ -1,7 +1,7 @@
 # 0013. Deploy target and production config
 
 **Date**: 2026-08-01
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
