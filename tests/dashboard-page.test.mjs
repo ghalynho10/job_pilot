@@ -275,8 +275,8 @@ test("only JobsFoundOverTimeChart thins its axis ticks, since only it renders 30
   }
 });
 
-test("lib/mock-dashboard.ts keeps the shared types but no longer carries any mock data (spec 0011 AC-8)", async () => {
-  const source = await readProjectFile("lib/mock-dashboard.ts");
+test("lib/dashboard-types.ts keeps the shared types but no longer carries any mock data (spec 0011 AC-8)", async () => {
+  const source = await readProjectFile("lib/dashboard-types.ts");
 
   for (const type of [
     "DashboardStat",

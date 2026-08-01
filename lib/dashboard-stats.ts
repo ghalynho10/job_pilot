@@ -1,4 +1,4 @@
-import type { DashboardStat } from "@/lib/mock-dashboard";
+import type { DashboardStat } from "@/lib/dashboard-types";
 import type { JobRow } from "@/types";
 
 export type DashboardStatsJob = Pick<JobRow, "match_score" | "company_research" | "found_at">;
@@ -17,6 +17,9 @@ export function computeDashboardStats(
   const avgMatchRate =
     scores.length > 0 ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
 
+  // Counts the dossier column, not company_research_completed_at (which the charts and
+  // activity feed use). The one write path (app/api/agent/research/route.ts) sets both
+  // together, so they must stay in lockstep — don't let one change without the other.
   const companiesResearched = jobs.filter((job) => job.company_research !== null).length;
 
   const weekAgo = now.getTime() - WEEK_IN_MS;

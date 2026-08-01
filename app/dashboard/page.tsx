@@ -9,13 +9,13 @@ import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDi
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Navbar } from "@/components/layout/Navbar";
+import { computeRecentActivity } from "@/lib/dashboard-activity";
 import {
   computeCompanyResearchActivity,
   computeJobsFoundOverTime,
   computeMatchScoreDistribution,
   type ChartsSourceJob,
 } from "@/lib/dashboard-charts";
-import { computeRecentActivity } from "@/lib/dashboard-activity";
 import { computeDashboardStats, type DashboardStatsJob } from "@/lib/dashboard-stats";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
@@ -29,14 +29,44 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     redirect("/login?error=session");
   }
 
-  const { data: row, error: profileError } = await insforge.database
-    .from("profiles")
-    .select("*")
-    .eq("id", data.user.id)
-    .maybeSingle<ProfileRow>();
+  const [
+    { data: row, error: profileError },
+    { data: statsJobs, error: statsJobsError },
+    { data: agentRunRows, error: agentRunsError },
+    { data: researchedJobRows, error: researchedJobsError },
+  ] = await Promise.all([
+    insforge.database.from("profiles").select("*").eq("id", data.user.id).maybeSingle<ProfileRow>(),
+    insforge.database
+      .from("jobs")
+      .select("match_score, company_research, found_at, company_research_completed_at")
+      .eq("user_id", data.user.id),
+    insforge.database
+      .from("agent_runs")
+      .select("id, job_title_searched, jobs_found, completed_at")
+      .eq("user_id", data.user.id)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(10),
+    insforge.database
+      .from("jobs")
+      .select("id, company, company_research_completed_at")
+      .eq("user_id", data.user.id)
+      .not("company_research_completed_at", "is", null)
+      .order("company_research_completed_at", { ascending: false })
+      .limit(10),
+  ]);
 
   if (profileError) {
     console.error("[app/dashboard]", profileError);
+  }
+  if (statsJobsError) {
+    console.error("[app/dashboard]", statsJobsError);
+  }
+  if (agentRunsError) {
+    console.error("[app/dashboard]", agentRunsError);
+  }
+  if (researchedJobsError) {
+    console.error("[app/dashboard]", researchedJobsError);
   }
 
   const profileComplete = isProfileComplete({
@@ -57,44 +87,11 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     jobTitlesSeeking: row?.job_titles_seeking ?? [],
   });
 
-  const { data: statsJobs, error: statsJobsError } = await insforge.database
-    .from("jobs")
-    .select("match_score, company_research, found_at, company_research_completed_at")
-    .eq("user_id", data.user.id);
-
-  if (statsJobsError) {
-    console.error("[app/dashboard]", statsJobsError);
-  }
-
   const rows = (statsJobs ?? []) as (DashboardStatsJob & ChartsSourceJob)[];
   const stats = computeDashboardStats(rows);
   const jobsFoundOverTime = computeJobsFoundOverTime(rows);
   const matchScoreDistribution = computeMatchScoreDistribution(rows);
   const companyResearchActivity = computeCompanyResearchActivity(rows);
-
-  const { data: agentRunRows, error: agentRunsError } = await insforge.database
-    .from("agent_runs")
-    .select("id, job_title_searched, jobs_found, completed_at")
-    .eq("user_id", data.user.id)
-    .eq("status", "completed")
-    .order("completed_at", { ascending: false })
-    .limit(10);
-
-  if (agentRunsError) {
-    console.error("[app/dashboard]", agentRunsError);
-  }
-
-  const { data: researchedJobRows, error: researchedJobsError } = await insforge.database
-    .from("jobs")
-    .select("id, company, company_research_completed_at")
-    .eq("user_id", data.user.id)
-    .not("company_research_completed_at", "is", null)
-    .order("company_research_completed_at", { ascending: false })
-    .limit(10);
-
-  if (researchedJobsError) {
-    console.error("[app/dashboard]", researchedJobsError);
-  }
 
   const activity = computeRecentActivity(agentRunRows ?? [], researchedJobRows ?? []);
 
