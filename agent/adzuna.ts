@@ -58,11 +58,43 @@ export async function runJobSearch(
     return { success: false, error: "Something went wrong searching for jobs. Please try again." };
   }
 
+  // Adzuna's own job id, so a repeat search for the same title/location can
+  // recognize and skip a job this user already has instead of inserting a
+  // duplicate row. jobs_user_id_external_id_key (a unique index) is the real
+  // guarantee under a race between two concurrent searches; this check just
+  // avoids the wasted GPT-4o scoring call in the common, non-racing case.
+  const existingExternalIds = new Set<string>();
+
+  if (adzunaJobs.length > 0) {
+    const { data: existingRows, error: existingError } = await insforge.database
+      .from("jobs")
+      .select("external_id")
+      .eq("user_id", userId)
+      .in(
+        "external_id",
+        adzunaJobs.map((job) => job.id),
+      );
+
+    if (existingError) {
+      console.error("[agent/adzuna]", existingError);
+    }
+
+    for (const row of existingRows ?? []) {
+      if (row.external_id !== null) {
+        existingExternalIds.add(row.external_id as string);
+      }
+    }
+  }
+
   const posthog = createPostHogServer();
   let jobsFound = 0;
   let strongMatches = 0;
 
   for (const adzunaJob of adzunaJobs) {
+    if (existingExternalIds.has(adzunaJob.id)) {
+      continue;
+    }
+
     const scoreResult = await scoreJobMatch(
       {
         title: adzunaJob.title,
@@ -82,6 +114,7 @@ export async function runJobSearch(
         user_id: userId,
         source: "search",
         source_url: adzunaJob.redirect_url,
+        external_id: adzunaJob.id,
         external_apply_url: adzunaJob.redirect_url,
         title: adzunaJob.title,
         company: adzunaJob.company.display_name,

@@ -1,3 +1,4 @@
+import type { InsForgeClient } from "@insforge/sdk";
 import { redirect } from "next/navigation";
 import type { JSX } from "react";
 
@@ -21,6 +22,46 @@ import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
 import type { ProfileRow } from "@/types";
 
+// PostgREST caps an unbounded select at a server configured default (commonly
+// 1000 rows), silently truncating anything past it rather than erroring. The
+// stat cards and charts below need every one of a user's jobs, not a page of
+// them, so this pages through with .range() until a page comes back short,
+// rather than trusting one .select() to return everything.
+const STATS_PAGE_SIZE = 1000;
+
+async function fetchAllStatsJobs(
+  insforge: InsForgeClient,
+  userId: string,
+): Promise<{ data: (DashboardStatsJob & ChartsSourceJob)[] | null; error: unknown }> {
+  const rows: (DashboardStatsJob & ChartsSourceJob)[] = [];
+  let from = 0;
+
+  for (;;) {
+    const { data, error } = await insforge.database
+      .from("jobs")
+      .select("match_score, company_research, found_at, company_research_completed_at")
+      .eq("user_id", userId)
+      .order("id", { ascending: true })
+      .range(from, from + STATS_PAGE_SIZE - 1);
+
+    if (error) {
+      return { data: rows.length > 0 ? rows : null, error };
+    }
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    rows.push(...(data as (DashboardStatsJob & ChartsSourceJob)[]));
+
+    if (data.length < STATS_PAGE_SIZE) {
+      break;
+    }
+    from += STATS_PAGE_SIZE;
+  }
+
+  return { data: rows, error: null };
+}
+
 export default async function DashboardPage(): Promise<JSX.Element> {
   const insforge = await createInsforgeServer();
   const { data, error } = await insforge.auth.getCurrentUser();
@@ -36,10 +77,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     { data: researchedJobRows, error: researchedJobsError },
   ] = await Promise.all([
     insforge.database.from("profiles").select("*").eq("id", data.user.id).maybeSingle<ProfileRow>(),
-    insforge.database
-      .from("jobs")
-      .select("match_score, company_research, found_at, company_research_completed_at")
-      .eq("user_id", data.user.id),
+    fetchAllStatsJobs(insforge, data.user.id),
     insforge.database
       .from("agent_runs")
       .select("id, job_title_searched, jobs_found, completed_at")
@@ -87,7 +125,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     jobTitlesSeeking: row?.job_titles_seeking ?? [],
   });
 
-  const rows = (statsJobs ?? []) as (DashboardStatsJob & ChartsSourceJob)[];
+  const rows = statsJobs ?? [];
   const stats = computeDashboardStats(rows);
   const jobsFoundOverTime = computeJobsFoundOverTime(rows);
   const matchScoreDistribution = computeMatchScoreDistribution(rows);

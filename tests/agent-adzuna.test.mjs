@@ -130,3 +130,50 @@ test("job_type falls back to fulltime when Adzuna omits contract_type", async ()
 
   assert.match(source, /job_type:\s*adzunaJob\.contract_type \|\| "fulltime",/);
 });
+
+test("a repeat search skips a job the user already has, checked by Adzuna's own id, before scoring or inserting it (dedupe fix)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /\.from\("jobs"\)\s*\.select\("external_id"\)\s*\.eq\("user_id", userId\)\s*\.in\(\s*"external_id",\s*adzunaJobs\.map\(\(job\) => job\.id\),\s*\)/,
+    "must look up this user's already-saved external_ids scoped to the incoming Adzuna results before the scoring loop",
+  );
+
+  const dedupeLookupIndex = source.indexOf('.select("external_id")');
+  const loopIndex = source.indexOf("for (const adzunaJob of adzunaJobs) {");
+  const skipIndex = source.indexOf("if (existingExternalIds.has(adzunaJob.id)) {");
+  const scoreCallIndex = source.indexOf("scoreJobMatch(");
+
+  assert.ok(dedupeLookupIndex !== -1 && dedupeLookupIndex < loopIndex, "the dedupe lookup must run before the loop");
+  assert.ok(
+    skipIndex !== -1 && skipIndex > loopIndex && skipIndex < scoreCallIndex,
+    "the duplicate check must skip a job before it reaches the scorer, not after",
+  );
+});
+
+test("the dedupe check does not filter the Adzuna result list itself, preserving the unconditional per-job loop (dedupe fix)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.doesNotMatch(
+    source,
+    /adzunaJobs\.filter\(/,
+    "duplicates must be skipped with an early continue inside the loop, not by filtering the array beforehand",
+  );
+});
+
+test("every inserted job carries Adzuna's own id as external_id, the column the unique index and dedupe lookup both key on (dedupe fix)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(source, /external_id:\s*adzunaJob\.id,/);
+});
+
+test("an empty Adzuna result skips the dedupe lookup entirely rather than querying with an empty id list (dedupe fix)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /if \(adzunaJobs\.length > 0\) \{\s*const \{ data: existingRows, error: existingError \}/,
+    "the dedupe lookup must be guarded by a non-empty check before running",
+  );
+});

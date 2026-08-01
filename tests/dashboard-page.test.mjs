@@ -47,8 +47,11 @@ test("dashboard page only conditionally renders the banner, and reads only the p
 
   assert.match(source, /\{!profileComplete \? <IncompleteProfileBanner \/> : null\}/);
 
+  // fetchAllStatsJobs' own paginated "jobs" read is a module level helper
+  // defined above the component, so it appears first textually even though
+  // Promise.all still fires all four reads together at runtime.
   const fromCalls = [...source.matchAll(/\.from\("([^"]+)"\)/g)].map((match) => match[1]);
-  assert.deepEqual(fromCalls, ["profiles", "jobs", "agent_runs", "jobs"]);
+  assert.deepEqual(fromCalls, ["jobs", "profiles", "agent_runs", "jobs"]);
 });
 
 test("dashboard page computes real recent activity from the current user's agent_runs and jobs rows, never from mock data (feature 16)", async () => {
@@ -329,4 +332,25 @@ test("the dashboard logs every failed read instead of rendering a failure as an 
       `${errorName} should be logged with the project's route prefix, so a backend failure is not silently shown as the empty state`,
     );
   }
+});
+
+test("fetchAllStatsJobs pages through every jobs row with .range() instead of trusting one unbounded select (pre-existing gap fix)", async () => {
+  const source = await readProjectFile("app/dashboard/page.tsx");
+
+  assert.match(
+    source,
+    /\.order\("id", \{ ascending: true \}\)\s*\.range\(from, from \+ STATS_PAGE_SIZE - 1\)/,
+    "must page with a stable order and .range(), not a single unbounded .select()",
+  );
+  assert.match(
+    source,
+    /if \(data\.length < STATS_PAGE_SIZE\) \{\s*break;\s*\}/,
+    "a short page must stop the loop rather than requesting a page past the end",
+  );
+  assert.match(
+    source,
+    /const \[\s*\{ data: row, error: profileError \},\s*\{ data: statsJobs, error: statsJobsError \},/,
+    "statsJobs must still come from the paginated helper's { data, error } shape inside the same Promise.all",
+  );
+  assert.match(source, /fetchAllStatsJobs\(insforge, data\.user\.id\)/);
 });
