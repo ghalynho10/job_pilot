@@ -1,44 +1,56 @@
-# Memory — Feature 16, Recent Activity — Real Data, complete (uncommitted)
+# Memory — Feature 17, Analytics Charts — Real Data, complete and pushed
 
 Last updated: 2026-07-31
 
 ## What was built
 
-Feature 16, Recent Activity — Real Data, is complete: built and verified live. Not yet committed or merged. No new spec was needed, same shape as feature 15 — `context/build-plan.md`'s existing logic section (merge two scoped queries by timestamp, format, color-code) was already fully specified, no architectural decision to invent.
+Feature 17, Analytics Charts — Real Data, the **last of the 17 planned features**. The build plan is now complete. This session also closed the outstanding `/check verify` for feature 16.
 
-Main code added or changed (all currently uncommitted, on branch `dashboard-page`, which is the same commit as `main` right now since feature 15 was already merged and pushed):
-
-- `lib/dashboard-activity.ts` (new), pure `computeRecentActivity(agentRuns, researchedJobs, now?)`: merges completed `agent_runs` and researched `jobs` into `DashboardActivityEntry[]`, sorted by timestamp descending, capped to the newest 8. An agent run becomes `"Found {jobsFound} jobs for {jobTitleSearched}"` with a `success` (green) dot; a researched job becomes `"Researched {company}"` with an `info` (blue) dot — `accent` (the type's third color) stays unused by real data, matching feature 15's precedent of leaving `StatCard`'s trend branch unused. Also exports `formatTimeAgo(timestamp, now?)` reproducing the mock's exact phrasing ("Just now", "N min(s) ago", "N hour(s) ago", "Yesterday", "N days ago").
-- `app/dashboard/page.tsx`, now also reads the current user's completed `agent_runs` (`id, job_title_searched, jobs_found, completed_at`, `.eq("status","completed")`) and `jobs` rows with non-null `company_research_completed_at` (`id, company, company_research_completed_at`, `.not(...)`), both scoped by `user_id`, ordered newest first, capped at 10 rows each, then renders `computeRecentActivity(...)` instead of `mockActivity`.
-- `lib/mock-dashboard.ts`, `mockActivity` removed as superseded (its `DashboardActivityEntry` type stays, still shared by the real data path and `RecentActivityCard`, which is unchanged).
-- `types/index.ts`, new `AgentRunRow` type.
-- `tests/dashboard-activity.test.mjs` (new, 10 tests), `tests/dashboard-page.test.mjs` and `tests/mock-dashboard.test.mjs` updated. Full suite: 306/306 passing. `tsc`, lint, `npm run build` all clean.
-- `context/progress-tracker.md` and `context/ui-registry.md` updated (feature 16 checked off, DashboardPage entry rewritten).
+- `lib/dashboard-charts.ts` (new), three pure functions taking rows plus `now: Date` (same testable shape as `dashboard-stats.ts` / `dashboard-activity.ts`): `computeJobsFoundOverTime` (30 day UTC window, zero filled, short date labels), `computeMatchScoreDistribution` (all time, five bands, lower bound inclusive and upper exclusive except the top band which includes 100, nulls and sub 50 scores excluded), `computeCompanyResearchActivity` (rolling 7 day UTC window, zero filled, weekday labels). A shared `computeZeroFilledWindow` backs the two day bucketed charts.
+- `app/dashboard/page.tsx`, the existing `statsJobs` select grew one column (`company_research_completed_at`) and now feeds the stat cards **and** all three charts. No second query was added. All four database reads now destructure `error` and log it with the `[app/dashboard]` prefix.
+- The three chart components each gained the shared empty state (the `FindJobsPage` `role="status"` box) shown in place of the chart when its own window totals zero, with copy naming that chart's condition.
+- `lib/mock-dashboard.ts`, the three chart mocks removed; the file now holds **only** the four shared types.
+- `tests/dashboard-charts.test.mjs` (new, 16 tests), `tests/dashboard-page.test.mjs` extended (+8), `tests/mock-dashboard.test.mjs` deleted with its subjects. Suite 298 → **327**.
+- Docs: `docs/specs/0011-analytics-charts-real-data/` (index, rationale, verify), `docs/reviews/2026-07-31-dashboard-page.md`, plus corrections to `context/build-plan.md`, `context/progress-tracker.md`, `context/ui-registry.md`.
 
 ## Decisions made
 
-- Merged activity list capped at 8 entries (within the build plan's stated 5-to-10 range), a specific implementation choice, not re-litigated with the user.
-- Agent runs are filtered to `status = "completed"` only (a `running` or `failed` run is excluded from the activity feed, since "Found X jobs for..." only makes sense for a completed search).
-- Color mapping: job-search activity is `success` (green), company-research activity is `info` (blue), per the build plan's explicit "info blue, success green" instruction. `accent` is a supported token on the shared type but no real entry uses it.
+- **Chart data comes from Postgres, not PostHog.** This reverses what `context/build-plan.md` originally said. The three needed columns already live on the `jobs` rows the page fetches, so querying PostHog back out would have added a personal API key and project ID (a new secret), a second data source, and a network call on render for no benefit. Recorded in spec 0011; the build plan has been corrected so nothing points at the old design any more.
+- Day buckets are **UTC calendar days**, windows are `[today-(N-1), today]` inclusive. Chosen deliberately, but note it disagrees with feature 15's rolling 168 hour "Jobs This Week" card sitting on the same screen.
+- Kept the design's **five bands**, so a job scoring below 50 lands in no band. A user whose scored jobs are all below 50 sees an empty distribution chart while other stats are non zero. Documented tradeoff, not a bug.
+- Axis thinning uses `interval="preserveStartEnd"`, never a fixed number. A fixed step both drops the final tick and fails to adapt to card width.
+- A malformed row timestamp drops **that row only** (`rowDateKey`), matching how the two sibling compute modules already degrade, rather than throwing.
 
 ## Problems solved
 
-None — this feature had no real implementation snags; the query pattern followed feature 15's precedent.
+- **Recharts tick labels in the DOM**: they are `.recharts-cartesian-axis-tick-value`, *not* nested under `.recharts-xAxis` the way you would expect. Tell x from y by the parent's `recharts-xAxis-tick-labels` / `recharts-yAxis-tick-labels` class. Also, SVG text needs `textContent`; Playwright's `allInnerTexts()` returns `[null]` on these.
+- **A Recharts display fix cannot be verified without a real browser.** `ResponsiveContainer` measures real layout, so server rendering produces no ticks at all. Source assertions cannot prove tick behaviour.
+- **Source contract tests can pass vacuously.** Check every new assertion against the real pre change code (`git show HEAD:<path>`) to confirm it actually fails there. Five did; one apparent gap turned out to be an equivalent mutant (removing the null guard in the band filter changes nothing, because `null >= 50` is already `false` in JavaScript).
+- **`UID` is a reserved shell variable in zsh.** Using it for a seeded user id silently broke a script with a "bad math expression" error. Use any other name.
+- **InsForge signup** authenticates with `Authorization: Bearer <anon key>`, not an `apikey` header.
+- **There is no `DELETE /api/auth/users/:id` endpoint.** Remove throwaway accounts with `npx @insforge/cli db query` against `auth.users`.
+- **`jobs.user_id` has a foreign key to `profiles(id)`, not `auth.users`.** A profiles row must be inserted before any jobs can be seeded for a throwaway account.
+- **Check `lsof -i :3000` before starting a dev server** (carried forward from last session, and it applied again). The user usually has one running; reuse it.
 
 ## Current state
 
-- `/check verify` ran live against two real throwaway InsForge accounts (email/password signup, `require_email_verification` temporarily disabled via `insforge.toml` / `config apply` then restored, session cookie injected into a real Playwright browser). Account A had 5 seeded `agent_runs` (3 completed at different ages, 1 running, 1 failed) and 4 seeded `jobs` (3 researched at different ages, 1 unresearched); the rendered activity list exactly matched hand-computed expectations in order, title, timestamp text, and dot color, and correctly excluded the running run, failed run, and unresearched job. Account B (no activity) rendered an empty list with no crash and no console errors. Unauthenticated `/dashboard` still redirects (307 to `/login`). Both throwaway accounts and all their rows (including `auth.users`, via direct `db query`) were deleted afterward.
-- Note for next session: a second `npm run dev` I started during verify conflicted with the user's own already-running dev server on port 3000 (Next.js detected the lock and exited without binding anything) — used the user's existing server instead, no orphan process left behind. Worth remembering: check `lsof -i :3000` before assuming you need to start your own server.
-- No `/test` pass needed separately — tests were written during `/develop` and confirmed accurate by the verify run.
-- Nothing committed yet this session. `git status` shows the feature 16 files as modified/untracked on branch `dashboard-page` (currently identical to `main`, since feature 15 already merged and pushed).
+- Branch `dashboard-page`, **2 commits ahead of `origin/main`, 0 behind, pushed**. Head is `2471158 Feature 17 completed`.
+- **2 uncommitted files**: `context/progress-tracker.md` and `context/ui-registry.md`, holding the feature 16 verify record written after that commit. Everything else is committed.
+- All green: 327/327 tests, `tsc`, lint, and `npm run build` (`/dashboard` still dynamic).
+- Spec 0011 is `Accepted`. Progress tracker shows all 17 features ticked, Phase 5 complete.
+- Both features verified live against throwaway InsForge accounts, all deleted afterward and `insforge.toml` restored to zero diff. Feature 17 passed all 8 acceptance criteria including both window boundaries and every empty state. Feature 16 was verified with its two data sources deliberately interleaved in time, which is what proves they are genuinely merged and sorted rather than concatenated.
+- `/check review` ran on Opus (author was Sonnet): 0 blockers, 2 majors (both fixed), 7 minors, 5 nits. Findings in `docs/reviews/2026-07-31-dashboard-page.md`.
+- A PR title and body were drafted but **the PR was not created**. The draft lived in the session scratchpad, which will be gone next session; regenerate with `/document pr` if needed.
 
 ## Next session starts with
 
-Commit and merge feature 16 (same flow as feature 15: commit on `dashboard-page`, merge into `main` via VS Code Source Control or `git merge`, push), then start Feature 17, Analytics Charts — PostHog Data (per `context/progress-tracker.md` and `context/build-plan.md`'s Phase 5, the last feature in Phase 5).
-
-Feature 17's logic per the build plan: query PostHog for `job_found` and `company_researched` events (not the `jobs`/`agent_runs` tables like 15/16), group into day-buckets or score-bands, wire all three dashboard charts (`JobsFoundOverTimeChart`, `MatchScoreDistributionChart`, `CompanyResearchActivityChart`) to real data, with an empty state per chart when no data exists yet. This is a different data source (PostHog query API, not InsForge DB) — check whether `/develop` can still skip `/architect` here, or whether querying PostHog (auth, query shape, empty-state handling) counts as a decision owed. Feature 10's memory noted PostHog write access was confirmed working; query/read access for analytics has not been exercised yet in this project — worth checking early whether a query-capable PostHog key is even available in this environment before assuming feature 17 can be built and verified the same way as 15/16.
+1. Commit the two doc files above (they contain the feature 16 verify record).
+2. Create the PR: `/document pr` to regenerate the body, then `gh pr create`. `gh` 2.96.0 is installed, remote is `origin`, and no PR exists yet for this branch.
+3. Merge into `main`.
 
 ## Open questions
 
-- Whether the other unmerged branches (`Profile_save_logic`, `adzuna-job-search`, `job-details-page`, `add-workflow-skills`) still need merging into `main`, or are stale/superseded, is still unconfirmed from last session — worth asking the user before touching them.
-- Feature 17 may need a query-capable PostHog API key; prior sessions (feature 10) only had a write-only key available. If that's still the case, feature 17's `/check verify` may hit the same kind of block feature 10's did for the `job_found` event.
+- **Four other unmerged branches** (`Profile_save_logic`, `adzuna-job-search`, `job-details-page`, `add-workflow-skills`) — still unconfirmed whether they need merging or are stale. Carried forward from the last two sessions; worth just asking.
+- **Open review findings, all deliberate, none blocking.** The two worth actually considering are semantic: the "Companies Researched" stat card counts `company_research` (the dossier) while the charts and activity feed count `company_research_completed_at` (the timestamp), so the numbers can disagree — this was seen live during the feature 16 verify, so it is reproducible, not theoretical; and the UTC chart windows versus the rolling 168 hour stat card. The rest are cleanup: renaming `lib/mock-dashboard.ts` now that it holds no mocks (eight modules import production types from a misleadingly named file), `Promise.all` on the four serial reads, and five nits.
+- **Pre existing, not introduced by this work**: `statsJobs` has no `.limit()`, so PostgREST's default row cap could silently truncate a heavy user's stats and charts. Also `agent/adzuna.ts` inserts a jobs row per result with no dedupe across runs, so repeat searches double count.
+- **`memory.md` is tracked in git**, so this scratch file appears in every PR diff, including the current one. Consider `.gitignore` plus `git rm --cached memory.md`. Offered but not done.
