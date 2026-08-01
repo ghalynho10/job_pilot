@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 
-import type { DashboardActivityEntry } from "@/lib/mock-dashboard";
+import type { DashboardActivityEntry } from "@/lib/dashboard-types";
 
 type RecentActivityCardProps = {
   activity: DashboardActivityEntry[];

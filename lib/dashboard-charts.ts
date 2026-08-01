@@ -1,4 +1,4 @@
-import type { DashboardDayCount, DashboardScoreBand } from "@/lib/mock-dashboard";
+import type { DashboardDayCount, DashboardScoreBand } from "@/lib/dashboard-types";
 import type { JobRow } from "@/types";
 
 export type ChartsSourceJob = Pick<
@@ -76,6 +76,8 @@ export function computeJobsFoundOverTime(
   );
 }
 
+// Uses company_research_completed_at, not the company_research dossier column that
+// computeDashboardStats' "Companies Researched" count uses — see the comment there.
 export function computeCompanyResearchActivity(
   jobs: Pick<ChartsSourceJob, "company_research_completed_at">[],
   now: Date = new Date(),

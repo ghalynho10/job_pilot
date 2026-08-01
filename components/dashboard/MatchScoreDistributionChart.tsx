@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
-import type { DashboardScoreBand } from "@/lib/mock-dashboard";
+import type { DashboardScoreBand } from "@/lib/dashboard-types";
 
 type MatchScoreDistributionChartProps = {
   data: DashboardScoreBand[];

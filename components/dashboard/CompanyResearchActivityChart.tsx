@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
-import type { DashboardDayCount } from "@/lib/mock-dashboard";
+import type { DashboardDayCount } from "@/lib/dashboard-types";
 
 type CompanyResearchActivityChartProps = {
   data: DashboardDayCount[];

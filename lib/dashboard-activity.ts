@@ -1,4 +1,4 @@
-import type { DashboardActivityEntry } from "@/lib/mock-dashboard";
+import type { DashboardActivityEntry } from "@/lib/dashboard-types";
 import type { AgentRunRow, JobRow } from "@/types";
 
 export type RecentActivityAgentRun = Pick<

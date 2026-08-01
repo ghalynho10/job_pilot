@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 
-import type { DashboardStat } from "@/lib/mock-dashboard";
+import type { DashboardStat } from "@/lib/dashboard-types";
 
 type StatCardProps = {
   stat: DashboardStat;
