@@ -55,6 +55,34 @@ async function startOAuth(provider: OAuthProvider): Promise<never> {
   redirect(oauthUrl);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// TEMPORARY — email/password sign in for /check verify only.
+// Remove both this action and the form in login/page.tsx before merge.
+// ═══════════════════════════════════════════════════════════════
+export async function signInWithEmail(formData: FormData): Promise<never> {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+
+  if (!email || !password) {
+    redirect("/login?error=oauth_start");
+  }
+
+  try {
+    const auth = createAuthActions({ cookies: await cookies() });
+    const { error } = await auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error("[actions/auth:email]", error);
+      redirect("/login?error=oauth");
+    }
+  } catch (error) {
+    console.error("[actions/auth:email]", error);
+    redirect("/login?error=oauth");
+  }
+
+  redirect("/dashboard");
+}
+// ═══════════════════════════════════════════════════════════════
+
 export async function signInWithGoogle(): Promise<never> {
   return startOAuth("google");
 }
