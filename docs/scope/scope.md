@@ -28,9 +28,12 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | Q | Analytics charts (real data) | Existing | existing |
 | 0 | Portfolio private access gate | Foundation (Access gate) | done |
 | 0a | Deploy target and production config | Foundation (Access gate) | done |
+| 0b | Optional projects capture in resume extraction | Foundation (Profile) | planned |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
+| 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
+| 5 | Job application status tracking | Slice 3: Application Tracking | planned |
 
 ## Existing
 
@@ -129,6 +132,13 @@ code in `app/api/agent/research/route.ts`, `.env.example`
 - [x] Verify it: `/check verify deploy target and production config`
 - [ ] Test it: `/test deploy target and production config`
 
+## Foundation (Profile)
+
+### 0b. Optional projects capture in resume extraction · needs a decision · medium
+When resume extraction runs (feature G), also extract personal or portfolio projects if the resume lists any, and store them on the profile. Optional field: many users, especially outside tech, will have none, and an empty list is a fine outcome, not an error. Extends the existing resume extraction path only; does not touch resume generation (feature H, tracked separately as feature 4) or add any project specific matching or scoring logic. Small and self contained, placed before the billing work since it does not depend on it.
+**Done when:** a resume containing projects gets them extracted and saved to the profile in a structured, reviewable form; a resume with no projects section leaves the field empty with no error; existing extraction behavior for every other field is unchanged.
+- [ ] Design it (spec): `/architect optional projects capture in resume extraction`
+
 ## Foundation (Billing)
 
 ### 1. Billing foundation: subscription data model & Stripe setup · needs a decision · full
@@ -147,6 +157,20 @@ A signed in user upgrades to the paid plan through Stripe Checkout, and the subs
 Cap monthly Adzuna searches and company research runs for free tier accounts; block and prompt to upgrade once the cap is hit. Paid accounts are uncapped (or a much higher cap).
 **Done when:** a free user hitting the monthly cap sees an upgrade prompt instead of the agent running, a paid user is not capped, and counts reset each billing cycle.
 - [ ] Design it (spec): `/architect free tier usage gating`
+
+## Slice 2: Resume Quality
+
+### 4. Resume generation quality (ATS domain knowledge) · needs a decision
+Raise the quality of output from the existing resume generation path (feature H) by enriching its generation prompt with ATS and resume writing domain knowledge: bullet structure (the XYZ formula), parser safe formatting rules, keyword placement weighting, seniority calibration, and a trimming priority order. Quality of output only, no new capability; cover letter generation and per job resume tailoring stay out of scope per `context/project-overview.md`. Source material already in the repo: `docs/reference/resume-domain-knowledge.md`. Lowest priority of anything currently planned; comes after the three billing features.
+**Done when:** generated resumes consistently apply the XYZ bullet formula, use parser safe formatting, place keywords per the documented weighting, calibrate detail and tone to seniority, and trim in the documented priority order when content must be cut, all checked against `docs/reference/resume-domain-knowledge.md`.
+- [ ] Design it (spec): `/architect resume generation quality`
+
+## Slice 3: Application Tracking
+
+### 5. Job application status tracking · needs a decision · medium
+Today JobPilot has no way to know if a user applied to a job. Apply Now just opens the external apply URL, and `jobs` has no status column. Add a status a user sets by hand (for example not applied, applied, interviewing, rejected, offer), plus a view to see jobs by status, likely in find jobs and or a dedicated tracking view. Status is user set, not auto detected. JobPilot cannot know whether an external application actually happened, keeping this consistent with the existing no auto apply boundary in `context/project-overview.md`. Comes after billing (features 1 to 3); order against feature 4 (resume generation quality) is not yet decided, both sit in the post billing backlog.
+**Done when:** a user can set and change a job's status from a fixed set of values, the status persists and is visible on the job, and a view lets the user see jobs grouped or filtered by status.
+- [ ] Design it (spec): `/architect job application status tracking`
 
 ## Deferred
 Out of scope for this pass, kept so the plan stays honest.
