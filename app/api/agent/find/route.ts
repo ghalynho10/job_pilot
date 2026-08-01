@@ -29,6 +29,7 @@ function mapRowToProfile(row: ProfileRow): Profile {
     remotePreference: (row.remote_preference as Profile["remotePreference"]) ?? "",
     salaryExpectation: row.salary_expectation ?? "",
     preferredLocations: (row.preferred_locations ?? []).join(", "),
+    projects: row.projects ?? null,
   };
 }
 

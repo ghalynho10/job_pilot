@@ -118,3 +118,13 @@ test("resume generate route accepts no request body and derives the target user 
     "the only user id source is the guard, which derives it from the authenticated session",
   );
 });
+
+test("resume generator does not reference projects (AC-7: projects out of scope for generation)", async () => {
+  const generatorSource = await readProjectFile("agent/resume-generator.ts");
+  const routeSource = await readProjectFile("app/api/resume/generate/route.ts");
+  const pdfSource = await readProjectFile("app/api/resume/generate/ResumePdfDocument.tsx");
+
+  assert.doesNotMatch(generatorSource, /projects/, "resume generator agent must not reference projects");
+  assert.doesNotMatch(routeSource, /projects/, "resume generate route must not reference projects");
+  assert.doesNotMatch(pdfSource, /projects/, "resume PDF document must not reference projects");
+});

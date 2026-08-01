@@ -244,6 +244,7 @@ test("round trips a fully populated, already-normalized profile through both map
     remotePreference: "remote",
     salaryExpectation: "$120k+",
     preferredLocations: "New York, London",
+    projects: null,
   };
 
   const row = mapProfileToRow(normalizedProfile, "user-1", normalizedProfile.email);
@@ -275,4 +276,58 @@ test("buildEmptyProfile pre-fills only the email field, leaving everything else 
     institutionName: "",
     graduationYear: "",
   });
+  assert.equal(profile.projects, null);
+});
+
+test("round trips projects through both mapping directions", () => {
+  const profile = buildEmptyProfile("proj@example.com");
+  profile.projects = [
+    { name: "My App", description: "A web app", url: "https://github.com/me/app", technologies: ["React", "TypeScript"] },
+    { name: "CLI Tool", description: "", url: "", technologies: [] },
+  ];
+
+  const row = mapProfileToRow(profile, "user-1", profile.email);
+  assert.deepEqual(row.projects, profile.projects);
+
+  const roundTripped = mapProfileRowToProfile({
+    ...row,
+    id: "user-1",
+    cover_letter_tone: null,
+    resume_pdf_url: null,
+    is_complete: false,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  });
+  assert.deepEqual(roundTripped.projects, profile.projects);
+});
+
+test("mapProfileRowToProfile treats a null projects column as null", () => {
+  const profile = mapProfileRowToProfile({
+    id: "user-1",
+    full_name: null,
+    email: null,
+    phone: null,
+    location: null,
+    current_title: null,
+    experience_level: null,
+    years_experience: null,
+    skills: null,
+    industries: null,
+    work_experience: null,
+    education: null,
+    job_titles_seeking: null,
+    remote_preference: null,
+    preferred_locations: null,
+    salary_expectation: null,
+    linkedin_url: null,
+    portfolio_url: null,
+    work_authorization: null,
+    resume_pdf_url: null,
+    projects: null,
+    is_complete: false,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(profile.projects, null);
 });

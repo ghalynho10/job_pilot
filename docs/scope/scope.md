@@ -134,10 +134,10 @@ code in `app/api/agent/research/route.ts`, `.env.example`
 
 ## Foundation (Profile)
 
-### 0b. Optional projects capture in resume extraction · needs a decision · medium
+### 0b. Optional projects capture in resume extraction · needs a decision · medium · spec [0014](specs/0014-optional-projects-capture-in-resume-extraction.md)
 When resume extraction runs (feature G), also extract personal or portfolio projects if the resume lists any, and store them on the profile. Optional field: many users, especially outside tech, will have none, and an empty list is a fine outcome, not an error. Extends the existing resume extraction path only; does not touch resume generation (feature H, tracked separately as feature 4) or add any project specific matching or scoring logic. Small and self contained, placed before the billing work since it does not depend on it.
 **Done when:** a resume containing projects gets them extracted and saved to the profile in a structured, reviewable form; a resume with no projects section leaves the field empty with no error; existing extraction behavior for every other field is unchanged.
-- [ ] Design it (spec): `/architect optional projects capture in resume extraction`
+- [x] Design it (spec): `/architect optional projects capture in resume extraction`
 
 ## Foundation (Billing)
 

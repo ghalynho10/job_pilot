@@ -8,6 +8,7 @@ import type {
   ExperienceLevel,
   HighestDegree,
   Profile,
+  Project,
   RemotePreference,
   WorkAuthorization,
   WorkExperienceEntry,
@@ -24,6 +25,7 @@ interface ProfileFormProps {
 }
 
 const MAX_WORK_EXPERIENCE_ENTRIES = 3;
+const MAX_PROJECTS = 5;
 
 const WORK_AUTHORIZATION_OPTIONS: { value: WorkAuthorization; label: string }[] = [
   { value: "citizen", label: "Citizen" },
@@ -169,6 +171,35 @@ export function ProfileForm({
     value: Education[K],
   ): void => {
     updateField("education", { ...profile.education, [key]: value });
+  };
+
+  const updateProject = <K extends keyof Project>(
+    index: number,
+    key: K,
+    value: Project[K],
+  ): void => {
+    const projects = profile.projects ?? [];
+    updateField(
+      "projects",
+      projects.map((p, i) => (i === index ? { ...p, [key]: value } : p)),
+    );
+  };
+
+  const addProject = (): void => {
+    const projects = profile.projects ?? [];
+    if (projects.length >= MAX_PROJECTS) return;
+    updateField("projects", [
+      ...projects,
+      { name: "", description: "", url: "", technologies: [] },
+    ]);
+  };
+
+  const removeProject = (index: number): void => {
+    const projects = profile.projects ?? [];
+    updateField(
+      "projects",
+      projects.filter((_, i) => i !== index),
+    );
   };
 
   return (
@@ -569,6 +600,107 @@ export function ProfileForm({
             />
           </FormField>
         </div>
+      </div>
+
+      <div className="mt-6 space-y-4 border-t border-border pt-6">
+        <div className="flex items-center justify-between">
+          <SectionHeading>Projects</SectionHeading>
+          <button
+            className="flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:text-text-muted"
+            disabled={(profile.projects ?? []).length >= MAX_PROJECTS}
+            onClick={addProject}
+            type="button"
+          >
+            <Plus aria-hidden="true" className="size-4" />
+            Add project
+          </button>
+        </div>
+        {profile.projects && profile.projects.length > 0 ? (
+          profile.projects.map((project, index) => (
+            <div
+              className="space-y-3 rounded-lg border border-border bg-surface-secondary p-4"
+              key={index}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-text-secondary">
+                  Project {index + 1}
+                </p>
+                <button
+                  className="rounded p-1 text-text-muted transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  onClick={() => removeProject(index)}
+                  type="button"
+                  aria-label={`Remove project ${index + 1}`}
+                >
+                  <X aria-hidden="true" className="size-4" />
+                </button>
+              </div>
+              <FormField htmlFor={`project-name-${index}`} label="Project Name">
+                <input
+                  className={inputClass}
+                  id={`project-name-${index}`}
+                  onChange={(event) =>
+                    updateProject(index, "name", event.target.value)
+                  }
+                  type="text"
+                  value={project.name}
+                />
+              </FormField>
+              <FormField
+                htmlFor={`project-description-${index}`}
+                label="Description"
+              >
+                <textarea
+                  className={inputClass}
+                  id={`project-description-${index}`}
+                  onChange={(event) =>
+                    updateProject(index, "description", event.target.value)
+                  }
+                  rows={2}
+                  value={project.description ?? ""}
+                />
+              </FormField>
+              <FormField htmlFor={`project-url-${index}`} label="URL">
+                <input
+                  className={inputClass}
+                  id={`project-url-${index}`}
+                  onChange={(event) =>
+                    updateProject(index, "url", event.target.value)
+                  }
+                  placeholder="https://github.com/..."
+                  type="url"
+                  value={project.url ?? ""}
+                />
+              </FormField>
+              <FormField
+                htmlFor={`project-technologies-${index}`}
+                label="Technologies (comma separated)"
+              >
+                <input
+                  className={inputClass}
+                  id={`project-technologies-${index}`}
+                  onChange={(event) =>
+                    updateProject(
+                      index,
+                      "technologies",
+                      event.target.value
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter((t) => t.length > 0),
+                    )
+                  }
+                  placeholder="React, TypeScript, PostgreSQL"
+                  type="text"
+                  value={(project.technologies ?? []).join(", ")}
+                />
+              </FormField>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-text-muted">
+            No projects added yet. Projects from your resume will appear here
+            after extraction.
+          </p>
+        )}
       </div>
 
       <div className="mt-6 space-y-4 border-t border-border pt-6">

@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 7 — Billing (not started)
+**Phase:** Phase 7 — Foundation (Profile)
 **Last completed:** 18 Portfolio private access gate (verified, tested)
-**Next:** `/architect billing foundation`
+**Next:** Commit and push, then `/architect billing foundation`
 
 ---
 
@@ -50,9 +50,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 - [x] 18 Portfolio private access gate (verified, tested, accepted)
 
-### Phase 7 — Billing
+### Phase 7 — Foundation (Profile)
 
-- [ ] 1 Billing foundation (subscription data model + Stripe setup)
+- [x] 0b Optional projects capture in resume extraction (spec 0014, verified, tested, accepted)
 
 ---
 
