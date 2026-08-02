@@ -1,11 +1,32 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const projectRoot = new URL("../", import.meta.url);
 
 async function readProjectFile(path) {
   return readFile(new URL(path, projectRoot), "utf8");
+}
+
+async function collectRouteFiles(dirPath = "app/api") {
+  const dirUrl = new URL(`${dirPath}/`, projectRoot);
+  const entries = await readdir(dirUrl, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const childPath = `${dirPath}/${entry.name}`;
+
+    if (entry.isDirectory()) {
+      files.push(...(await collectRouteFiles(childPath)));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name === "route.ts") {
+      files.push(childPath);
+    }
+  }
+
+  return files;
 }
 
 test("research route requires a signed in session before any database or agent work (AC-1)", async () => {
@@ -120,4 +141,32 @@ test("research route never exposes raw errors and always returns the shared Acti
     source,
     /\} catch \(error\) \{\s*console\.error\("\[api\/agent\/research\]", error\);\s*return NextResponse\.json\(\s*\{ success: false, error: "Something went wrong researching this company\. Please try again\." \},\s*\{ status: 500 \},/,
   );
+});
+
+test("research route is the only API route with prolonged Vercel execution config (deploy AC-6)", async () => {
+  const source = await readProjectFile("app/api/agent/research/route.ts");
+
+  assert.match(
+    source,
+    /export const maxDuration = 300;/,
+    "company research must keep the current Vercel Hobby Fluid Compute ceiling",
+  );
+  assert.match(
+    source,
+    /export const dynamic = "force-dynamic";/,
+    "company research must remain request time work in production",
+  );
+
+  const routeFiles = await collectRouteFiles();
+  const routesWithDuration = [];
+
+  for (const routeFile of routeFiles) {
+    const routeSource = await readProjectFile(routeFile);
+
+    if (/export const maxDuration\s*=/.test(routeSource)) {
+      routesWithDuration.push(routeFile);
+    }
+  }
+
+  assert.deepEqual(routesWithDuration, ["app/api/agent/research/route.ts"]);
 });
