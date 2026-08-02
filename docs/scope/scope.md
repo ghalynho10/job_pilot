@@ -28,7 +28,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | Q | Analytics charts (real data) | Existing | existing |
 | 0 | Portfolio private access gate | Foundation (Access gate) | done |
 | 0a | Deploy target and production config | Foundation (Access gate) | done |
-| 0b | Optional projects capture in resume extraction | Foundation (Profile) | planned |
+| 0b | Optional projects capture in resume extraction | Foundation (Profile) | done |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |

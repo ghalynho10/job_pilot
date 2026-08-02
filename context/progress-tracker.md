@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 7 — Foundation (Profile)
-**Last completed:** 18 Portfolio private access gate (verified, tested)
-**Next:** Commit and push, then `/architect billing foundation`
+**Phase:** Foundation (Profile) — complete
+**Last completed:** 0b Optional projects capture in resume extraction (verified, merged to main)
+**Next:** `/architect billing foundation` (Feature 1: Billing foundation)
 
 ---
 
