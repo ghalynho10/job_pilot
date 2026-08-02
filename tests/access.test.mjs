@@ -775,9 +775,7 @@ test("getSubscription is re-exported from lib/access.ts alongside agentRunsEnabl
   // Both agentRunsEnabled and isUserApproved must also be exported in the same
   // statement, so the seam stays a single named surface for the rest of the
   // app.
-  const exportLine = source.match(
-    /export\s*\{[^}]*\}/,
-  )[0];
+  const exportLine = source.match(/export\s*\{[^}]*\}/)[0];
   assert.match(exportLine, /\bagentRunsEnabled\b/);
   assert.match(exportLine, /\bgetSubscription\b/);
   assert.match(exportLine, /\bisUserApproved\b/);
