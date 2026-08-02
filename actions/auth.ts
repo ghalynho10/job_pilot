@@ -5,8 +5,75 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getAppOrigin } from "@/lib/auth-routing";
+import type { ActionResult } from "@/types";
 
 type OAuthProvider = "google" | "github";
+
+/* ------------------------------------------------------------------ */
+/*  Dev-only password auth — gated so production never ships these.   */
+/*  Exists so CI and /check verify can sign in without a browser and   */
+/*  without OAuth.                                                     */
+/* ------------------------------------------------------------------ */
+
+export async function signUp(
+  email: string,
+  password: string,
+): Promise<ActionResult<{ userId: string }>> {
+  if (process.env.NODE_ENV === "production") {
+    return { success: false, error: "Password auth is disabled in production." };
+  }
+
+  try {
+    const auth = createAuthActions({ cookies: await cookies() });
+    const { data, error } = await auth.signUp({ email, password });
+
+    if (error) {
+      console.error("[actions/auth:signUp]", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.user) {
+      return { success: false, error: "Sign-up did not return a user." };
+    }
+
+    return { success: true, userId: data.user.id };
+  } catch (error) {
+    console.error("[actions/auth:signUp]", error);
+    return { success: false, error: "Sign-up failed." };
+  }
+}
+
+export async function signInWithPassword(
+  email: string,
+  password: string,
+): Promise<ActionResult<{ userId: string }>> {
+  if (process.env.NODE_ENV === "production") {
+    return { success: false, error: "Password auth is disabled in production." };
+  }
+
+  try {
+    const auth = createAuthActions({ cookies: await cookies() });
+    const { data, error } = await auth.signInWithPassword({ email, password });
+
+    if (error) {
+      console.error("[actions/auth:signInWithPassword]", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data?.user) {
+      return { success: false, error: "Sign-in did not return a user." };
+    }
+
+    return { success: true, userId: data.user.id };
+  } catch (error) {
+    console.error("[actions/auth:signInWithPassword]", error);
+    return { success: false, error: "Sign-in failed." };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Production OAuth — the only auth path available in production.    */
+/* ------------------------------------------------------------------ */
 
 const OAUTH_VERIFIER_COOKIE = "insforge_code_verifier";
 
