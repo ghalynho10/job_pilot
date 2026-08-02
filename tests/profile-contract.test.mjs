@@ -21,7 +21,10 @@ function extractInputTag(source, idAttr) {
   assert.ok(idIndex !== -1, `id="${idAttr}" not found in source`);
   const tagStart = source.lastIndexOf("<input", idIndex);
   const tagEnd = source.indexOf("/>", idIndex);
-  assert.ok(tagStart !== -1 && tagEnd !== -1, `<input .../> not found around id="${idAttr}"`);
+  assert.ok(
+    tagStart !== -1 && tagEnd !== -1,
+    `<input .../> not found around id="${idAttr}"`,
+  );
   return source.slice(tagStart, tagEnd + 2);
 }
 
@@ -43,12 +46,17 @@ test("profile page sends an unapproved user to the private beta screen before re
   const source = await readProjectFile("app/profile/page.tsx");
 
   const redirectIndex = source.indexOf('redirect("/login?error=session")');
-  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
+  const gateIndex = source.indexOf(
+    "await requireApprovedPage(insforge, data.user.id);",
+  );
   const readIndex = source.indexOf('.from("profiles")');
 
   assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
   assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
-  assert.ok(gateIndex < readIndex, "the gate must run before the profile row is read");
+  assert.ok(
+    gateIndex < readIndex,
+    "the gate must run before the profile row is read",
+  );
   assert.ok(
     !source.includes("user_access"),
     "the page must go through requireApprovedPage, never query user_access itself",
@@ -72,8 +80,15 @@ test("profile page composes the needs-attention banner and the profile editor fr
   const source = await readProjectFile("app/profile/page.tsx");
 
   assert.match(source, /<CompletionIndicator completion=\{completion\} \/>/);
-  assert.match(source, /<ProfileEditor initialProfile=\{profile\} userId=\{data\.user\.id\} \/>/);
-  assert.doesNotMatch(source, /mockProfile|mockCompletion/, "mock data from feature 05 must be fully gone");
+  assert.match(
+    source,
+    /<ProfileEditor initialProfile=\{profile\} userId=\{data\.user\.id\} \/>/,
+  );
+  assert.doesNotMatch(
+    source,
+    /mockProfile|mockCompletion/,
+    "mock data from feature 05 must be fully gone",
+  );
 });
 
 test("profile page fetches the real profiles row, scoped to the signed in user, and falls back for a brand new user", async () => {
@@ -82,8 +97,15 @@ test("profile page fetches the real profiles row, scoped to the signed in user, 
   assert.match(source, /insforge\.database\s*\.from\("profiles"\)/);
   assert.match(source, /\.select\("\*"\)/);
   assert.match(source, /\.eq\("id", data\.user\.id\)/);
-  assert.match(source, /\.maybeSingle</, "must distinguish no-row-yet from a real query error");
-  assert.match(source, /row \? mapProfileRowToProfile\(row\) : buildEmptyProfile\(data\.user\.email\)/);
+  assert.match(
+    source,
+    /\.maybeSingle</,
+    "must distinguish no-row-yet from a real query error",
+  );
+  assert.match(
+    source,
+    /row \? mapProfileRowToProfile\(row\) : buildEmptyProfile\(data\.user\.email\)/,
+  );
   assert.match(source, /deriveProfileCompletion\(/);
 });
 
@@ -95,7 +117,9 @@ test("profile page itself never imports the save action directly; the client Pro
 });
 
 test("completion indicator shows the needs-attention heading and only renders missing fields when present", async () => {
-  const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
+  const source = await readProjectFile(
+    "components/profile/CompletionIndicator.tsx",
+  );
 
   assert.match(source, /Profile needs attention/);
   assert.match(source, /missingFields\.length > 0/);
@@ -103,7 +127,9 @@ test("completion indicator shows the needs-attention heading and only renders mi
 });
 
 test("completion indicator switches to a complete state (not needs-attention) once nothing is missing", async () => {
-  const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
+  const source = await readProjectFile(
+    "components/profile/CompletionIndicator.tsx",
+  );
 
   assert.match(source, /const isComplete = missingFields\.length === 0;/);
   assert.match(source, /Profile complete/);
@@ -121,9 +147,14 @@ test("completion indicator switches to a complete state (not needs-attention) on
 });
 
 test("completion indicator ring offset is driven by the percentage prop, not a fixed value", async () => {
-  const source = await readProjectFile("components/profile/CompletionIndicator.tsx");
+  const source = await readProjectFile(
+    "components/profile/CompletionIndicator.tsx",
+  );
 
-  assert.match(source, /const RING_CIRCUMFERENCE = 2 \* Math\.PI \* RING_RADIUS;/);
+  assert.match(
+    source,
+    /const RING_CIRCUMFERENCE = 2 \* Math\.PI \* RING_RADIUS;/,
+  );
   assert.match(
     source,
     /const offset = RING_CIRCUMFERENCE \* \(1 - percentage \/ 100\);/,
@@ -135,7 +166,10 @@ test("completion indicator ring offset is driven by the percentage prop, not a f
   const circumference = 2 * Math.PI * ringRadius;
   assert.match(source, new RegExp(`const RING_SIZE = ${ringSize};`));
   assert.match(source, new RegExp(`const RING_STROKE = ${ringStroke};`));
-  assert.ok(circumference > 0, "sanity check on the geometry constants read from source");
+  assert.ok(
+    circumference > 0,
+    "sanity check on the geometry constants read from source",
+  );
 });
 
 test("resume upload dropzone accepts PDF only and shows the documented size limit", async () => {
@@ -166,14 +200,18 @@ test("resume upload never touches storage or the network directly; it only stage
 test("resume upload rejects a non-PDF or oversized file client side before ever calling onFileSelected", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
-  const handleFileMatch = source.match(/const handleFile = \(file: File\): void => \{[\s\S]*?\n {2}\};/);
+  const handleFileMatch = source.match(
+    /const handleFile = \(file: File\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleFileMatch, "handleFile function not found");
   const handleFileBody = handleFileMatch[0];
 
   assert.match(handleFileBody, /file\.type !== "application\/pdf"/);
   assert.match(handleFileBody, /file\.size > MAX_RESUME_SIZE_BYTES/);
 
-  const typeCheckIndex = handleFileBody.indexOf('file.type !== "application/pdf"');
+  const typeCheckIndex = handleFileBody.indexOf(
+    'file.type !== "application/pdf"',
+  );
   const callIndex = handleFileBody.indexOf("onFileSelected(file)");
   assert.ok(
     typeCheckIndex !== -1 && callIndex !== -1 && typeCheckIndex < callIndex,
@@ -192,8 +230,14 @@ test("resume upload wires both the file input and the drop handler through the s
 test("resume upload shows an uploading state, then the uploaded file name with a not-yet-saved hint", async () => {
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
-  assert.match(source, /isUploading \? "Uploading…" : "Click to upload or drag and drop"/);
-  assert.match(source, /Uploaded\. Click Save Profile below to add it to your profile\./);
+  assert.match(
+    source,
+    /isUploading \? "Uploading…" : "Click to upload or drag and drop"/,
+  );
+  assert.match(
+    source,
+    /Uploaded\. Click Save Profile below to add it to your profile\./,
+  );
 });
 
 test("resume upload disables both the dropzone button and the file input while an upload, extraction, or generation is in flight", async () => {
@@ -225,7 +269,10 @@ test("profile form caps work experience at 3 entries and disables Add role past 
   const source = await readProjectFile("components/profile/ProfileForm.tsx");
 
   assert.match(source, /const MAX_WORK_EXPERIENCE_ENTRIES = 3;/);
-  assert.match(source, /if \(profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\) return;/);
+  assert.match(
+    source,
+    /if \(profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\) return;/,
+  );
   assert.match(
     source,
     /disabled=\{\s*profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\s*\}/,
@@ -243,7 +290,10 @@ test("skills and industries are trimmed and deduplicated before being added", as
   const source = await readProjectFile("components/profile/ProfileForm.tsx");
 
   assert.match(source, /const value = skillInput\.trim\(\);/);
-  assert.match(source, /if \(value\.length === 0 \|\| profile\.skills\.includes\(value\)\) return;/);
+  assert.match(
+    source,
+    /if \(value\.length === 0 \|\| profile\.skills\.includes\(value\)\) return;/,
+  );
   assert.match(source, /const value = industryInput\.trim\(\);/);
   assert.match(
     source,
@@ -295,7 +345,10 @@ test("profile form select fields with empty profile values render blank placehol
     );
   }
 
-  assert.match(source, /event\.target\.value as Profile\["workAuthorization"\]/);
+  assert.match(
+    source,
+    /event\.target\.value as Profile\["workAuthorization"\]/,
+  );
   assert.match(source, /event\.target\.value as Profile\["experienceLevel"\]/);
   assert.match(source, /event\.target\.value as Education\["highestDegree"\]/);
   assert.match(source, /event\.target\.value as Profile\["remotePreference"\]/);
@@ -309,8 +362,15 @@ test("profile form is a fully controlled component driven by its parent, not its
     /useState<Profile>/,
     "ProfileForm must not own profile state itself now that ProfileEditor does",
   );
-  assert.match(source, /onProfileChange\(\{ \.\.\.profile, \[key\]: value \}\)/);
-  assert.doesNotMatch(source, /actions\/profile/, "ProfileForm calls the onSave prop, never the action directly");
+  assert.match(
+    source,
+    /onProfileChange\(\{ \.\.\.profile, \[key\]: value \}\)/,
+  );
+  assert.doesNotMatch(
+    source,
+    /actions\/profile/,
+    "ProfileForm calls the onSave prop, never the action directly",
+  );
 });
 
 test("profile form's Save Profile button is wired to the onSave prop, disabled while saving or externally disabled, and shows the result", async () => {
@@ -351,7 +411,10 @@ test("profile editor owns the shared profile state and reads the staged resume f
   assert.match(source, /getStagedResumeKey\(userId\)/);
   assert.match(source, /getStagedResumeFileName\(userId\)/);
   assert.match(source, /getStagedResumeServerSnapshot/);
-  assert.match(source, /<ResumeUpload[\s\S]*?onFileSelected=\{handleFileSelected\}/);
+  assert.match(
+    source,
+    /<ResumeUpload[\s\S]*?onFileSelected=\{handleFileSelected\}/,
+  );
   assert.match(source, /<ProfileForm[\s\S]*?onProfileChange=\{setProfile\}/);
 });
 
@@ -417,7 +480,10 @@ test("profile editor disables Save Profile while a resume upload or extraction i
   assert.match(source, /<ResumeUpload[\s\S]*?isUploading=\{isUploading\}/);
   assert.match(source, /<ResumeUpload[\s\S]*?isExtracting=\{isExtracting\}/);
   assert.match(source, /<ProfileForm[\s\S]*?isSaving=\{isPending\}/);
-  assert.match(source, /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting \|\| isGenerating\}/);
+  assert.match(
+    source,
+    /<ProfileForm[\s\S]*?saveDisabled=\{isUploading \|\| isExtracting \|\| isGenerating\}/,
+  );
 });
 
 test("profile editor calls saveProfile with the profile and the resolved resume key, clearing the staged entry only on success", async () => {
@@ -425,7 +491,9 @@ test("profile editor calls saveProfile with the profile and the resolved resume 
 
   assert.match(source, /saveProfile\(profile, resumeKey\)/);
 
-  const handleSaveMatch = source.match(/const handleSave = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleSaveMatch = source.match(
+    /const handleSave = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleSaveMatch, "handleSave function not found");
   const body = handleSaveMatch[0];
   assert.match(
@@ -439,7 +507,10 @@ test("profile editor auto-clears the save success message after a delay, with cl
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
   assert.match(source, /useEffect\(/);
-  assert.match(source, /setTimeout\(\(\) => setSaveSuccess\(false\), SAVE_SUCCESS_DISPLAY_MS\)/);
+  assert.match(
+    source,
+    /setTimeout\(\(\) => setSaveSuccess\(false\), SAVE_SUCCESS_DISPLAY_MS\)/,
+  );
   assert.match(source, /return \(\) => clearTimeout\(timeout\);/);
 });
 
@@ -453,16 +524,26 @@ test("actions/profile.ts re-checks the caller is signed in inside both uploadRes
   assert.ok(uploadStart !== -1 && saveStart !== -1 && uploadStart < saveStart);
 
   const uploadBody = source.slice(uploadStart, saveStart);
-  const uploadAuthCheckIndex = uploadBody.indexOf("if (authError || !authData.user)");
+  const uploadAuthCheckIndex = uploadBody.indexOf(
+    "if (authError || !authData.user)",
+  );
   const uploadCallIndex = uploadBody.indexOf(".upload(key, file)");
   assert.ok(uploadAuthCheckIndex !== -1 && uploadCallIndex !== -1);
-  assert.ok(uploadAuthCheckIndex < uploadCallIndex, "uploadResumeFile must check auth before uploading");
+  assert.ok(
+    uploadAuthCheckIndex < uploadCallIndex,
+    "uploadResumeFile must check auth before uploading",
+  );
 
   const saveBody = source.slice(saveStart);
-  const saveAuthCheckIndex = saveBody.indexOf("if (authError || !authData.user)");
+  const saveAuthCheckIndex = saveBody.indexOf(
+    "if (authError || !authData.user)",
+  );
   const writeIndex = saveBody.indexOf(".upsert(payload");
   assert.ok(saveAuthCheckIndex !== -1 && writeIndex !== -1);
-  assert.ok(saveAuthCheckIndex < writeIndex, "saveProfile must check auth before writing");
+  assert.ok(
+    saveAuthCheckIndex < writeIndex,
+    "saveProfile must check auth before writing",
+  );
 });
 
 test("actions/profile.ts's uploadResumeFile validates the file before ever calling storage.upload", async () => {
@@ -472,10 +553,14 @@ test("actions/profile.ts's uploadResumeFile validates the file before ever calli
   const uploadBody = source.slice(uploadStart, saveStart);
 
   const typeCheckIndex = uploadBody.indexOf('file.type !== "application/pdf"');
-  const sizeCheckIndex = uploadBody.indexOf("file.size > MAX_RESUME_SIZE_BYTES");
+  const sizeCheckIndex = uploadBody.indexOf(
+    "file.size > MAX_RESUME_SIZE_BYTES",
+  );
   const uploadIndex = uploadBody.indexOf(".upload(key, file)");
 
-  assert.ok(typeCheckIndex !== -1 && sizeCheckIndex !== -1 && uploadIndex !== -1);
+  assert.ok(
+    typeCheckIndex !== -1 && sizeCheckIndex !== -1 && uploadIndex !== -1,
+  );
   assert.ok(typeCheckIndex < uploadIndex && sizeCheckIndex < uploadIndex);
 });
 
@@ -490,7 +575,11 @@ test("actions/profile.ts's uploadResumeFile best effort deletes the previous uns
 
   const uploadCallIndex = uploadBody.indexOf(".upload(key, file)");
   const deleteIndex = uploadBody.indexOf(".remove(previousUnsavedKey)");
-  assert.ok(uploadCallIndex !== -1 && deleteIndex !== -1 && uploadCallIndex < deleteIndex);
+  assert.ok(
+    uploadCallIndex !== -1 &&
+      deleteIndex !== -1 &&
+      uploadCallIndex < deleteIndex,
+  );
 
   const removeErrorBlock = uploadBody.slice(deleteIndex, deleteIndex + 200);
   assert.match(removeErrorBlock, /console\.error/);
@@ -508,22 +597,35 @@ test("actions/profile.ts's saveProfile reads the existing row before writing, an
 
   const readIndex = saveBody.indexOf('.select("resume_pdf_url, is_complete")');
   const writeIndex = saveBody.indexOf(".upsert(payload");
-  assert.ok(readIndex !== -1 && writeIndex !== -1 && readIndex < writeIndex, "the row read must happen before the write");
+  assert.ok(
+    readIndex !== -1 && writeIndex !== -1 && readIndex < writeIndex,
+    "the row read must happen before the write",
+  );
 
-  assert.doesNotMatch(saveBody, /\.upload\(/, "saveProfile must not upload a file itself; that is uploadResumeFile's job now");
+  assert.doesNotMatch(
+    saveBody,
+    /\.upload\(/,
+    "saveProfile must not upload a file itself; that is uploadResumeFile's job now",
+  );
 });
 
 test("actions/profile.ts uploads every resume to a fresh unique key, never the fixed userId/resume.pdf path", async () => {
   const source = await readProjectFile("actions/profile.ts");
 
-  assert.match(source, /const key = `\$\{userId\}\/\$\{randomUUID\(\)\}\.pdf`;/);
+  assert.match(
+    source,
+    /const key = `\$\{userId\}\/\$\{randomUUID\(\)\}\.pdf`;/,
+  );
   assert.doesNotMatch(source, /\$\{userId\}\/resume\.pdf/);
 });
 
 test("actions/profile.ts only includes resume_pdf_url in the write payload when a file was actually uploaded", async () => {
   const source = await readProjectFile("actions/profile.ts");
 
-  assert.match(source, /\.\.\.\(resumeKey \? \{ resume_pdf_url: resumeKey \} : \{\}\)/);
+  assert.match(
+    source,
+    /\.\.\.\(resumeKey \? \{ resume_pdf_url: resumeKey \} : \{\}\)/,
+  );
 });
 
 test("actions/profile.ts deletes the previous resume key only after the write succeeds, and only if it actually changed", async () => {
@@ -538,7 +640,10 @@ test("actions/profile.ts deletes the previous resume key only after the write su
   const deleteGuardIndex = source.indexOf(
     "if (resumeKey && previousResumeKey && previousResumeKey !== resumeKey)",
   );
-  assert.ok(writeIndex < deleteGuardIndex, "the delete must be attempted only after the write, never before");
+  assert.ok(
+    writeIndex < deleteGuardIndex,
+    "the delete must be attempted only after the write, never before",
+  );
 });
 
 test("actions/profile.ts fires profile_completed only on the false to true transition, not on every save of an already complete profile", async () => {
@@ -553,7 +658,10 @@ test("actions/profile.ts uses the database accessor, not the nonexistent top lev
   const source = await readProjectFile("actions/profile.ts");
 
   assert.match(source, /insforge\.database\s*\n?\s*\.from\("profiles"\)/);
-  assert.doesNotMatch(source, /(?<!\.database\s{0,20})insforge\s*\.from\("profiles"\)/s);
+  assert.doesNotMatch(
+    source,
+    /(?<!\.database\s{0,20})insforge\s*\.from\("profiles"\)/s,
+  );
 });
 
 test("actions/profile.ts revalidates the profile page and never throws an uncaught error", async () => {
@@ -562,7 +670,10 @@ test("actions/profile.ts revalidates the profile page and never throws an uncaug
   assert.match(source, /revalidatePath\("\/profile"\)/);
   assert.match(source, /^\s*try \{/m);
   assert.match(source, /\} catch \(error\) \{/);
-  assert.match(source, /console\.error\("\[actions\/profile:saveProfile\]", error\)/);
+  assert.match(
+    source,
+    /console\.error\("\[actions\/profile:saveProfile\]", error\)/,
+  );
 });
 
 test("resume upload only shows Extract from Resume once a resume is staged", async () => {
@@ -570,13 +681,18 @@ test("resume upload only shows Extract from Resume once a resume is staged", asy
 
   assert.match(source, /\{canExtract \? \(/);
   assert.match(source, /onClick=\{onExtract\}/);
-  assert.match(source, /\{isExtracting \? "Extracting…" : "Extract from Resume"\}/);
+  assert.match(
+    source,
+    /\{isExtracting \? "Extracting…" : "Extract from Resume"\}/,
+  );
 });
 
 test("profile editor's extract flow never fires without a staged resume key and merges the result by overwrite", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleExtractMatch = source.match(
+    /const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleExtractMatch, "handleExtract function not found");
   const body = handleExtractMatch[0];
 
@@ -594,7 +710,9 @@ test("profile editor's extract flow never fires without a staged resume key and 
 test("profile editor's extract fetch chain handles a rejection, not just a resolved failure, so isExtracting always resets", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleExtractMatch = source.match(
+    /const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleExtractMatch, "handleExtract function not found");
   const body = handleExtractMatch[0];
 
@@ -611,18 +729,31 @@ test("profile editor's extract fetch chain handles a rejection, not just a resol
 test("profile editor sets extractError on failure and clears it before a new extraction attempt", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  const handleExtractMatch = source.match(/const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleExtractMatch = source.match(
+    /const handleExtract = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleExtractMatch, "handleExtract function not found");
   const body = handleExtractMatch[0];
 
-  assert.match(body, /setExtractError\(null\)/, "must clear any previous error before a new attempt");
-  assert.match(body, /setExtractError\(result\.error\)/, "must surface the server's own error message on failure");
+  assert.match(
+    body,
+    /setExtractError\(null\)/,
+    "must clear any previous error before a new attempt",
+  );
+  assert.match(
+    body,
+    /setExtractError\(result\.error\)/,
+    "must surface the server's own error message on failure",
+  );
 });
 
 test("resume upload receives the extract wiring (canExtract, onExtract, extractError) from the editor, not left undefined", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  assert.match(source, /<ResumeUpload[\s\S]*?canExtract=\{resumeKey !== null\}/);
+  assert.match(
+    source,
+    /<ResumeUpload[\s\S]*?canExtract=\{resumeKey !== null\}/,
+  );
   assert.match(source, /<ResumeUpload[\s\S]*?extractError=\{extractError\}/);
   assert.match(source, /<ResumeUpload[\s\S]*?onExtract=\{handleExtract\}/);
 });
@@ -641,7 +772,10 @@ test("resume upload generate button is disabled while busy or when the profile i
   const source = await readProjectFile("components/profile/ResumeUpload.tsx");
 
   assert.match(source, /disabled=\{isBusy \|\| !canGenerate\}/);
-  assert.match(source, /\{isGenerating \? "Generating…" : "Generate Resume from Profile"\}/);
+  assert.match(
+    source,
+    /\{isGenerating \? "Generating…" : "Generate Resume from Profile"\}/,
+  );
   assert.match(
     source,
     /\{generateHint \? \(\s*<p className="mt-2 text-xs text-text-muted">\{generateHint\}<\/p>/,
@@ -654,9 +788,14 @@ test("resume upload shows a View resume control only after a successful generati
 
   assert.match(source, /\{generateSuccess \? \(/);
   assert.match(source, /onClick=\{onViewResume\}/);
-  assert.match(source, /\{isFetchingViewLink \? "Preparing link…" : "View resume"\}/);
+  assert.match(
+    source,
+    /\{isFetchingViewLink \? "Preparing link…" : "View resume"\}/,
+  );
 
-  const viewResumeMatch = source.match(/<button\s+className="text-xs[^>]*onClick=\{onViewResume\}[\s\S]*?<\/button>/);
+  const viewResumeMatch = source.match(
+    /<button\s+className="text-xs[^>]*onClick=\{onViewResume\}[\s\S]*?<\/button>/,
+  );
   assert.ok(viewResumeMatch, "View resume button not found");
   assert.match(
     viewResumeMatch[0],
@@ -690,24 +829,37 @@ test("profile editor warns when the profile has unsaved changes, since the serve
 test("profile editor's generate flow posts to the generate endpoint and refreshes the router on success", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  const handleGenerateMatch = source.match(/const handleGenerate = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleGenerateMatch = source.match(
+    /const handleGenerate = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleGenerateMatch, "handleGenerate function not found");
   const body = handleGenerateMatch[0];
 
-  assert.match(body, /fetch\("\/api\/resume\/generate", \{ method: "POST" \}\)/);
+  assert.match(
+    body,
+    /fetch\("\/api\/resume\/generate", \{ method: "POST" \}\)/,
+  );
   assert.match(body, /router\.refresh\(\);/);
-  assert.match(body, /\.catch\(\(\) => \{\s*setIsGenerating\(false\);\s*setGenerateError\(/);
+  assert.match(
+    body,
+    /\.catch\(\(\) => \{\s*setIsGenerating\(false\);\s*setGenerateError\(/,
+  );
 });
 
 test("profile editor's view resume flow fetches a fresh signed url and opens it, never storing it (AC-5)", async () => {
   const source = await readProjectFile("components/profile/ProfileEditor.tsx");
 
-  const handleViewResumeMatch = source.match(/const handleViewResume = \(\): void => \{[\s\S]*?\n {2}\};/);
+  const handleViewResumeMatch = source.match(
+    /const handleViewResume = \(\): void => \{[\s\S]*?\n {2}\};/,
+  );
   assert.ok(handleViewResumeMatch, "handleViewResume function not found");
   const body = handleViewResumeMatch[0];
 
   assert.match(body, /fetch\("\/api\/resume\/signed-url"\)/);
-  assert.match(body, /window\.open\(result\.url, "_blank", "noopener,noreferrer"\)/);
+  assert.match(
+    body,
+    /window\.open\(result\.url, "_blank", "noopener,noreferrer"\)/,
+  );
 });
 
 test("profile editor folds isGenerating into saveDisabled alongside upload and extraction", async () => {
@@ -726,7 +878,11 @@ test("changed profile files never use hardcoded hex colors or raw Tailwind color
   for (const file of PROFILE_FILES) {
     const source = await readProjectFile(file);
 
-    assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b/, `${file} contains a hardcoded hex color`);
+    assert.doesNotMatch(
+      source,
+      /#[0-9a-fA-F]{3,8}\b/,
+      `${file} contains a hardcoded hex color`,
+    );
     assert.doesNotMatch(
       source,
       rawTailwindColor,
@@ -831,14 +987,19 @@ test("actions/profile.ts's saveProfile passes projects through mapProfileToRow t
   const source = await readProjectFile("actions/profile.ts");
 
   // mapProfileToRow is called with the profile and the result becomes part of the payload
-  assert.match(source, /const baseRow = mapProfileToRow\(profile, userId, email\);/);
+  assert.match(
+    source,
+    /const baseRow = mapProfileToRow\(profile, userId, email\);/,
+  );
 });
 
 test("actions/profile.ts writes projects through the same upsert payload as every other field", async () => {
   const source = await readProjectFile("actions/profile.ts");
 
   // The payload is a spread of baseRow — no separate projects write
-  const payloadLine = source.match(/const payload: ProfileWritePayload = \{[\s\S]*?\};/);
+  const payloadLine = source.match(
+    /const payload: ProfileWritePayload = \{[\s\S]*?\};/,
+  );
   assert.ok(payloadLine, "payload object must exist");
   assert.match(
     payloadLine[0],
@@ -855,13 +1016,21 @@ test("actions/profile.ts writes projects through the same upsert payload as ever
 test("lib/profile-mapping.ts mapProfileToRow includes projects in the returned row", async () => {
   const source = await readProjectFile("lib/profile-mapping.ts");
 
-  assert.match(source, /projects: profile\.projects/, "projects must be mapped to the row");
+  assert.match(
+    source,
+    /projects: profile\.projects/,
+    "projects must be mapped to the row",
+  );
 });
 
 test("lib/profile-mapping.ts mapProfileRowToProfile reads projects from the row", async () => {
   const source = await readProjectFile("lib/profile-mapping.ts");
 
-  assert.match(source, /projects: row\.projects \?\? null/, "projects must be read from the row");
+  assert.match(
+    source,
+    /projects: row\.projects \?\? null/,
+    "projects must be read from the row",
+  );
 });
 
 test("lib/profile-completion.ts never considers projects a required field", async () => {

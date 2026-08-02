@@ -20,7 +20,10 @@ export async function signUp(
   password: string,
 ): Promise<ActionResult<{ userId: string }>> {
   if (process.env.NODE_ENV === "production") {
-    return { success: false, error: "Password auth is disabled in production." };
+    return {
+      success: false,
+      error: "Password auth is disabled in production.",
+    };
   }
 
   try {
@@ -48,7 +51,10 @@ export async function signInWithPassword(
   password: string,
 ): Promise<ActionResult<{ userId: string }>> {
   if (process.env.NODE_ENV === "production") {
-    return { success: false, error: "Password auth is disabled in production." };
+    return {
+      success: false,
+      error: "Password auth is disabled in production.",
+    };
   }
 
   try {
