@@ -93,10 +93,7 @@ export async function isUserApproved(
 export async function getSubscription(
   userId: string,
   _createClient: () => InsForgeClient = createInsforgeServiceClient,
-): Promise<
-  | { ok: true; subscription: Subscription }
-  | { ok: false }
-> {
+): Promise<{ ok: true; subscription: Subscription } | { ok: false }> {
   const freeDefault: Subscription = {
     plan: "free",
     status: "active",
