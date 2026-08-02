@@ -58,3 +58,5 @@ next-env.d.ts
 
 # session handoff scratch, written by /remember
 memory.md
+
+redesign/

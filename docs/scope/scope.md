@@ -29,7 +29,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 0 | Portfolio private access gate | Foundation (Access gate) | done |
 | 0a | Deploy target and production config | Foundation (Access gate) | done |
 | 0b | Optional projects capture in resume extraction | Foundation (Profile) | done |
-| 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
+| 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | in-progress |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
 | 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
@@ -141,10 +141,17 @@ When resume extraction runs (feature G), also extract personal or portfolio proj
 
 ## Foundation (Billing)
 
-### 1. Billing foundation: subscription data model & Stripe setup · needs a decision · full
+### 1. Billing foundation: subscription data model & Stripe setup · full
 Decide how subscription state is tracked (plan, status, Stripe customer/subscription ids, a monthly usage counter) and set up the Stripe product and price every later billing feature depends on.
 **Done when:** account records carry plan, status, Stripe ids, and a resettable usage counter; a Stripe product and price exist for the paid plan; the migration is applied and typed.
-- [ ] Design it (spec): `/architect billing foundation`
+- [x] Design it (spec): [0015](../specs/0015-billing-foundation/index.md)
+- [x] Build it: `/develop billing foundation`
+  - [x] Migration: create `subscriptions` (plan, status, Stripe ids, usage counter), RLS with no client grant, `updated_at` trigger (AC-1, AC-2)
+  - [x] Provision the Stripe test product "Pro" and its $9/month price through InsForge payments (AC-4): `prod_UzqR2eky7x4Jco`, `price_1Tzql4HWEI4hd2koBoXmbWLF`
+  - [x] Add the typed `Subscription` shape and the server-only `getSubscription()` accessor near `lib/access-rules.ts`, defaulting a missing row to free/zero usage (AC-3)
+code in `migrations/20260802033103_create-subscriptions.sql`, `lib/access-rules.ts`, `types/index.ts`
+- [ ] Verify it: `/check verify billing foundation`
+- [ ] Test it: `/test billing foundation`
 
 ## Slice 1: Monetization
 
