@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Phase 7 — Foundation (Billing)
-**Last completed:** 0b Optional projects capture in resume extraction (verified, tested)
-**Next:** `/check verify billing foundation`, then `/test billing foundation`
+**Phase:** Slice 1: Monetization
+**Last completed:** 1 Billing foundation: subscription data model & Stripe setup (verified, tested)
+**Next:** `/architect checkout & subscribe`
 
 ---
 
