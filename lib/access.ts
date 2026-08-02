@@ -2,7 +2,12 @@ import type { InsForgeClient } from "@insforge/sdk";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
-import { DENIAL_MESSAGES, agentRunsEnabled, getSubscription, isUserApproved } from "@/lib/access-rules";
+import {
+  DENIAL_MESSAGES,
+  agentRunsEnabled,
+  getSubscription,
+  isUserApproved,
+} from "@/lib/access-rules";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
 // The temporary private beta gate. Every part of JobPilot that spends real

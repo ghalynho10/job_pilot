@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-import { agentRunsEnabled, getSubscription, isUserApproved } from "../lib/access-rules.ts";
+import {
+  agentRunsEnabled,
+  getSubscription,
+  isUserApproved,
+} from "../lib/access-rules.ts";
 
 const projectRoot = new URL("../", import.meta.url);
 
@@ -13,7 +17,11 @@ async function readProjectFile(path) {
 // A stand in for the InsForge client that records what was asked for, so the
 // tests can prove isUserApproved reads user_access scoped to one user id and
 // nothing else.
-function fakeInsforge({ data = null, error = null, throwOnQuery = false } = {}) {
+function fakeInsforge({
+  data = null,
+  error = null,
+  throwOnQuery = false,
+} = {}) {
   const queries = [];
   let current;
 
@@ -105,15 +113,23 @@ test("a blocked row denies", async () => {
 
 test("a missing row denies quietly, because that is every new signup", async () => {
   const insforge = fakeInsforge({ data: null });
-  const { result, logged } = await captureErrors(() => isUserApproved(insforge, "user-1"));
+  const { result, logged } = await captureErrors(() =>
+    isUserApproved(insforge, "user-1"),
+  );
 
   assert.equal(result, false);
-  assert.deepEqual(logged, [], "a missing row is not an error and must not be logged");
+  assert.deepEqual(
+    logged,
+    [],
+    "a missing row is not an error and must not be logged",
+  );
 });
 
 test("a query error denies and is logged rather than thrown, so a failure never opens the gate", async () => {
   const insforge = fakeInsforge({ error: { message: "permission denied" } });
-  const { result, logged } = await captureErrors(() => isUserApproved(insforge, "user-1"));
+  const { result, logged } = await captureErrors(() =>
+    isUserApproved(insforge, "user-1"),
+  );
 
   assert.equal(result, false);
   assert.equal(logged.length, 1);
@@ -122,7 +138,9 @@ test("a query error denies and is logged rather than thrown, so a failure never 
 
 test("a thrown query denies and is logged rather than escaping to the caller", async () => {
   const insforge = fakeInsforge({ throwOnQuery: true });
-  const { result, logged } = await captureErrors(() => isUserApproved(insforge, "user-1"));
+  const { result, logged } = await captureErrors(() =>
+    isUserApproved(insforge, "user-1"),
+  );
 
   assert.equal(result, false);
   assert.equal(logged.length, 1);
@@ -145,7 +163,9 @@ test("isUserApproved is the only place in the app that reads user_access", async
   async function walk(dir) {
     let entries;
     try {
-      entries = await readdir(new URL(`${dir}/`, projectRoot), { withFileTypes: true });
+      entries = await readdir(new URL(`${dir}/`, projectRoot), {
+        withFileTypes: true,
+      });
     } catch {
       return;
     }
@@ -210,10 +230,20 @@ test("approval is checked before the kill switch, so an unapproved caller is nev
 test("denial messages give away nothing about why access was refused", async () => {
   const source = await readProjectFile("lib/access-rules.ts");
 
-  assert.match(source, /notApproved: "JobPilot is in private beta\. Your account is not approved yet\."/);
+  assert.match(
+    source,
+    /notApproved: "JobPilot is in private beta\. Your account is not approved yet\."/,
+  );
   // One message for missing, pending, and blocked alike. Anything that named
   // the status would leak the owner's decision about a specific account.
-  assert.ok(!/pending|blocked/.test(source.slice(source.indexOf("DENIAL_MESSAGES"), source.indexOf("} as const"))));
+  assert.ok(
+    !/pending|blocked/.test(
+      source.slice(
+        source.indexOf("DENIAL_MESSAGES"),
+        source.indexOf("} as const"),
+      ),
+    ),
+  );
 });
 
 test("the page gate redirects to the private beta screen and is never wrapped in a try block", async () => {
@@ -232,7 +262,10 @@ test("the page gate redirects to the private beta screen and is never wrapped in
 test("the private beta screen sends an approved user away, so the two redirects cannot loop", async () => {
   const source = await readProjectFile("app/private-beta/page.tsx");
 
-  assert.match(source, /if \(await isUserApproved\(insforge, data\.user\.id\)\) \{\s*redirect\("\/dashboard"\);/);
+  assert.match(
+    source,
+    /if \(await isUserApproved\(insforge, data\.user\.id\)\) \{\s*redirect\("\/dashboard"\);/,
+  );
   assert.match(source, /redirect\("\/login\?error=session"\)/);
   assert.doesNotMatch(
     source,
@@ -264,7 +297,10 @@ test("getSubscription returns the free plan default when no row exists for the u
   const insforge = fakeInsforge({ data: null });
   const makeClient = () => insforge;
 
-  const result = await getSubscription("00000000-0000-0000-0000-000000000000", makeClient);
+  const result = await getSubscription(
+    "00000000-0000-0000-0000-000000000000",
+    makeClient,
+  );
 
   assert.equal(result.ok, true);
   assert.equal(result.subscription.plan, "free");
@@ -293,7 +329,10 @@ test("getSubscription returns actual plan and Stripe identifiers when a row exis
   assert.equal(result.subscription.plan, "pro");
   assert.equal(result.subscription.status, "active");
   assert.equal(result.subscription.researchRunsUsed, 7);
-  assert.equal(result.subscription.usagePeriodStart, "2026-08-01T00:00:00.000Z");
+  assert.equal(
+    result.subscription.usagePeriodStart,
+    "2026-08-01T00:00:00.000Z",
+  );
   assert.equal(result.subscription.stripeCustomerId, "cus_test123");
   assert.equal(result.subscription.stripeSubscriptionId, "sub_test456");
 });
@@ -301,7 +340,9 @@ test("getSubscription returns actual plan and Stripe identifiers when a row exis
 test("getSubscription returns { ok: false } when the query returns an error, and logs it (AC-3)", async () => {
   const insforge = fakeInsforge({ error: { message: "permission denied" } });
   const makeClient = () => insforge;
-  const { result, logged } = await captureErrors(() => getSubscription("user-1", makeClient));
+  const { result, logged } = await captureErrors(() =>
+    getSubscription("user-1", makeClient),
+  );
 
   assert.equal(result.ok, false);
   assert.equal(logged.length, 1);
@@ -311,7 +352,9 @@ test("getSubscription returns { ok: false } when the query returns an error, and
 test("getSubscription returns { ok: false } when the query throws, rather than escaping to the caller (AC-3)", async () => {
   const insforge = fakeInsforge({ throwOnQuery: true });
   const makeClient = () => insforge;
-  const { result, logged } = await captureErrors(() => getSubscription("user-1", makeClient));
+  const { result, logged } = await captureErrors(() =>
+    getSubscription("user-1", makeClient),
+  );
 
   assert.equal(result.ok, false);
   assert.equal(logged.length, 1);
@@ -322,7 +365,9 @@ test("getSubscription returns { ok: false } when the client factory throws (AC-3
   const makeClient = () => {
     throw new Error("SERVICE_ROLE_KEY is not set");
   };
-  const { result, logged } = await captureErrors(() => getSubscription("user-1", makeClient));
+  const { result, logged } = await captureErrors(() =>
+    getSubscription("user-1", makeClient),
+  );
 
   assert.equal(result.ok, false);
   assert.equal(logged.length, 1);
@@ -364,7 +409,9 @@ test("getSubscription never creates a row: it only ever calls maybeSingle, not i
   // getSubscription must never create one, or a read side effect would
   // silently promote a free user before checkout completes.
   const source = await readProjectFile("lib/access-rules.ts");
-  const body = source.slice(source.indexOf("export async function getSubscription"));
+  const body = source.slice(
+    source.indexOf("export async function getSubscription"),
+  );
 
   assert.match(body, /maybeSingle/);
   assert.doesNotMatch(body, /\binsert\b/i);
@@ -374,7 +421,9 @@ test("getSubscription never creates a row: it only ever calls maybeSingle, not i
 
 test("getSubscription returns a discriminated union: { ok: true, subscription } on success, { ok: false } on failure (AC-2, AC-3)", async () => {
   const source = await readProjectFile("lib/access-rules.ts");
-  const body = source.slice(source.indexOf("export async function getSubscription"));
+  const body = source.slice(
+    source.indexOf("export async function getSubscription"),
+  );
 
   // The return type must include both branches of the discriminated union.
   assert.match(body, /\{ ok: true; subscription: Subscription \}/);
@@ -407,7 +456,9 @@ test("createInsforgeServiceClient is never a client boundary (AC-1)", async () =
 
 test("the subscriptions CHECK constraint migration exists and references research_runs_used (AC-5)", async () => {
   const entries = await readdir(new URL("migrations/", projectRoot));
-  const name = entries.find((e) => e.endsWith("_add-subscriptions-check-constraint.sql"));
+  const name = entries.find((e) =>
+    e.endsWith("_add-subscriptions-check-constraint.sql"),
+  );
   assert.ok(name, "the CHECK constraint migration is missing from migrations/");
   const sql = await readProjectFile(`migrations/${name}`);
   assert.match(sql, /ADD CONSTRAINT subscriptions_research_runs_non_negative/);
@@ -429,8 +480,14 @@ test("the migration creates subscriptions keyed to auth.users with all required 
   const sql = await readSubscriptionsMigration();
 
   assert.match(sql, /CREATE TABLE subscriptions/);
-  assert.match(sql, /user_id uuid PRIMARY KEY REFERENCES auth\.users \(id\) ON DELETE CASCADE/);
-  assert.match(sql, /plan text NOT NULL DEFAULT 'free' CHECK \(plan IN \('free', 'pro'\)\)/);
+  assert.match(
+    sql,
+    /user_id uuid PRIMARY KEY REFERENCES auth\.users \(id\) ON DELETE CASCADE/,
+  );
+  assert.match(
+    sql,
+    /plan text NOT NULL DEFAULT 'free' CHECK \(plan IN \('free', 'pro'\)\)/,
+  );
   assert.match(sql, /status text NOT NULL DEFAULT 'active'/);
   assert.match(sql, /stripe_customer_id text UNIQUE/);
   assert.match(sql, /stripe_subscription_id text UNIQUE/);
@@ -443,10 +500,16 @@ test("the migration creates subscriptions keyed to auth.users with all required 
 test("the migration creates the updated_at trigger (AC-1)", async () => {
   const sql = await readSubscriptionsMigration();
 
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.set_subscriptions_updated_at/);
+  assert.match(
+    sql,
+    /CREATE OR REPLACE FUNCTION public\.set_subscriptions_updated_at/,
+  );
   assert.match(sql, /CREATE TRIGGER subscriptions_updated_at/);
   assert.match(sql, /BEFORE UPDATE ON subscriptions/);
-  assert.match(sql, /FOR EACH ROW EXECUTE FUNCTION public\.set_subscriptions_updated_at/);
+  assert.match(
+    sql,
+    /FOR EACH ROW EXECUTE FUNCTION public\.set_subscriptions_updated_at/,
+  );
 });
 
 test("the migration enables row level security with no policies at all (AC-2)", async () => {
@@ -507,7 +570,10 @@ test("the migration creates user_access keyed to auth.users with the three statu
   const sql = await readUserAccessMigration();
 
   assert.match(sql, /CREATE TABLE user_access/);
-  assert.match(sql, /user_id uuid PRIMARY KEY REFERENCES auth\.users \(id\) ON DELETE CASCADE/);
+  assert.match(
+    sql,
+    /user_id uuid PRIMARY KEY REFERENCES auth\.users \(id\) ON DELETE CASCADE/,
+  );
   assert.match(sql, /CHECK \(status IN \('pending', 'approved', 'blocked'\)\)/);
   assert.match(sql, /status text NOT NULL DEFAULT 'pending'/);
 });
@@ -518,8 +584,15 @@ test("the migration enables row level security with exactly one policy, and it o
   assert.match(sql, /ALTER TABLE user_access ENABLE ROW LEVEL SECURITY;/);
 
   const policies = sql.match(/CREATE POLICY \w+ ON user_access/g) ?? [];
-  assert.equal(policies.length, 1, `expected exactly one policy, found ${policies.length}`);
-  assert.match(sql, /CREATE POLICY user_access_select ON user_access\s*FOR SELECT TO authenticated/);
+  assert.equal(
+    policies.length,
+    1,
+    `expected exactly one policy, found ${policies.length}`,
+  );
+  assert.match(
+    sql,
+    /CREATE POLICY user_access_select ON user_access\s*FOR SELECT TO authenticated/,
+  );
   assert.doesNotMatch(
     sql,
     /FOR (INSERT|UPDATE|DELETE|ALL) ON user_access|ON user_access\s*FOR (INSERT|UPDATE|DELETE|ALL)/,
@@ -530,15 +603,23 @@ test("the migration enables row level security with exactly one policy, and it o
 test("the migration revokes the broad default before granting, and grants only SELECT (AC-9)", async () => {
   const sql = await readUserAccessMigration();
 
-  const revokeIndex = sql.indexOf("REVOKE ALL ON user_access FROM anon, authenticated;");
-  const grantIndex = sql.indexOf("GRANT SELECT ON user_access TO authenticated;");
+  const revokeIndex = sql.indexOf(
+    "REVOKE ALL ON user_access FROM anon, authenticated;",
+  );
+  const grantIndex = sql.indexOf(
+    "GRANT SELECT ON user_access TO authenticated;",
+  );
 
   assert.notEqual(
     revokeIndex,
     -1,
     "InsForge grants broad write privileges on public tables by default, so the revoke is what actually removes them",
   );
-  assert.notEqual(grantIndex, -1, "authenticated still needs SELECT to read its own row");
+  assert.notEqual(
+    grantIndex,
+    -1,
+    "authenticated still needs SELECT to read its own row",
+  );
   assert.ok(
     revokeIndex < grantIndex,
     "the revoke must come first, or it would strip the SELECT grant straight back off again",
@@ -576,22 +657,35 @@ test("the kill switch and the new table are documented where the next person wil
   );
   assert.match(standards, /\|\s*`ENABLE_AGENT_RUNS`\s*\|/);
   assert.match(architecture, /### `user_access`/);
-  assert.match(types, /export type UserAccessStatus = "pending" \| "approved" \| "blocked";/);
+  assert.match(
+    types,
+    /export type UserAccessStatus = "pending" \| "approved" \| "blocked";/,
+  );
   assert.match(types, /export type UserAccessRow = \{/);
 });
 
 test("the private beta screen names the account and offers the shared sign out (AC-4)", async () => {
   const source = await readProjectFile("app/private-beta/page.tsx");
 
-  assert.match(source, /\{data\.user\.email\}/, "the visitor must be able to see which account they are on");
+  assert.match(
+    source,
+    /\{data\.user\.email\}/,
+    "the visitor must be able to see which account they are on",
+  );
   assert.match(source, /import \{ signOut \} from "@\/actions\/auth"/);
-  assert.match(source, /<form action=\{signOut\}/, "sign out must be a real action, not a dead button");
+  assert.match(
+    source,
+    /<form action=\{signOut\}/,
+    "sign out must be a real action, not a dead button",
+  );
   assert.match(source, /title: "Private beta \| JobPilot"/);
 });
 
 test("a denial never leaks who the caller is (AC-6)", async () => {
   const access = await readProjectFile("lib/access.ts");
-  const denialBlock = access.slice(access.indexOf("export async function guardPaidRoute"));
+  const denialBlock = access.slice(
+    access.indexOf("export async function guardPaidRoute"),
+  );
 
   // The denial bodies are built only from the fixed DENIAL_MESSAGES constants.
   // Interpolating a user id, an email, or a status into them would turn the
@@ -615,7 +709,9 @@ test("every route that reaches a paid provider is guarded", async () => {
   const routes = [];
 
   async function walk(dir) {
-    const entries = await readdir(new URL(`${dir}/`, projectRoot), { withFileTypes: true });
+    const entries = await readdir(new URL(`${dir}/`, projectRoot), {
+      withFileTypes: true,
+    });
 
     for (const entry of entries) {
       const path = `${dir}/${entry.name}`;
@@ -643,6 +739,14 @@ test("every route that reaches a paid provider is guarded", async () => {
     }
   }
 
-  assert.deepEqual(unguarded, [], `paid routes missing guardPaidRoute: ${unguarded.join(", ")}`);
-  assert.equal(guardedCount, 4, "expected exactly the four known paid routes to be guarded");
+  assert.deepEqual(
+    unguarded,
+    [],
+    `paid routes missing guardPaidRoute: ${unguarded.join(", ")}`,
+  );
+  assert.equal(
+    guardedCount,
+    4,
+    "expected exactly the four known paid routes to be guarded",
+  );
 });
