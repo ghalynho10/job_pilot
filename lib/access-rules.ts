@@ -1,6 +1,6 @@
 import type { InsForgeClient } from "@insforge/sdk";
 
-import type { UserAccessRow } from "@/types";
+import type { Subscription, SubscriptionRow, UserAccessRow } from "@/types";
 
 // The half of the private beta gate that holds the actual rules, split out from
 // lib/access.ts for one reason: this file has no runtime imports at all, so the
@@ -66,5 +66,59 @@ export async function isUserApproved(
   } catch (error) {
     console.error("[lib/access]", error);
     return false;
+  }
+}
+
+/**
+ * Read this account's subscription row, returning the free plan default when no
+ * row exists yet. Never creates a row; only privileged writers (the webhook
+ * handler in feature 2, or a usage increment path in feature 3) create one.
+ *
+ * Server side only. There is no client side read of this table at all, so no
+ * browser caller should ever import this function directly.
+ *
+ * Never throws: a query error is logged and returns the free plan default,
+ * because a transient database read should not block access.
+ */
+export async function getSubscription(
+  insforge: InsForgeClient,
+  userId: string,
+): Promise<Subscription> {
+  const freeDefault: Subscription = {
+    plan: "free",
+    status: "active",
+    researchRunsUsed: 0,
+    usagePeriodStart: new Date().toISOString(),
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+  };
+
+  try {
+    const { data, error } = await insforge.database
+      .from("subscriptions")
+      .select("plan, status, research_runs_used, usage_period_start, stripe_customer_id, stripe_subscription_id")
+      .eq("user_id", userId)
+      .maybeSingle<Pick<SubscriptionRow, "plan" | "status" | "research_runs_used" | "usage_period_start" | "stripe_customer_id" | "stripe_subscription_id">>();
+
+    if (error) {
+      console.error("[lib/access]", error);
+      return freeDefault;
+    }
+
+    if (!data) {
+      return freeDefault;
+    }
+
+    return {
+      plan: data.plan,
+      status: data.status,
+      researchRunsUsed: data.research_runs_used,
+      usagePeriodStart: data.usage_period_start,
+      stripeCustomerId: data.stripe_customer_id,
+      stripeSubscriptionId: data.stripe_subscription_id,
+    };
+  } catch (error) {
+    console.error("[lib/access]", error);
+    return freeDefault;
   }
 }

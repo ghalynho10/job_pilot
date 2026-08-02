@@ -206,3 +206,32 @@ export type UserAccessRow = {
   notes: string | null;
   created_at: string;
 };
+
+export type SubscriptionRow = {
+  user_id: string;
+  plan: "free" | "pro";
+  status:
+    | "active"
+    | "trialing"
+    | "past_due"
+    | "canceled"
+    | "incomplete"
+    | "incomplete_expired"
+    | "unpaid"
+    | "paused";
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  research_runs_used: number;
+  usage_period_start: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Subscription = {
+  plan: SubscriptionRow["plan"];
+  status: SubscriptionRow["status"];
+  researchRunsUsed: number;
+  usagePeriodStart: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+};
