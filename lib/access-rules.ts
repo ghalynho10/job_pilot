@@ -96,9 +96,21 @@ export async function getSubscription(
   try {
     const { data, error } = await insforge.database
       .from("subscriptions")
-      .select("plan, status, research_runs_used, usage_period_start, stripe_customer_id, stripe_subscription_id")
+      .select(
+        "plan, status, research_runs_used, usage_period_start, stripe_customer_id, stripe_subscription_id",
+      )
       .eq("user_id", userId)
-      .maybeSingle<Pick<SubscriptionRow, "plan" | "status" | "research_runs_used" | "usage_period_start" | "stripe_customer_id" | "stripe_subscription_id">>();
+      .maybeSingle<
+        Pick<
+          SubscriptionRow,
+          | "plan"
+          | "status"
+          | "research_runs_used"
+          | "usage_period_start"
+          | "stripe_customer_id"
+          | "stripe_subscription_id"
+        >
+      >();
 
     if (error) {
       console.error("[lib/access]", error);
