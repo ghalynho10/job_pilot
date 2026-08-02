@@ -750,3 +750,116 @@ test("every route that reaches a paid provider is guarded", async () => {
     "expected exactly the four known paid routes to be guarded",
   );
 });
+
+// ---------------------------------------------------------------------------
+// AC-4: getSubscription re-exported from lib/access.ts
+// ---------------------------------------------------------------------------
+
+test("getSubscription is re-exported from lib/access.ts alongside agentRunsEnabled and isUserApproved (AC-4)", async () => {
+  const source = await readProjectFile("lib/access.ts");
+
+  // The import from access-rules must include getSubscription.
+  assert.match(
+    source,
+    /import\s*\{[^}]*\bgetSubscription\b[^}]*\}\s*from\s*"@\/lib\/access-rules"/,
+    "lib/access.ts must import getSubscription from access-rules",
+  );
+
+  // The re-export line must include getSubscription.
+  assert.match(
+    source,
+    /export\s*\{[^}]*\bgetSubscription\b[^}]*\}/,
+    "lib/access.ts must re-export getSubscription",
+  );
+
+  // Both agentRunsEnabled and isUserApproved must also be exported in the same
+  // statement, so the seam stays a single named surface for the rest of the
+  // app.
+  const exportLine = source.match(
+    /export\s*\{[^}]*\}/,
+  )[0];
+  assert.match(exportLine, /\bagentRunsEnabled\b/);
+  assert.match(exportLine, /\bgetSubscription\b/);
+  assert.match(exportLine, /\bisUserApproved\b/);
+});
+
+// ---------------------------------------------------------------------------
+// createInsforgeServiceClient (lib/insforge-service.ts)
+// ---------------------------------------------------------------------------
+
+test("createInsforgeServiceClient throws a clear error when SERVICE_ROLE_KEY is not set", async () => {
+  const source = await readProjectFile("lib/insforge-service.ts");
+
+  // The throw message must be informative enough to debug a missing env var.
+  assert.match(
+    source,
+    /SERVICE_ROLE_KEY is not set/,
+    "the error message must name the missing variable",
+  );
+  assert.match(
+    source,
+    /Add it to \.env\.local/,
+    "the error message must tell where to set it",
+  );
+});
+
+test("createInsforgeServiceClient reads SERVICE_ROLE_KEY from process.env, never a hardcoded value", async () => {
+  const source = await readProjectFile("lib/insforge-service.ts");
+
+  assert.match(
+    source,
+    /process\.env\.SERVICE_ROLE_KEY/,
+    "the key must come from the environment, never hardcoded",
+  );
+});
+
+test("createInsforgeServiceClient creates a client with the service role key as the anonKey, using the project base URL", async () => {
+  const source = await readProjectFile("lib/insforge-service.ts");
+
+  // The createClient call must pass anonKey (the service role key) and baseUrl.
+  // It must never pass cookies or auth headers because the service role does not
+  // authenticate as a specific user.
+  assert.match(source, /createClient\(\{/);
+  assert.match(source, /baseUrl: process\.env\.NEXT_PUBLIC_INSFORGE_URL/);
+  assert.match(source, /anonKey: key/);
+
+  // Check only the function body (after the opening brace), not the JSDoc which
+  // mentions cookies in its explanation of createInsforgeServer.
+  const body = source.slice(source.indexOf("export function"));
+  assert.doesNotMatch(
+    body,
+    /\bcookies:/,
+    "the service role client must not attach user cookies",
+  );
+  assert.doesNotMatch(
+    body,
+    /\bauth:/,
+    "the service role client must not attach auth headers",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Subscription type (types/index.ts) — verifies the camelCase mapping
+// ---------------------------------------------------------------------------
+
+test("Subscription maps every relevant SubscriptionRow column, using camelCase for the JS side", async () => {
+  const source = await readProjectFile("types/index.ts");
+
+  // The Subscription type must include these camelCase fields.
+  assert.match(source, /\bplan: SubscriptionRow\["plan"\]/);
+  assert.match(source, /\bstatus: SubscriptionRow\["status"\]/);
+  assert.match(source, /\bresearchRunsUsed: number/);
+  assert.match(source, /\busagePeriodStart: string/);
+  assert.match(source, /\bstripeCustomerId: string \| null/);
+  assert.match(source, /\bstripeSubscriptionId: string \| null/);
+
+  // The type must NOT include user_id, created_at, or updated_at (internal
+  // columns the caller never needs).
+  const subscriptionBlock = source.slice(
+    source.indexOf("export type Subscription = {"),
+    source.indexOf("};", source.indexOf("export type Subscription = {")) + 2,
+  );
+  assert.doesNotMatch(subscriptionBlock, /\buser_id\b/);
+  assert.doesNotMatch(subscriptionBlock, /\bcreated_at\b/);
+  assert.doesNotMatch(subscriptionBlock, /\bupdated_at\b/);
+});

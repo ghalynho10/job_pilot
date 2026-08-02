@@ -30,7 +30,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 0a | Deploy target and production config | Foundation (Access gate) | done |
 | 0b | Optional projects capture in resume extraction | Foundation (Profile) | done |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | done |
-| 1a | Privileged subscriptions read | Foundation (Billing) | in-progress |
+| 1a | Privileged subscriptions read | Foundation (Billing) | done |
 | 2 | Checkout & subscribe | Slice 1: Monetization | planned |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
 | 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
@@ -154,7 +154,7 @@ code in `migrations/20260802033103_create-subscriptions.sql`, `lib/access-rules.
 - [x] Verify it: `/check verify billing foundation`
 - [x] Test it: `/test billing foundation`
 
-### 1a. Privileged subscriptions read · full (from spec 0016)
+### 1a. Privileged subscriptions read · done (from spec 0016)
 Fix the inert `getSubscription()` accessor: it queries the `subscriptions` table with an `authenticated` scoped client, but the table is revoked from that role. Add a service role client factory and a discriminated union return type so callers can tell a failed read from a genuine free user.
 **Done when:** `getSubscription()` can read a real subscriptions row, returns a discriminated result, the service role key is never in the browser, and a non-negative usage CHECK constraint exists.
 - [x] Design it (spec): [0016](../specs/0016-privileged-subscriptions-read.md)
@@ -165,8 +165,8 @@ Fix the inert `getSubscription()` accessor: it queries the `subscriptions` table
   - [x] Re-export `getSubscription` from `lib/access.ts` (AC-4)
   - [x] Update tests and verify the existing suite still passes (AC-6)
 code in `lib/insforge-service.ts`, `lib/access-rules.ts`, `lib/access.ts`, `migrations/20260802050000_add-subscriptions-check-constraint.sql`, `.env.example`
-- [ ] Verify it: `/check verify privileged subscriptions read`
-- [ ] Test it: `/test privileged subscriptions read`
+- [x] Verify it: `/check verify privileged subscriptions read`
+- [x] Test it: `/test privileged subscriptions read`
 
 ## Slice 1: Monetization
 

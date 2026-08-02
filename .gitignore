@@ -47,7 +47,7 @@ next-env.d.ts
 .agents
 .augment
 .claude
-.cline
+.continue
 .github/copilot*
 .kilocode
 .qoder
