@@ -23,7 +23,10 @@ import {
   TEST_USER_EMAIL,
   TEST_USER_ID,
 } from "../lib/test-auth.ts";
-import { mapProfileRowToProfile, mapProfileToRow } from "../lib/profile-mapping.ts";
+import {
+  mapProfileRowToProfile,
+  mapProfileToRow,
+} from "../lib/profile-mapping.ts";
 import { deriveProfileCompletion } from "../lib/profile-completion.ts";
 
 /* ------------------------------------------------------------------ */
@@ -66,7 +69,8 @@ const profileWithProjects = {
   projects: [
     {
       name: "VerifyLib",
-      description: "A test assertion library for Node.js.\nHandles deep equality and async flows.",
+      description:
+        "A test assertion library for Node.js.\nHandles deep equality and async flows.",
       url: "https://github.com/verify/verifylib",
       technologies: ["TypeScript", "Node.js", "Vitest"],
     },
@@ -117,7 +121,11 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
   });
 
   it("AC-6: upsert a profile with projects, read it back, projects round-trip intact", async () => {
-    const row = mapProfileToRow(profileWithProjects, TEST_USER_ID, TEST_USER_EMAIL);
+    const row = mapProfileToRow(
+      profileWithProjects,
+      TEST_USER_ID,
+      TEST_USER_EMAIL,
+    );
 
     // Verify mapping includes projects
     assert.deepEqual(row.projects, profileWithProjects.projects);
@@ -132,7 +140,11 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
       .from("profiles")
       .upsert(payload, { onConflict: "id" });
 
-    assert.equal(writeError, null, `write failed: ${writeError?.message ?? "unknown"}`);
+    assert.equal(
+      writeError,
+      null,
+      `write failed: ${writeError?.message ?? "unknown"}`,
+    );
 
     // Read back
     const { data: readRow, error: readError } = await admin.database
@@ -141,14 +153,21 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
       .eq("id", TEST_USER_ID)
       .maybeSingle();
 
-    assert.equal(readError, null, `read failed: ${readError?.message ?? "unknown"}`);
+    assert.equal(
+      readError,
+      null,
+      `read failed: ${readError?.message ?? "unknown"}`,
+    );
     assert.ok(readRow, "row not found after upsert");
 
     // Map back through the app's own reader
     const roundTripped = mapProfileRowToProfile(readRow);
 
     // Assert every project field round-trips
-    assert.ok(Array.isArray(roundTripped.projects), "projects should be an array");
+    assert.ok(
+      Array.isArray(roundTripped.projects),
+      "projects should be an array",
+    );
     assert.equal(roundTripped.projects.length, 3, "should have 3 projects");
 
     // Project 1 — all fields present
@@ -175,7 +194,11 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
   });
 
   it("AC-6: a null projects column maps back to null (backward compat)", async () => {
-    const row = mapProfileToRow(profileWithoutProjects, TEST_USER_ID, TEST_USER_EMAIL);
+    const row = mapProfileToRow(
+      profileWithoutProjects,
+      TEST_USER_ID,
+      TEST_USER_EMAIL,
+    );
     assert.equal(row.projects, null);
 
     const payload = {
@@ -206,7 +229,11 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
       fullName: "", // missing required field
     };
 
-    const incompleteRow = mapProfileToRow(incompleteProfile, TEST_USER_ID, TEST_USER_EMAIL);
+    const incompleteRow = mapProfileToRow(
+      incompleteProfile,
+      TEST_USER_ID,
+      TEST_USER_EMAIL,
+    );
     const completion = deriveProfileCompletion({
       fullName: incompleteRow.full_name ?? "",
       phone: incompleteRow.phone ?? "",
@@ -225,14 +252,27 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
       jobTitlesSeeking: incompleteRow.job_titles_seeking ?? [],
     });
 
-    assert.ok(completion.missingFields.includes("Full Name"), "Full Name should be missing");
-    assert.ok(completion.percentage < 100, "profile should not be complete with missing Full Name");
+    assert.ok(
+      completion.missingFields.includes("Full Name"),
+      "Full Name should be missing",
+    );
+    assert.ok(
+      completion.percentage < 100,
+      "profile should not be complete with missing Full Name",
+    );
     // projects is never in the missing fields list
-    assert.ok(!completion.missingFields.includes("Projects"), "Projects must NOT be a required field");
+    assert.ok(
+      !completion.missingFields.includes("Projects"),
+      "Projects must NOT be a required field",
+    );
   });
 
   it("AC-6: a complete profile with projects is recognized as complete", () => {
-    const completeRow = mapProfileToRow(profileWithProjects, TEST_USER_ID, TEST_USER_EMAIL);
+    const completeRow = mapProfileToRow(
+      profileWithProjects,
+      TEST_USER_ID,
+      TEST_USER_EMAIL,
+    );
     const completion = deriveProfileCompletion({
       fullName: completeRow.full_name ?? "",
       phone: completeRow.phone ?? "",
@@ -251,12 +291,20 @@ describe("spec 0014 AC-6 — projects persist through save/reload round-trip", (
       jobTitlesSeeking: completeRow.job_titles_seeking ?? [],
     });
 
-    assert.equal(completion.missingFields.length, 0, "complete profile should have no missing fields");
+    assert.equal(
+      completion.missingFields.length,
+      0,
+      "complete profile should have no missing fields",
+    );
     assert.equal(completion.percentage, 100, "complete profile should be 100%");
   });
 
   it("AC-6: all other profile fields survive the round-trip alongside projects", async () => {
-    const row = mapProfileToRow(profileWithProjects, TEST_USER_ID, TEST_USER_EMAIL);
+    const row = mapProfileToRow(
+      profileWithProjects,
+      TEST_USER_ID,
+      TEST_USER_EMAIL,
+    );
     const payload = {
       ...row,
       is_complete: true,
