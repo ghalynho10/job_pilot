@@ -2,7 +2,7 @@ import type { InsForgeClient } from "@insforge/sdk";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
-import { DENIAL_MESSAGES, agentRunsEnabled, isUserApproved } from "@/lib/access-rules";
+import { DENIAL_MESSAGES, agentRunsEnabled, getSubscription, isUserApproved } from "@/lib/access-rules";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
 // The temporary private beta gate. Every part of JobPilot that spends real
@@ -14,7 +14,7 @@ import { createInsforgeServer } from "@/lib/insforge-server";
 // about the split.
 // See docs/specs/0012-portfolio-private-access-gate/index.md.
 
-export { agentRunsEnabled, isUserApproved };
+export { agentRunsEnabled, getSubscription, isUserApproved };
 
 type DenialBody = { success: false; error: string };
 
