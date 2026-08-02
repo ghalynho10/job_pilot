@@ -215,22 +215,22 @@ test("extractProfileFromResumeText handles the GPT-4o call, JSON parsing, and va
 
   assert.match(
     source,
-    /if \(!rawContent\) \{\s*return \{ success: false, error: "Extraction returned no content\. Please try again\." \};/,
+    /if \(!rawContent\) \{\s*return \{\s*success: false,\s*error: "Extraction returned no content\. Please try again\.",?\s*\};/,
     "an empty GPT-4o response must return a clear error, not throw or return undefined data",
   );
   assert.match(
     source,
-    /catch \(parseError\) \{\s*console\.error\("\[agent\/resume-extractor\]", parseError\);\s*return \{ success: false, error: "Extraction returned an unreadable response\. Please try again\." \};/,
+    /catch \(parseError\) \{\s*console\.error\("\[agent\/resume-extractor\]", parseError\);\s*return \{\s*success: false,\s*error: "Extraction returned an unreadable response\. Please try again\.",?\s*\};/,
     "a JSON.parse failure on the GPT-4o response must be caught and return a clear error, never throw uncaught",
   );
   assert.match(
     source,
-    /if \(!validated\.success\) \{\s*console\.error\("\[agent\/resume-extractor\]", validated\.error\);\s*return \{ success: false, error: "Extraction returned an unexpected response\. Please try again\." \};/,
+    /if \(!validated\.success\) \{\s*console\.error\("\[agent\/resume-extractor\]", validated\.error\);\s*return \{\s*success: false,\s*error: "Extraction returned an unexpected response\. Please try again\.",?\s*\};/,
     "a schema validation failure (e.g. GPT-4o returning a JSON array instead of an object) must return a clear error",
   );
   assert.match(
     source,
-    /\} catch \(error\) \{\s*console\.error\("\[agent\/resume-extractor\]", error\);\s*return \{ success: false, error: "Something went wrong extracting your profile\. Please try again\." \};/,
+    /\} catch \(error\) \{\s*console\.error\("\[agent\/resume-extractor\]", error\);\s*return \{\s*success: false,\s*error: "Something went wrong extracting your profile\. Please try again\.",?\s*\};/,
     "any other failure (e.g. the OpenAI call itself throwing) must be caught by the top level try/catch, never crash the route",
   );
 
