@@ -228,7 +228,7 @@ test("profile form caps work experience at 3 entries and disables Add role past 
   assert.match(source, /if \(profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\) return;/);
   assert.match(
     source,
-    /disabled=\{profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\}/,
+    /disabled=\{\s*profile\.workExperience\.length >= MAX_WORK_EXPERIENCE_ENTRIES\s*\}/,
   );
 });
 

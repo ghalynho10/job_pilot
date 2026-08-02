@@ -82,7 +82,7 @@ test("a search failure returns a generic 500 built from the orchestrator's own e
 
   assert.match(
     source,
-    /if \(!result\.success\) \{\s*return NextResponse\.json\(\{ success: false, error: result\.error \}, \{ status: 500 \}\);\s*\}/,
+    /if \(!result\.success\) \{\s*return NextResponse\.json\(\s*\{ success: false, error: result\.error \},\s*\{ status: 500 \},?\s*\);\s*\}/,
   );
 });
 
@@ -95,7 +95,7 @@ test("a successful search returns the jobsFound/strongMatches summary and the ex
   );
   assert.match(
     source,
-    /return NextResponse\.json\(\{ success: true, jobsFound, strongMatches, message \}\);/,
+    /return NextResponse\.json\(\{\s*success: true,\s*jobsFound,\s*strongMatches,\s*message,?\s*\}\);/,
   );
 });
 
