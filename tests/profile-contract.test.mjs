@@ -734,3 +734,142 @@ test("changed profile files never use hardcoded hex colors or raw Tailwind color
     );
   }
 });
+
+/* ------------------------------------------------------------------ */
+/*  spec 0014 AC-5 — Projects section in the profile form              */
+/* ------------------------------------------------------------------ */
+
+test("profile form renders a Projects section heading", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(source, />Projects</, "Projects section heading must exist");
+});
+
+test("profile form caps projects at 5 entries and disables Add project past the cap", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(source, /const MAX_PROJECTS = 5;/);
+  assert.match(
+    source,
+    /if \(|projCount >= MAX_PROJECTS/,
+    "must guard against adding more than MAX_PROJECTS",
+  );
+  assert.match(
+    source,
+    /disabled=\{.*>= MAX_PROJECTS/,
+    "Add project button must be disabled at the cap",
+  );
+});
+
+test("profile form gives each project card its own technologies draft state, so typing in one project never corrupts another's input", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(source, /technologiesDrafts\[index\]/);
+  assert.match(source, /commitTechnologiesDraft\(index\)/);
+  assert.match(
+    source,
+    /delete next\[index\]/,
+    "committing a draft must delete only that index, not reset all drafts",
+  );
+});
+
+test("profile form renders project name (required), description, url, and technologies inputs inside each project card", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  // Project name — required, no placeholder
+  assert.match(source, /id=\{`project-name-\$\{index\}`\}/);
+  // Project description
+  assert.match(source, /id=\{`project-description-\$\{index\}`\}/);
+  // Project URL
+  assert.match(source, /id=\{`project-url-\$\{index\}`\}/);
+  // Project technologies (as comma-separated input)
+  assert.match(source, /id=\{`project-technologies-\$\{index\}`\}/);
+});
+
+test("profile form allows removing a project via an accessible remove button", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(
+    source,
+    /filter\(\(_, i\) => i !== index\)/,
+    "removing a project must filter it out of the array",
+  );
+  assert.match(
+    source,
+    /aria-label=\{`Remove project \$\{index \+ 1\}`\}/,
+    "remove button must have an accessible name",
+  );
+});
+
+test("profile form allows adding a new empty project", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  assert.match(
+    source,
+    /name: "", description: "", url: "", technologies: \[\]/,
+    "adding a project must append a new entry with all fields initialized to empty defaults",
+  );
+});
+
+test("profile form's updateProject mirrors the updateWorkExperience controlled-component pattern", async () => {
+  const source = await readProjectFile("components/profile/ProfileForm.tsx");
+
+  // updateProject uses the same spread-and-replace pattern as updateWorkExperience
+  assert.match(
+    source,
+    /const updateProject = /,
+    "updateProject function must exist",
+  );
+  assert.match(
+    source,
+    /projects\.map\(\(p, i\) => \(i === index \? \{ \.\.\.p, \[key\]: value \} : p\)\)/,
+    "updateProject must map over projects and replace the target entry by index, same pattern as updateWorkExperience",
+  );
+});
+
+test("actions/profile.ts's saveProfile passes projects through mapProfileToRow to the database row", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  // mapProfileToRow is called with the profile and the result becomes part of the payload
+  assert.match(source, /const baseRow = mapProfileToRow\(profile, userId, email\);/);
+});
+
+test("actions/profile.ts writes projects through the same upsert payload as every other field", async () => {
+  const source = await readProjectFile("actions/profile.ts");
+
+  // The payload is a spread of baseRow — no separate projects write
+  const payloadLine = source.match(/const payload: ProfileWritePayload = \{[\s\S]*?\};/);
+  assert.ok(payloadLine, "payload object must exist");
+  assert.match(
+    payloadLine[0],
+    /\.\.\.baseRow/,
+    "payload must spread baseRow, which already carries projects via mapProfileToRow",
+  );
+  assert.doesNotMatch(
+    source,
+    /\.from\("projects"\)/,
+    "projects must live in the profiles row, not a separate table",
+  );
+});
+
+test("lib/profile-mapping.ts mapProfileToRow includes projects in the returned row", async () => {
+  const source = await readProjectFile("lib/profile-mapping.ts");
+
+  assert.match(source, /projects: profile\.projects/, "projects must be mapped to the row");
+});
+
+test("lib/profile-mapping.ts mapProfileRowToProfile reads projects from the row", async () => {
+  const source = await readProjectFile("lib/profile-mapping.ts");
+
+  assert.match(source, /projects: row\.projects \?\? null/, "projects must be read from the row");
+});
+
+test("lib/profile-completion.ts never considers projects a required field", async () => {
+  const source = await readProjectFile("lib/profile-completion.ts");
+
+  assert.doesNotMatch(
+    source,
+    /Projects/,
+    "profile completion must not mention Projects as a required field",
+  );
+});
