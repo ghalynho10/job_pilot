@@ -1,6 +1,7 @@
 import type { InsForgeClient } from "@insforge/sdk";
 
-import type { UserAccessRow } from "@/types";
+import { createInsforgeServiceClient } from "./insforge-service.ts";
+import type { Subscription, SubscriptionRow, UserAccessRow } from "@/types";
 
 // The half of the private beta gate that holds the actual rules, split out from
 // lib/access.ts for one reason: this file has no runtime imports at all, so the
@@ -66,5 +67,91 @@ export async function isUserApproved(
   } catch (error) {
     console.error("[lib/access]", error);
     return false;
+  }
+}
+
+/**
+ * Read this account's subscription row through the service role, returning the
+ * free plan default when no row exists yet. Never creates a row; only privileged
+ * writers (the webhook handler in feature 2, or a usage increment path in
+ * feature 3) create one.
+ *
+ * Uses a service role client internally because the subscriptions table is
+ * revoked from the authenticated role. No outside caller passes a client in,
+ * and the privilege boundary is explicit: nothing outside this function needs
+ * to know which client it uses.
+ *
+ * Server side only. There is no client side read of this table at all, so no
+ * browser caller should ever import this function directly.
+ *
+ * Returns a discriminated result so callers can tell a failed read from a
+ * genuine free user. A missing row (the ordinary state of every new signup) is
+ * still { ok: true } with the free plan default, never a failure.
+ *
+ * @param _createClient - Internal testing seam. Do not pass in production code.
+ */
+export async function getSubscription(
+  userId: string,
+  _createClient: () => InsForgeClient = createInsforgeServiceClient,
+): Promise<{ ok: true; subscription: Subscription } | { ok: false }> {
+  const freeDefault: Subscription = {
+    plan: "free",
+    status: "active",
+    researchRunsUsed: 0,
+    usagePeriodStart: new Date().toISOString(),
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+  };
+
+  let insforge: InsForgeClient;
+  try {
+    insforge = _createClient();
+  } catch (error) {
+    console.error("[lib/access]", error);
+    return { ok: false };
+  }
+
+  try {
+    const { data, error } = await insforge.database
+      .from("subscriptions")
+      .select(
+        "plan, status, research_runs_used, usage_period_start, stripe_customer_id, stripe_subscription_id",
+      )
+      .eq("user_id", userId)
+      .maybeSingle<
+        Pick<
+          SubscriptionRow,
+          | "plan"
+          | "status"
+          | "research_runs_used"
+          | "usage_period_start"
+          | "stripe_customer_id"
+          | "stripe_subscription_id"
+        >
+      >();
+
+    if (error) {
+      console.error("[lib/access]", error);
+      return { ok: false };
+    }
+
+    if (!data) {
+      return { ok: true, subscription: freeDefault };
+    }
+
+    return {
+      ok: true,
+      subscription: {
+        plan: data.plan,
+        status: data.status,
+        researchRunsUsed: data.research_runs_used,
+        usagePeriodStart: data.usage_period_start,
+        stripeCustomerId: data.stripe_customer_id,
+        stripeSubscriptionId: data.stripe_subscription_id,
+      },
+    };
+  } catch (error) {
+    console.error("[lib/access]", error);
+    return { ok: false };
   }
 }

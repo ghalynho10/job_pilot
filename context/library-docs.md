@@ -164,6 +164,62 @@ await insforge.storage.from("resumes").remove(previousKey);
 
 ---
 
+## InsForge Payments: Stripe
+
+**Check first:** Use the `insforge-cli` skill for provider setup and catalog sync, and the `insforge` skill for app code that creates Checkout or Billing Portal sessions. Stripe best practices also apply to plan shape, Checkout, webhooks, key handling, and tax.
+
+### Current Test Catalog
+
+- Environment: `test`
+- Product: `Pro` (`prod_UzqR2eky7x4Jco`)
+- Price: `price_1Tzql4HWEI4hd2koBoXmbWLF`
+- Amount: `$9/month` (`currency: usd`, `unitAmount: 900`, `recurringInterval: month`)
+
+### Setup And Inspection
+
+```bash
+npx @insforge/cli payments stripe status
+npx @insforge/cli payments stripe catalog --environment test --json
+```
+
+Stripe keys belong in InsForge's managed payments config via `npx @insforge/cli payments stripe config set`. Never store Stripe secret keys as generic app secrets, in source code, or in committed env files.
+
+### App Integration Pattern
+
+Use InsForge Payments from app code, not a direct Stripe SDK dependency, unless a future spec explicitly changes this decision:
+
+```typescript
+const { data, error } = await insforge.payments.stripe.createCheckoutSession(
+  "test",
+  {
+    mode: "subscription",
+    lineItems: [{ priceId: "price_1Tzql4HWEI4hd2koBoXmbWLF", quantity: 1 }],
+    successUrl: `${origin}/billing/success`,
+    cancelUrl: `${origin}/billing`,
+    subject: { type: "user", id: user.id },
+    customerEmail: user.email,
+    idempotencyKey: `user:${user.id}:pro-monthly`,
+  },
+);
+```
+
+Before wiring UI, add app specific RLS on `payments.stripe_checkout_sessions` for authenticated users where `subject_type = 'user'` and `subject_id = auth.uid()::text`. Add both `INSERT` and `SELECT` policies if checkout uses an `idempotencyKey`.
+
+### Fulfillment
+
+Durable subscription fulfillment must come from verified `payments.webhook_events`, not from Checkout success URLs and not from `payments.transactions`. App owned fulfillment writes to `public.subscriptions`.
+
+Subscription events can arrive out of order. Resolve the billing subject from event payload metadata first, then use `payments.customer_mappings` only as a fallback. Trigger functions must be idempotent and must never downgrade newer subscription state with an older retried event.
+
+### Stripe Rules
+
+- Use Billing APIs with hosted Checkout for subscriptions.
+- Omit `payment_method_types`; let Stripe dynamic payment methods apply.
+- Use the Customer Portal for future self service billing management.
+- Do not enable `automatic_tax` unless active tax registrations are confirmed. The current Pro price has `taxBehavior: unspecified`, and tax setup remains a future decision.
+
+---
+
 ## Adzuna API
 
 **Check first:** Check AGENTS.md for an installed Adzuna skill. If none exists — use this file and the official Adzuna API docs.

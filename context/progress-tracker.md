@@ -6,9 +6,9 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Current Status
 
-**Phase:** Foundation (Profile) — complete
-**Last completed:** 0b Optional projects capture in resume extraction (verified, merged to main)
-**Next:** `/architect billing foundation` (Feature 1: Billing foundation)
+**Phase:** Slice 1: Monetization
+**Last completed:** 2 Checkout & subscribe (spec 0017, verified and tested)
+**Next:** `/architect free tier usage gating` (feature 3)
 
 ---
 
@@ -53,6 +53,15 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 7 — Foundation (Profile)
 
 - [x] 0b Optional projects capture in resume extraction (spec 0014, verified, tested, accepted)
+
+### Phase 8 — Foundation (Billing)
+
+- [x] 1 Billing foundation: subscription data model & Stripe setup (spec 0015, verified, tested)
+- [x] 1a Privileged subscriptions read (spec 0016, verified, tested)
+
+### Phase 9 — Slice 1: Monetization
+
+- [x] 2 Checkout & subscribe (spec 0017, verified, tested)
 
 ---
 
@@ -110,5 +119,4 @@ Update this file after every completed feature. Any AI agent reading this should
 - Add `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_INSFORGE_URL`, and `NEXT_PUBLIC_INSFORGE_ANON_KEY` to `.env.local` before testing OAuth.
 - `ENABLE_AGENT_RUNS` is optional and defaults to on. Set it to exactly `false` to pause job search and company research without a redeploy of application logic; it does not affect the two resume routes or page access.
 - Add `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST` to `.env.local` before testing analytics.
-- Research route max duration risk checked on 2026-08-02: current official Vercel function docs list Hobby with Fluid Compute at 300s default and 300s maximum, matching `app/api/agent/research/route.ts` (`maxDuration = 300`). Local `npm run build` writes `/api/agent/research` with `maxDuration: 300` in `.next/server/functions-config-manifest.json`, which proves Next emits the setting Vercel reads. Keep Fluid Compute enabled for the Vercel project. If it is disabled, the same official docs list Hobby at 10s default and 60s maximum, so company research must move to background work or a different host.
 - Production build verification is pending because the sandbox could not fetch Inter from Google Fonts. Auth tests, TypeScript, and ESLint pass.

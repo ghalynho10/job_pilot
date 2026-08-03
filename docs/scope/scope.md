@@ -29,8 +29,9 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 0 | Portfolio private access gate | Foundation (Access gate) | done |
 | 0a | Deploy target and production config | Foundation (Access gate) | done |
 | 0b | Optional projects capture in resume extraction | Foundation (Profile) | done |
-| 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | planned |
-| 2 | Checkout & subscribe | Slice 1: Monetization | planned |
+| 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | done |
+| 1a | Privileged subscriptions read | Foundation (Billing) | done |
+| 2 | Checkout & subscribe | Slice 1: Monetization | done |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
 | 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
 | 5 | Job application status tracking | Slice 3: Application Tracking | planned |
@@ -141,17 +142,46 @@ When resume extraction runs (feature G), also extract personal or portfolio proj
 
 ## Foundation (Billing)
 
-### 1. Billing foundation: subscription data model & Stripe setup · needs a decision · full
+### 1. Billing foundation: subscription data model & Stripe setup · full
 Decide how subscription state is tracked (plan, status, Stripe customer/subscription ids, a monthly usage counter) and set up the Stripe product and price every later billing feature depends on.
 **Done when:** account records carry plan, status, Stripe ids, and a resettable usage counter; a Stripe product and price exist for the paid plan; the migration is applied and typed.
-- [ ] Design it (spec): `/architect billing foundation`
+- [x] Design it (spec): [0015](../specs/0015-billing-foundation/index.md)
+- [x] Build it: `/develop billing foundation`
+  - [x] Migration: create `subscriptions` (plan, status, Stripe ids, usage counter), RLS with no client grant, `updated_at` trigger (AC-1, AC-2)
+  - [x] Provision the Stripe test product "Pro" and its $9/month price through InsForge payments (AC-4): `prod_UzqR2eky7x4Jco`, `price_1Tzql4HWEI4hd2koBoXmbWLF`
+  - [x] Add the typed `Subscription` shape and the server-only `getSubscription()` accessor near `lib/access-rules.ts`, defaulting a missing row to free/zero usage (AC-3)
+code in `migrations/20260802033103_create-subscriptions.sql`, `lib/access-rules.ts`, `types/index.ts`
+- [x] Verify it: `/check verify billing foundation`
+- [x] Test it: `/test billing foundation`
+
+### 1a. Privileged subscriptions read · done (from spec 0016)
+Fix the inert `getSubscription()` accessor: it queries the `subscriptions` table with an `authenticated` scoped client, but the table is revoked from that role. Add a service role client factory and a discriminated union return type so callers can tell a failed read from a genuine free user.
+**Done when:** `getSubscription()` can read a real subscriptions row, returns a discriminated result, the service role key is never in the browser, and a non-negative usage CHECK constraint exists.
+- [x] Design it (spec): [0016](../specs/0016-privileged-subscriptions-read.md)
+- [x] Build it: `/develop privileged subscriptions read`
+  - [x] Add `SERVICE_ROLE_KEY` to env and create `lib/insforge-service.ts` with the service role client factory (AC-1)
+  - [x] Add the non-negative usage CHECK constraint migration (AC-5)
+  - [x] Change `getSubscription()` to use the service role client and return a discriminated union (AC-2, AC-3)
+  - [x] Re-export `getSubscription` from `lib/access.ts` (AC-4)
+  - [x] Update tests and verify the existing suite still passes (AC-6)
+code in `lib/insforge-service.ts`, `lib/access-rules.ts`, `lib/access.ts`, `migrations/20260802050000_add-subscriptions-check-constraint.sql`, `.env.example`
+- [x] Verify it: `/check verify privileged subscriptions read`
+- [x] Test it: `/test privileged subscriptions read`
 
 ## Slice 1: Monetization
 
-### 2. Checkout & subscribe · needs a decision · full
+### 2. Checkout & subscribe · full
 A signed in user upgrades to the paid plan through Stripe Checkout, and the subscription activates off the webhook, no manual portal or self-serve management yet.
 **Done when:** a user clicks Upgrade, completes Stripe Checkout, the webhook marks their account paid, and the UI reflects the new plan.
-- [ ] Design it (spec): `/architect checkout & subscribe`
+- [x] Design it (spec): [0017](../specs/0017-checkout-and-subscribe.md)
+- [x] Build it: `/develop checkout & subscribe`
+  - [x] Migration: `last_stripe_event_at` column + RLS on `payments.stripe_checkout_sessions` (AC-2, AC-5)
+  - [x] Migration: `SECURITY DEFINER` fulfillment trigger on `payments.webhook_events` (AC-3, AC-5)
+  - [x] Server Action `startCheckout` in `actions/billing.ts` (AC-1, AC-2, AC-4)
+  - [x] UI: upgrade card on `/profile`, success banner on `/dashboard` (AC-1, AC-3, AC-4, AC-6)
+code in `migrations/20260802201242_add-checkout-session-rls.sql`, `migrations/20260802201305_add-stripe-subscription-fulfillment.sql`, `actions/billing.ts`, `components/profile/UpgradeCard.tsx`, `components/profile/UpgradeButton.tsx`, `components/dashboard/UpgradeSuccessBanner.tsx`, `app/profile/page.tsx`, `app/dashboard/page.tsx`
+- [x] Verify it: `/check verify checkout & subscribe`
+- [x] Test it: `/test checkout & subscribe`
 
 ### 3. Free tier usage gating · needs a decision · full
 Cap monthly Adzuna searches and company research runs for free tier accounts; block and prompt to upgrade once the cap is hit. Paid accounts are uncapped (or a much higher cap).
