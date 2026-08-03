@@ -9,7 +9,7 @@ Nothing in the app can yet turn a free account into a paying one. This spec adds
 
 ## Context
 
-Feature 1 (billing foundation) and 1a (privileged subscriptions read) are done: a `subscriptions` table exists, revoked from client access, and `getSubscription(userId)` in `lib/access-rules.ts` reliably reads it with a free plan default. A single Stripe test product and price already exist (`prod_UzqR2eky7x4Jco`, `price_1Tzql4HWEI4hd2koBoXmbWLF`, $9/month). Nothing consumes any of this yet.
+Feature 1 (billing foundation) and 1a (privileged subscriptions read) are done: a `subscriptions` table exists, revoked from client access, and `getSubscription(userId)` in `lib/access-rules.ts` reliably reads it with a free plan default. A single Stripe test product and price already exist for the $9/month Pro plan; the concrete catalog IDs live in environment/provider configuration, not public source. Nothing consumes any of this yet.
 
 The project has already committed to InsForge's managed Payments product over a direct Stripe SDK dependency (`context/library-docs.md`, "InsForge Payments: Stripe"), and to fulfilling subscription state from verified `payments.webhook_events` rows rather than Checkout success URLs, per both `context/library-docs.md` and the `insforge`/`insforge-cli` skills' payments guides. Compliance scope: PCI-DSS applies to any payment flow, but hosted Stripe Checkout means card data never touches this app's servers (SAQ A eligibility); no card handling code is written here.
 

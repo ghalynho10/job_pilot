@@ -148,7 +148,7 @@ Decide how subscription state is tracked (plan, status, Stripe customer/subscrip
 - [x] Design it (spec): [0015](../specs/0015-billing-foundation/index.md)
 - [x] Build it: `/develop billing foundation`
   - [x] Migration: create `subscriptions` (plan, status, Stripe ids, usage counter), RLS with no client grant, `updated_at` trigger (AC-1, AC-2)
-  - [x] Provision the Stripe test product "Pro" and its $9/month price through InsForge payments (AC-4): `prod_UzqR2eky7x4Jco`, `price_1Tzql4HWEI4hd2koBoXmbWLF`
+  - [x] Provision the Stripe test product "Pro" and its $9/month price through InsForge payments (AC-4); the concrete catalog IDs live in environment/provider configuration, not public source
   - [x] Add the typed `Subscription` shape and the server-only `getSubscription()` accessor near `lib/access-rules.ts`, defaulting a missing row to free/zero usage (AC-3)
 code in `migrations/20260802033103_create-subscriptions.sql`, `lib/access-rules.ts`, `types/index.ts`
 - [x] Verify it: `/check verify billing foundation`

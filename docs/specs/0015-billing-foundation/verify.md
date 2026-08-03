@@ -14,7 +14,7 @@ _Steps derived from spec 0015 acceptance criteria. /check verify runs these; /te
 
 ## Stripe setup
 - [x] `npx @insforge/cli payments stripe status` → test environment is connected, webhook is configured, last sync succeeded → AC-4
-- [x] `npx @insforge/cli payments stripe catalog --environment test --json` → product `prod_UzqR2eky7x4Jco` named "Pro" exists, and recurring price `price_1Tzql4HWEI4hd2koBoXmbWLF` is active at `usd`, `unitAmount: 900`, `recurringInterval: "month"` → AC-4
+- [x] `npx @insforge/cli payments stripe catalog --environment test --json` → product named "Pro" exists, and the configured recurring price is active at `usd`, `unitAmount: 900`, `recurringInterval: "month"` → AC-4
 
 ## Acceptance-criteria coverage
 - AC-1: subscription table exists with correct columns → covered by columns query + updated_at trigger query

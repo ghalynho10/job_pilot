@@ -256,6 +256,8 @@ All environment variables defined in `.env.local` for development. Never hardcod
 | `NEXT_PUBLIC_POSTHOG_KEY`       | lib/posthog-client.ts  |
 | `NEXT_PUBLIC_POSTHOG_HOST`      | lib/posthog-client.ts  |
 | `ENABLE_AGENT_RUNS`             | lib/access.ts          |
+| `SERVICE_ROLE_KEY`              | lib/insforge-service.ts |
+| `STRIPE_PRO_MONTHLY_PRICE_ID`   | actions/billing.ts     |
 
 `NEXT_PUBLIC_` prefix means the variable is exposed to the browser. Never add `NEXT_PUBLIC_` to secret keys.
 

@@ -32,7 +32,6 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example
 
 # vercel
 .vercel
@@ -59,4 +58,6 @@ next-env.d.ts
 # session handoff scratch, written by /remember
 memory.md
 
+#miscellaneous 
 redesign/
+feature-17-onward

@@ -171,8 +171,8 @@ await insforge.storage.from("resumes").remove(previousKey);
 ### Current Test Catalog
 
 - Environment: `test`
-- Product: `Pro` (`prod_UzqR2eky7x4Jco`)
-- Price: `price_1Tzql4HWEI4hd2koBoXmbWLF`
+- Product: `Pro`
+- Price: configured via `STRIPE_PRO_MONTHLY_PRICE_ID`
 - Amount: `$9/month` (`currency: usd`, `unitAmount: 900`, `recurringInterval: month`)
 
 ### Setup And Inspection
@@ -193,7 +193,7 @@ const { data, error } = await insforge.payments.stripe.createCheckoutSession(
   "test",
   {
     mode: "subscription",
-    lineItems: [{ priceId: "price_1Tzql4HWEI4hd2koBoXmbWLF", quantity: 1 }],
+    lineItems: [{ priceId: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!, quantity: 1 }],
     successUrl: `${origin}/billing/success`,
     cancelUrl: `${origin}/billing`,
     subject: { type: "user", id: user.id },

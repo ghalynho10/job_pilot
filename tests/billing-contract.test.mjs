@@ -19,13 +19,23 @@ test("startCheckout is a server action with the correct directive (AC-2, AC-4)",
   assert.match(source, /export async function startCheckout/);
 });
 
-test("startCheckout uses the documented Pro price id (AC-2)", async () => {
+test("startCheckout reads the Pro price id from a server-side env var (AC-2)", async () => {
   const source = await readProjectFile("actions/billing.ts");
 
   assert.match(
     source,
-    /PRO_MONTHLY_PRICE_ID\s*=\s*"price_1Tzql4HWEI4hd2koBoXmbWLF"/,
-    "the price id constant must match the Stripe test catalog",
+    /process\.env\.STRIPE_PRO_MONTHLY_PRICE_ID/,
+    "the Stripe price id should come from server-side configuration, not public source",
+  );
+  assert.match(
+    source,
+    /lineItems:\s*\[\{ priceId: proMonthlyPriceId, quantity: 1 \}\]/,
+    "the configured price id must be passed to Checkout",
+  );
+  assert.doesNotMatch(
+    source,
+    /price_[A-Za-z0-9]+/,
+    "actions/billing.ts must not commit a concrete Stripe price id",
   );
 });
 

@@ -6,11 +6,6 @@ import { getSubscription } from "@/lib/access";
 import { getAppOrigin } from "@/lib/auth-routing";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
-// The Stripe test catalog's only sellable price today. See
-// context/library-docs.md's "InsForge Payments: Stripe" section and
-// docs/specs/0017-checkout-and-subscribe.
-const PRO_MONTHLY_PRICE_ID = "price_1Tzql4HWEI4hd2koBoXmbWLF";
-
 /**
  * Start a Stripe Checkout Session for the Pro monthly plan and redirect the
  * signed in user to Stripe's hosted page.
@@ -20,11 +15,6 @@ const PRO_MONTHLY_PRICE_ID = "price_1Tzql4HWEI4hd2koBoXmbWLF";
  * second Stripe subscription for the same account. The Upgrade button is
  * also hidden client side once a user is Pro; this is the server side half
  * of that same guard.
- *
- * Also rejects an unapproved private beta account the same way every other
- * paid action does (`guardPaidRoute`/`requireApprovedPage` in lib/access.ts):
- * this is a Server Action, not a route behind that guard, so it re-checks
- * `isUserApproved` itself rather than inheriting the page's redirect.
  *
  * Never throws: every failure path (including a malformed `NEXT_PUBLIC_APP_URL`
  * from `getAppOrigin`) redirects back to /profile with an error code rather
@@ -52,6 +42,14 @@ export async function startCheckout(): Promise<never> {
     redirect("/profile?error=already_pro");
   }
 
+  const proMonthlyPriceId = process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
+  if (!proMonthlyPriceId) {
+    console.error(
+      "[actions/billing:startCheckout] missing STRIPE_PRO_MONTHLY_PRICE_ID",
+    );
+    redirect("/profile?error=checkout");
+  }
+
   let checkoutUrl: string | undefined;
 
   try {
@@ -71,7 +69,7 @@ export async function startCheckout(): Promise<never> {
     const { data: checkout, error: checkoutError } =
       await insforge.payments.stripe.createCheckoutSession("test", {
         mode: "subscription",
-        lineItems: [{ priceId: PRO_MONTHLY_PRICE_ID, quantity: 1 }],
+        lineItems: [{ priceId: proMonthlyPriceId, quantity: 1 }],
         successUrl: `${origin}/dashboard?upgraded=1`,
         cancelUrl: `${origin}/profile`,
         subject: { type: "user", id: data.user.id },
