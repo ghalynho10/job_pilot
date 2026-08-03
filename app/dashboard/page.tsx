@@ -9,6 +9,7 @@ import { JobsFoundOverTimeChart } from "@/components/dashboard/JobsFoundOverTime
 import { MatchScoreDistributionChart } from "@/components/dashboard/MatchScoreDistributionChart";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { UpgradeSuccessBanner } from "@/components/dashboard/UpgradeSuccessBanner";
 import { Navbar } from "@/components/layout/Navbar";
 import { requireApprovedPage } from "@/lib/access";
 import { computeRecentActivity } from "@/lib/dashboard-activity";
@@ -63,7 +64,13 @@ async function fetchAllStatsJobs(
   return { data: rows, error: null };
 }
 
-export default async function DashboardPage(): Promise<JSX.Element> {
+type DashboardPageProps = {
+  searchParams: Promise<{ upgraded?: string | string[] }>;
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: DashboardPageProps): Promise<JSX.Element> {
   const insforge = await createInsforgeServer();
   const { data, error } = await insforge.auth.getCurrentUser();
 
@@ -72,6 +79,9 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   }
 
   await requireApprovedPage(insforge, data.user.id);
+
+  const { upgraded } = await searchParams;
+  const showUpgradeSuccess = (Array.isArray(upgraded) ? upgraded[0] : upgraded) === "1";
 
   const [
     { data: row, error: profileError },
@@ -150,6 +160,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
         className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 py-10 sm:px-8"
         id="main-content"
       >
+        {showUpgradeSuccess ? <UpgradeSuccessBanner /> : null}
         {!profileComplete ? <IncompleteProfileBanner /> : null}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">

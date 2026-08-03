@@ -3,14 +3,26 @@ import type { JSX } from "react";
 
 import { CompletionIndicator } from "@/components/profile/CompletionIndicator";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
+import { UpgradeCard } from "@/components/profile/UpgradeCard";
 import { Navbar } from "@/components/layout/Navbar";
-import { requireApprovedPage } from "@/lib/access";
+import { getSubscription, requireApprovedPage } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { deriveProfileCompletion } from "@/lib/profile-completion";
 import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
 import type { ProfileRow } from "@/types";
 
-export default async function ProfilePage(): Promise<JSX.Element> {
+const billingErrorMessages: Record<string, string> = {
+  checkout: "Something went wrong starting checkout. Please try again.",
+  already_pro: "You're already on the Pro plan.",
+};
+
+type ProfilePageProps = {
+  searchParams: Promise<{ error?: string | string[] }>;
+};
+
+export default async function ProfilePage({
+  searchParams,
+}: ProfilePageProps): Promise<JSX.Element> {
   const insforge = await createInsforgeServer();
   const { data, error } = await insforge.auth.getCurrentUser();
 
@@ -19,6 +31,20 @@ export default async function ProfilePage(): Promise<JSX.Element> {
   }
 
   await requireApprovedPage(insforge, data.user.id);
+
+  const { error: billingErrorCode } = await searchParams;
+  const resolvedBillingErrorCode = Array.isArray(billingErrorCode)
+    ? billingErrorCode[0]
+    : billingErrorCode;
+  const billingErrorMessage = resolvedBillingErrorCode
+    ? billingErrorMessages[resolvedBillingErrorCode]
+    : undefined;
+
+  const subscriptionResult = await getSubscription(data.user.id);
+  if (!subscriptionResult.ok) {
+    console.error("[app/profile] could not read subscription");
+  }
+  const plan = subscriptionResult.ok ? subscriptionResult.subscription.plan : "free";
 
   const { data: row, error: profileError } = await insforge.database
     .from("profiles")
@@ -64,6 +90,7 @@ export default async function ProfilePage(): Promise<JSX.Element> {
         id="main-content"
       >
         <CompletionIndicator completion={completion} />
+        <UpgradeCard errorMessage={billingErrorMessage} plan={plan} />
         <ProfileEditor initialProfile={profile} userId={data.user.id} />
       </main>
     </div>
