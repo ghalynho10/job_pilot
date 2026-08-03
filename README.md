@@ -4,10 +4,10 @@ A full stack AI-powered job hunting assistant. Set up your profile once, upload 
 
 Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
 
-![Dashboard screenshot](./public/images/screenshot-dashboard.png)
+![Dashboard screenshot](./public/screenshot-dashboard.png)
 *Dashboard — stats, recent activity, and match-score analytics*
 
-> **Note on the live demo:** every agent run costs real money (OpenAI, Adzuna, Browserbase), so signed-in access to the paid features is manually approved. If you hit the private-beta screen, [email me](mailto:mghalynho@gmail.com) and I'll approve your account — usually within a day.
+> **Note on the live demo:** the free tier includes a limited number of job searches and company research runs per month, resetting each billing cycle. Upgrading through Stripe Checkout removes the cap.
 
 ## Why I built this
 
@@ -19,7 +19,8 @@ It's also a testbed for an AI-agent-driven development workflow (see [Working on
 
 - **Job discovery** — searches [Adzuna](https://www.adzuna.com) by title and location (IT jobs only), scores every result 0–100 against your profile with GPT-4o, and explains the match
 - **Company research** — a single [Browserbase](https://www.browserbase.com) session driven by [Stagehand](https://www.stagehand.dev) browses a company's public pages; GPT-4o synthesizes a dossier (overview, tech stack, culture, why the role exists, interview prep). Falls back to a best-effort dossier from the company name and job description if the site can't be found
-- **Resume tools** — upload a resume PDF and optionally auto-fill your profile with GPT-4o, or generate a clean resume PDF from your current profile data
+- **Billing** — Stripe Checkout and webhook-driven subscription activation; free tier usage caps (monthly search and research runs) that reset per cycle, uncapped on the paid plan
+- **Resume tools** — upload a resume PDF and optionally auto-fill your profile with GPT-4o, including optional project extraction, or generate a clean resume PDF from your current profile data
 - **Dashboard** — stats bar, recent activity feed, and PostHog-powered analytics charts (jobs found over time, match score distribution, company research activity)
 - **Auth** — Google and GitHub OAuth via InsForge, PKCE cookies owned server-side
 
@@ -44,6 +45,7 @@ See [context/project-overview.md](./context/project-overview.md) for the full us
 | AI model | OpenAI GPT-4o |
 | Company research | Browserbase + Stagehand |
 | Analytics | PostHog |
+| Billing | Stripe (Checkout, webhooks) |
 | PDF generation | `@react-pdf/renderer` |
 | Styling | Tailwind CSS + shadcn/ui |
 | Hosting | Vercel |
@@ -134,9 +136,9 @@ This project uses [InsForge](https://insforge.dev) for database, auth, storage, 
 
 ## Roadmap
 
-Shipped: the full core product — auth, profile and resume tools, job discovery and matching, company research, dashboard analytics, and a private-access gate for cost control on the public deployment.
+Shipped: the full core product — auth, profile and resume tools (including optional project extraction), job discovery and matching, company research, dashboard analytics, and a complete billing foundation (Stripe Checkout, webhook-driven activation, free-tier usage caps replacing the earlier manual access gate).
 
-Next up: a billing foundation (subscription data model + Stripe setup), Stripe Checkout with webhook-driven activation, then free-tier usage caps that prompt an upgrade at the limit. Each needs a design spec before any code is written.
+Next up: raising resume generation quality with ATS and resume-writing domain knowledge (bullet structure, parser-safe formatting, keyword placement), and job application status tracking (a user-set status per job, plus a view to see jobs by status). Order between the two isn't decided yet; each needs a design spec before work starts.
 
 ## Deployment
 
