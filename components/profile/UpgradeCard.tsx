@@ -10,7 +10,11 @@ type UpgradeCardProps = {
   errorMessage?: string;
 };
 
-export function UpgradeCard({ plan, isApproved, errorMessage }: UpgradeCardProps): JSX.Element {
+export function UpgradeCard({
+  plan,
+  isApproved,
+  errorMessage,
+}: UpgradeCardProps): JSX.Element {
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -36,7 +40,10 @@ export function UpgradeCard({ plan, isApproved, errorMessage }: UpgradeCardProps
       </div>
 
       {errorMessage ? (
-        <p className="rounded-md border border-error bg-surface px-4 py-3 text-sm text-error" role="alert">
+        <p
+          className="rounded-md border border-error bg-surface px-4 py-3 text-sm text-error"
+          role="alert"
+        >
           {errorMessage}
         </p>
       ) : null}

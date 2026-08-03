@@ -21,7 +21,9 @@ import type { ActionResult } from "@/types";
  * from `getAppOrigin`) redirects back to /profile with an error code rather
  * than surfacing an unhandled exception.
  */
-export async function startCheckout(): Promise<ActionResult<{ checkoutUrl: string }>> {
+export async function startCheckout(): Promise<
+  ActionResult<{ checkoutUrl: string }>
+> {
   const insforge = await createInsforgeServer();
   const { data, error: authError } = await insforge.auth.getCurrentUser();
 

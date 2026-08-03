@@ -297,7 +297,9 @@ test("the guard returns 401 for a signed out caller and 503 for the kill switch,
   // replaced by usage gating in feature 3). isUserApproved is still re-exported
   // for the checkout flow (see actions/billing.ts), but guardPaidRoute must not
   // use it. Extract the function body to check it independently.
-  const guardFnMatch = source.match(/export async function guardPaidRoute[\s\S]+?\n\}/);
+  const guardFnMatch = source.match(
+    /export async function guardPaidRoute[\s\S]+?\n\}/,
+  );
   const guardFnBody = guardFnMatch ? guardFnMatch[0] : "";
   assert.ok(
     !guardFnBody.includes("isUserApproved"),

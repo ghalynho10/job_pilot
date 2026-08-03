@@ -62,7 +62,9 @@ export default async function ProfilePage({
     console.error("[app/profile]", profileError);
   }
 
-  const profile = row ? mapProfileRowToProfile(row) : buildEmptyProfile(data.user.email);
+  const profile = row
+    ? mapProfileRowToProfile(row)
+    : buildEmptyProfile(data.user.email);
 
   const completion = deriveProfileCompletion({
     fullName: row?.full_name ?? "",
@@ -96,7 +98,11 @@ export default async function ProfilePage({
         id="main-content"
       >
         <CompletionIndicator completion={completion} />
-        <UpgradeCard errorMessage={billingErrorMessage} plan={plan} isApproved={userApproved} />
+        <UpgradeCard
+          errorMessage={billingErrorMessage}
+          plan={plan}
+          isApproved={userApproved}
+        />
         <ProfileEditor initialProfile={profile} userId={data.user.id} />
       </main>
     </div>
