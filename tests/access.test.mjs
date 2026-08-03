@@ -280,7 +280,7 @@ test("checkAndIncrementUsage maps the RPC return fields correctly for both actio
 // guardPaidRoute: status codes (feature 3, AC-2, AC-7)
 // ---------------------------------------------------------------------------
 
-test("the guard returns 401 for a signed out caller and 503 for the kill switch, but no longer checks approval", async () => {
+test("the guard returns 401 for a signed out caller and 503 for the kill switch, but the guard itself no longer checks approval", async () => {
   const source = await readProjectFile("lib/access.ts");
 
   assert.match(
@@ -293,10 +293,15 @@ test("the guard returns 401 for a signed out caller and 503 for the kill switch,
     /if \(requireAgentSwitch && !agentRunsEnabled\(process\.env\.ENABLE_AGENT_RUNS\)\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.agentsPaused, 503\) \};/,
     "the kill switch must be 503 and must only apply when requireAgentSwitch is set",
   );
-  // The old approval check must be gone (AC-7).
+  // The guard itself must not call isUserApproved (the old private beta gate was
+  // replaced by usage gating in feature 3). isUserApproved is still re-exported
+  // for the checkout flow (see actions/billing.ts), but guardPaidRoute must not
+  // use it. Extract the function body to check it independently.
+  const guardFnMatch = source.match(/export async function guardPaidRoute[\s\S]+?\n\}/);
+  const guardFnBody = guardFnMatch ? guardFnMatch[0] : "";
   assert.ok(
-    !source.includes("isUserApproved"),
-    "guardPaidRoute must not reference isUserApproved; the old private beta gate is removed",
+    !guardFnBody.includes("isUserApproved"),
+    "guardPaidRoute itself must not reference isUserApproved; the old private beta gate is removed",
   );
 });
 

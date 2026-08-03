@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Slice 1: Monetization
-**Last completed:** 2 Checkout & subscribe (spec 0017, verified and tested)
-**Next:** `/architect free tier usage gating` (feature 3)
+**Last completed:** 3 Free tier usage gating
+**Next:** Slice 2 — Resume quality (ATS), or billing portal / self-serve cancellation
 
 ---
 
@@ -62,10 +62,14 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 9 — Slice 1: Monetization
 
 - [x] 2 Checkout & subscribe (spec 0017, verified, tested)
+- [x] 3 Free tier usage gating
+- [x] Checkout allowlist (temporary — gates Upgrade button + checkout behind `user_access.approved` until live Stripe is ready)
 
 ---
 
 ## Decisions Made During Build
+
+- Checkout allowlist is a **temporary fix** — reuses the pre-free-tier `user_access` table to prevent random visitors from abusing Stripe test-mode checkout. Once live Stripe is active and the real checkout flow becomes the gate, `isUserApproved` and the `user_access` table should be removed.
 
 - Auth uses `@insforge/sdk/ssr` with server owned PKCE cookies.
 - Next.js 16 route protection lives in `proxy.ts`.

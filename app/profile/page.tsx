@@ -5,7 +5,7 @@ import { CompletionIndicator } from "@/components/profile/CompletionIndicator";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 import { UpgradeCard } from "@/components/profile/UpgradeCard";
 import { Navbar } from "@/components/layout/Navbar";
-import { getSubscription } from "@/lib/access";
+import { getSubscription, isUserApproved } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { deriveProfileCompletion } from "@/lib/profile-completion";
 import {
@@ -17,6 +17,7 @@ import type { ProfileRow } from "@/types";
 const billingErrorMessages: Record<string, string> = {
   checkout: "Something went wrong starting checkout. Please try again.",
   already_pro: "You're already on the Pro plan.",
+  not_approved: "Checkout is not available for this account yet.",
 };
 
 type ProfilePageProps = {
@@ -48,6 +49,8 @@ export default async function ProfilePage({
   const plan = subscriptionResult.ok
     ? subscriptionResult.subscription.plan
     : "free";
+
+  const userApproved = await isUserApproved(data.user.id);
 
   const { data: row, error: profileError } = await insforge.database
     .from("profiles")
@@ -93,7 +96,7 @@ export default async function ProfilePage({
         id="main-content"
       >
         <CompletionIndicator completion={completion} />
-        <UpgradeCard errorMessage={billingErrorMessage} plan={plan} />
+        <UpgradeCard errorMessage={billingErrorMessage} plan={plan} isApproved={userApproved} />
         <ProfileEditor initialProfile={profile} userId={data.user.id} />
       </main>
     </div>

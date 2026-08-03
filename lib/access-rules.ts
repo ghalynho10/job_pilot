@@ -16,6 +16,7 @@ export const DENIAL_MESSAGES = {
   signedOut: "You must be signed in to do that.",
   usageCapped: "You have used all your free searches for this cycle. Upgrade to Pro for unlimited access.",
   agentsPaused: "Job search and company research are temporarily paused.",
+  notApproved: "Checkout is not available for this account yet.",
 } as const;
 
 /** Free tier caps: 10 Adzuna job searches, 3 company research runs per rolling 30 day window. */
@@ -51,6 +52,56 @@ export type UsageResult = {
  */
 export function agentRunsEnabled(flag: string | undefined): boolean {
   return flag !== "false";
+}
+
+/**
+ * Whether this account is approved for checkout in the user_access table.
+ *
+ * TEMPORARY: This reuses the pre-free-tier user_access table as a checkout
+ * allowlist until live Stripe is active. Once live Stripe is enabled, the
+ * checkout flow becomes the real gate and this check should be removed
+ * (along with the user_access table). See memory.md for context.
+ *
+ * Reads through the service role client because the user_access table is
+ * revoked from the authenticated role for writes, but SELECT is still granted
+ * via RLS. The service role bypasses RLS so this function works regardless of
+ * which user is calling it.
+ *
+ * Returns false when the read itself fails (fails closed) or when no approved
+ * row exists.
+ *
+ * Server side only. Never import this in a client component or server action.
+ */
+export async function isUserApproved(
+  userId: string,
+  _createClient: () => InsForgeClient = createInsforgeServiceClient,
+): Promise<boolean> {
+  let insforge: InsForgeClient;
+  try {
+    insforge = _createClient();
+  } catch (error) {
+    console.error("[lib/access]", error);
+    return false;
+  }
+
+  try {
+    const { data, error } = await insforge.database
+      .from("user_access")
+      .select("status")
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .maybeSingle<{ status: string }>();
+
+    if (error) {
+      console.error("[lib/access]", error);
+      return false;
+    }
+
+    return data !== null;
+  } catch (error) {
+    console.error("[lib/access]", error);
+    return false;
+  }
 }
 
 /**

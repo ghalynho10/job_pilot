@@ -6,6 +6,7 @@ import {
   agentRunsEnabled,
   checkAndIncrementUsage,
   getSubscription,
+  isUserApproved,
   remainingUsage,
   type MeteredAction,
   type UsageResult,
@@ -26,6 +27,7 @@ export {
   agentRunsEnabled,
   checkAndIncrementUsage,
   getSubscription,
+  isUserApproved,
   remainingUsage,
 };
 export type { MeteredAction, UsageResult };

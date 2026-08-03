@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { getSubscription } from "@/lib/access";
+import { getSubscription, isUserApproved } from "@/lib/access";
 import { getAppOrigin } from "@/lib/auth-routing";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import type { ActionResult } from "@/types";
@@ -27,6 +27,14 @@ export async function startCheckout(): Promise<ActionResult<{ checkoutUrl: strin
 
   if (authError || !data.user) {
     redirect("/login?error=session");
+  }
+
+  // TEMPORARY: Checkout allowlist via the access table. Remove once live Stripe
+  // is active and the real checkout flow becomes the gate.
+  // See lib/access-rules.ts isUserApproved for details.
+  const approved = await isUserApproved(data.user.id);
+  if (!approved) {
+    redirect("/profile?error=not_approved");
   }
 
   const subscriptionResult = await getSubscription(data.user.id);

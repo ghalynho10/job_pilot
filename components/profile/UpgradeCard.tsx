@@ -6,10 +6,11 @@ import type { Subscription } from "@/types";
 
 type UpgradeCardProps = {
   plan: Subscription["plan"];
+  isApproved: boolean;
   errorMessage?: string;
 };
 
-export function UpgradeCard({ plan, errorMessage }: UpgradeCardProps): JSX.Element {
+export function UpgradeCard({ plan, isApproved, errorMessage }: UpgradeCardProps): JSX.Element {
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -27,9 +28,11 @@ export function UpgradeCard({ plan, errorMessage }: UpgradeCardProps): JSX.Eleme
             <CheckCircle aria-hidden="true" className="size-4" />
             Pro
           </span>
-        ) : (
+        ) : /* TEMPORARY: isApproved gates the Upgrade button behind the
+             access allowlist. Remove once live Stripe is active. */
+        isApproved ? (
           <UpgradeButton />
-        )}
+        ) : null}
       </div>
 
       {errorMessage ? (
