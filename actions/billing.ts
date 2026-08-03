@@ -42,7 +42,9 @@ export async function startCheckout(): Promise<never> {
   const subscriptionResult = await getSubscription(data.user.id);
 
   if (!subscriptionResult.ok) {
-    console.error("[actions/billing:startCheckout] could not read subscription");
+    console.error(
+      "[actions/billing:startCheckout] could not read subscription",
+    );
     redirect("/profile?error=checkout");
   }
 

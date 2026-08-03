@@ -56,7 +56,10 @@ export default async function FindJobDetailsRoutePage({
         Skip to content
       </a>
       <Navbar authenticated />
-      <main className="mx-auto max-w-[1440px] px-6 py-10 sm:px-8" id="main-content">
+      <main
+        className="mx-auto max-w-[1440px] px-6 py-10 sm:px-8"
+        id="main-content"
+      >
         <JobDetailsPage job={job} researchRemaining={researchRemaining} />
       </main>
     </div>

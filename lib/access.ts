@@ -22,7 +22,12 @@ import { createInsforgeServer } from "@/lib/insforge-server";
 // See docs/specs/0012-portfolio-private-access-gate/index.md and
 // docs/specs/0018-free-tier-usage-gating.md.
 
-export { agentRunsEnabled, checkAndIncrementUsage, getSubscription, remainingUsage };
+export {
+  agentRunsEnabled,
+  checkAndIncrementUsage,
+  getSubscription,
+  remainingUsage,
+};
 export type { MeteredAction, UsageResult };
 
 type DenialBody = { success: false; error: string };
@@ -93,7 +98,12 @@ export async function enforceUsageCap(
   action: MeteredAction,
 ): Promise<
   | { ok: true; usage: UsageResult }
-  | { ok: false; response: NextResponse<DenialBody & { code: string; used: number; limit: number }> }
+  | {
+      ok: false;
+      response: NextResponse<
+        DenialBody & { code: string; used: number; limit: number }
+      >;
+    }
 > {
   const usage = await checkAndIncrementUsage(userId, action);
 

@@ -8,7 +8,10 @@ import { Navbar } from "@/components/layout/Navbar";
 import { getSubscription } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { deriveProfileCompletion } from "@/lib/profile-completion";
-import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
+import {
+  buildEmptyProfile,
+  mapProfileRowToProfile,
+} from "@/lib/profile-mapping";
 import type { ProfileRow } from "@/types";
 
 const billingErrorMessages: Record<string, string> = {
@@ -42,7 +45,9 @@ export default async function ProfilePage({
   if (!subscriptionResult.ok) {
     console.error("[app/profile] could not read subscription");
   }
-  const plan = subscriptionResult.ok ? subscriptionResult.subscription.plan : "free";
+  const plan = subscriptionResult.ok
+    ? subscriptionResult.subscription.plan
+    : "free";
 
   const { data: row, error: profileError } = await insforge.database
     .from("profiles")
@@ -54,7 +59,9 @@ export default async function ProfilePage({
     console.error("[app/profile]", profileError);
   }
 
-  const profile = row ? mapProfileRowToProfile(row) : buildEmptyProfile(data.user.email);
+  const profile = row
+    ? mapProfileRowToProfile(row)
+    : buildEmptyProfile(data.user.email);
 
   const completion = deriveProfileCompletion({
     fullName: row?.full_name ?? "",

@@ -3,9 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { runCompanyResearch } from "@/agent/research";
 import { enforceUsageCap, guardPaidRoute } from "@/lib/access";
-import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
+import {
+  buildEmptyProfile,
+  mapProfileRowToProfile,
+} from "@/lib/profile-mapping";
 import { createPostHogServer } from "@/lib/posthog-server";
-import type { ActionResult, CompanyResearchDossier, JobRow, ProfileRow } from "@/types";
+import type {
+  ActionResult,
+  CompanyResearchDossier,
+  JobRow,
+  ProfileRow,
+} from "@/types";
 
 // This route blocks the request for the full Browserbase session plus synthesis.
 // maxDuration = 300 is the highest allowed execution window on the Vercel Hobby plan.
@@ -47,14 +55,20 @@ export async function POST(
     if (jobError) {
       console.error("[api/agent/research]", jobError);
       return NextResponse.json(
-        { success: false, error: "Something went wrong loading this job. Please try again." },
+        {
+          success: false,
+          error: "Something went wrong loading this job. Please try again.",
+        },
         { status: 500 },
       );
     }
 
     if (!jobRow) {
       return NextResponse.json(
-        { success: false, error: "Something went wrong loading this job. Please try again." },
+        {
+          success: false,
+          error: "Something went wrong loading this job. Please try again.",
+        },
         { status: 500 },
       );
     }
@@ -70,7 +84,10 @@ export async function POST(
     if (profileError) {
       console.error("[api/agent/research]", profileError);
       return NextResponse.json(
-        { success: false, error: "Something went wrong loading your profile. Please try again." },
+        {
+          success: false,
+          error: "Something went wrong loading your profile. Please try again.",
+        },
         { status: 500 },
       );
     }
@@ -87,21 +104,31 @@ export async function POST(
     const result = await runCompanyResearch(job, profile);
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 500 },
+      );
     }
 
     const completedAt = new Date().toISOString();
 
     const { error: updateError } = await insforge.database
       .from("jobs")
-      .update({ company_research: result.data, company_research_completed_at: completedAt })
+      .update({
+        company_research: result.data,
+        company_research_completed_at: completedAt,
+      })
       .eq("id", jobId)
       .eq("user_id", userId);
 
     if (updateError) {
       console.error("[api/agent/research]", updateError);
       return NextResponse.json(
-        { success: false, error: "Research completed, but it could not be saved. Please try again." },
+        {
+          success: false,
+          error:
+            "Research completed, but it could not be saved. Please try again.",
+        },
         { status: 500 },
       );
     }
@@ -120,7 +147,11 @@ export async function POST(
   } catch (error) {
     console.error("[api/agent/research]", error);
     return NextResponse.json(
-      { success: false, error: "Something went wrong researching this company. Please try again." },
+      {
+        success: false,
+        error:
+          "Something went wrong researching this company. Please try again.",
+      },
       { status: 500 },
     );
   }

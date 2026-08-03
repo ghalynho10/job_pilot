@@ -5,7 +5,13 @@ import Link from "next/link";
 import posthog from "posthog-js";
 import { useMemo, useState, type FormEvent, type JSX } from "react";
 
-import { filterJobs, paginateJobs, sortJobs, type MatchFilter, type SortMode } from "@/lib/find-jobs-filters";
+import {
+  filterJobs,
+  paginateJobs,
+  sortJobs,
+  type MatchFilter,
+  type SortMode,
+} from "@/lib/find-jobs-filters";
 import { insforge } from "@/lib/insforge-client";
 import { getMatchScoreTier, type MatchScoreTier } from "@/lib/match-score";
 import type { ActionResult, JobRow } from "@/types";
@@ -37,7 +43,11 @@ const PAGINATION_BUTTON_CLASSES =
 
 type SearchStatus = "idle" | "loading" | "success" | "empty" | "error";
 
-function MatchScoreBar({ matchScore }: { matchScore: number | null }): JSX.Element {
+function MatchScoreBar({
+  matchScore,
+}: {
+  matchScore: number | null;
+}): JSX.Element {
   if (matchScore === null) {
     return <span className="text-sm text-text-muted">—</span>;
   }
@@ -52,7 +62,9 @@ function MatchScoreBar({ matchScore }: { matchScore: number | null }): JSX.Eleme
           style={{ width: `${matchScore}%` }}
         />
       </div>
-      <span className="text-sm font-medium text-text-primary">{matchScore}%</span>
+      <span className="text-sm font-medium text-text-primary">
+        {matchScore}%
+      </span>
     </div>
   );
 }
@@ -88,7 +100,8 @@ export function FindJobsPage({
   const totalPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageJobs = paginateJobs(visibleJobs, currentPage, PAGE_SIZE);
-  const rangeStart = visibleJobs.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeStart =
+    visibleJobs.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, visibleJobs.length);
 
   function handleFilterTextChange(value: string): void {
@@ -106,7 +119,9 @@ export function FindJobsPage({
     setPage(1);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
 
     if (!hasSkills || isLoading) {
@@ -153,7 +168,9 @@ export function FindJobsPage({
 
       if (fetchError) {
         setStatus("error");
-        setErrorMessage("Search completed, but the results could not be loaded. Please refresh.");
+        setErrorMessage(
+          "Search completed, but the results could not be loaded. Please refresh.",
+        );
         return;
       }
 
@@ -162,14 +179,19 @@ export function FindJobsPage({
       setStatus("success");
     } catch {
       setStatus("error");
-      setErrorMessage("Something went wrong searching for jobs. Please try again.");
+      setErrorMessage(
+        "Something went wrong searching for jobs. Please try again.",
+      );
     }
   }
 
   return (
     <>
       <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
+        <form
+          className="flex flex-col gap-4 sm:flex-row sm:items-end"
+          onSubmit={handleSubmit}
+        >
           <div className="flex-1">
             <label className={FIELD_LABEL_CLASSES} htmlFor="job-title">
               Job Title
@@ -230,7 +252,8 @@ export function FindJobsPage({
 
         {searchRemaining && (
           <div className="mt-4 text-sm text-text-secondary">
-            {searchRemaining.limit - searchRemaining.used} of {searchRemaining.limit} searches left this cycle
+            {searchRemaining.limit - searchRemaining.used} of{" "}
+            {searchRemaining.limit} searches left this cycle
             {searchRemaining.used >= searchRemaining.limit ? (
               <Link
                 className="ml-3 inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -294,7 +317,9 @@ export function FindJobsPage({
               <select
                 aria-label="Filter by match"
                 className={SELECT_CLASSES}
-                onChange={(event) => handleMatchFilterChange(event.target.value as MatchFilter)}
+                onChange={(event) =>
+                  handleMatchFilterChange(event.target.value as MatchFilter)
+                }
                 value={matchFilter}
               >
                 <option value="all">All Matches</option>
@@ -309,7 +334,9 @@ export function FindJobsPage({
               <select
                 aria-label="Sort by match score"
                 className={SELECT_CLASSES}
-                onChange={(event) => handleSortModeChange(event.target.value as SortMode)}
+                onChange={(event) =>
+                  handleSortModeChange(event.target.value as SortMode)
+                }
                 value={sortMode}
               >
                 <option value="match-score">Match Score</option>
@@ -357,11 +384,17 @@ export function FindJobsPage({
                       const badge = SOURCE_BADGE[job.source];
 
                       return (
-                        <tr className="border-t border-border hover:bg-surface-secondary" key={job.id}>
+                        <tr
+                          className="border-t border-border hover:bg-surface-secondary"
+                          key={job.id}
+                        >
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-3">
                               <div className="flex size-9 items-center justify-center rounded-md bg-surface-secondary">
-                                <Building2 aria-hidden="true" className="size-4 text-text-secondary" />
+                                <Building2
+                                  aria-hidden="true"
+                                  className="size-4 text-text-secondary"
+                                />
                               </div>
                               <span className="text-sm font-medium text-text-primary">
                                 {job.company}
@@ -401,11 +434,24 @@ export function FindJobsPage({
 
               <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-text-secondary">
-                  Showing <span className="font-medium text-text-primary">{rangeStart}</span> to{" "}
-                  <span className="font-medium text-text-primary">{rangeEnd}</span> of{" "}
-                  <span className="font-medium text-text-primary">{visibleJobs.length}</span> results
+                  Showing{" "}
+                  <span className="font-medium text-text-primary">
+                    {rangeStart}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-text-primary">
+                    {rangeEnd}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-text-primary">
+                    {visibleJobs.length}
+                  </span>{" "}
+                  results
                 </p>
-                <nav aria-label="Pagination" className="flex items-center gap-2">
+                <nav
+                  aria-label="Pagination"
+                  className="flex items-center gap-2"
+                >
                   <button
                     className={PAGINATION_BUTTON_CLASSES}
                     disabled={currentPage === 1}
@@ -414,9 +460,14 @@ export function FindJobsPage({
                   >
                     Previous
                   </button>
-                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                  {Array.from(
+                    { length: totalPages },
+                    (_, index) => index + 1,
+                  ).map((pageNumber) => (
                     <button
-                      aria-current={pageNumber === currentPage ? "page" : undefined}
+                      aria-current={
+                        pageNumber === currentPage ? "page" : undefined
+                      }
                       className={
                         pageNumber === currentPage
                           ? "rounded-md border border-accent bg-accent-light px-3 py-1.5 text-sm font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

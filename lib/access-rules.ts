@@ -14,7 +14,8 @@ import type { Subscription, SubscriptionRow } from "@/types";
 
 export const DENIAL_MESSAGES = {
   signedOut: "You must be signed in to do that.",
-  usageCapped: "You have used all your free searches for this cycle. Upgrade to Pro for unlimited access.",
+  usageCapped:
+    "You have used all your free searches for this cycle. Upgrade to Pro for unlimited access.",
   agentsPaused: "Job search and company research are temporarily paused.",
 } as const;
 
@@ -78,23 +79,44 @@ export async function checkAndIncrementUsage(
     insforge = _createClient();
   } catch (error) {
     console.error("[lib/access]", error);
-    return { allowed: false, plan: "free", used: FREE_TIER_CAPS[action], limit: FREE_TIER_CAPS[action], periodStart: new Date().toISOString() };
+    return {
+      allowed: false,
+      plan: "free",
+      used: FREE_TIER_CAPS[action],
+      limit: FREE_TIER_CAPS[action],
+      periodStart: new Date().toISOString(),
+    };
   }
 
   try {
-    const { data, error } = await insforge.database.rpc("check_and_increment_usage", {
-      p_user_id: userId,
-      p_action: action,
-      p_search_limit: FREE_TIER_CAPS.search,
-      p_research_limit: FREE_TIER_CAPS.research,
-    });
+    const { data, error } = await insforge.database.rpc(
+      "check_and_increment_usage",
+      {
+        p_user_id: userId,
+        p_action: action,
+        p_search_limit: FREE_TIER_CAPS.search,
+        p_research_limit: FREE_TIER_CAPS.research,
+      },
+    );
 
     if (error || !data) {
       console.error("[lib/access]", error);
-      return { allowed: false, plan: "free", used: FREE_TIER_CAPS[action], limit: FREE_TIER_CAPS[action], periodStart: new Date().toISOString() };
+      return {
+        allowed: false,
+        plan: "free",
+        used: FREE_TIER_CAPS[action],
+        limit: FREE_TIER_CAPS[action],
+        periodStart: new Date().toISOString(),
+      };
     }
 
-    const result = data as { allowed: boolean; plan: string; used: number; limit_val: number; period_start: string };
+    const result = data as {
+      allowed: boolean;
+      plan: string;
+      used: number;
+      limit_val: number;
+      period_start: string;
+    };
 
     return {
       allowed: result.allowed,
@@ -105,7 +127,13 @@ export async function checkAndIncrementUsage(
     };
   } catch (error) {
     console.error("[lib/access]", error);
-    return { allowed: false, plan: "free", used: FREE_TIER_CAPS[action], limit: FREE_TIER_CAPS[action], periodStart: new Date().toISOString() };
+    return {
+      allowed: false,
+      plan: "free",
+      used: FREE_TIER_CAPS[action],
+      limit: FREE_TIER_CAPS[action],
+      periodStart: new Date().toISOString(),
+    };
   }
 }
 
@@ -134,10 +162,14 @@ export async function remainingUsage(
 
   const sub = result.subscription;
   const limit = FREE_TIER_CAPS[action];
-  const used = action === "search" ? sub.adzunaSearchesUsed : sub.researchRunsUsed;
+  const used =
+    action === "search" ? sub.adzunaSearchesUsed : sub.researchRunsUsed;
 
   // A Pro account in good standing has no cap to show.
-  if (sub.plan === "pro" && (sub.status === "active" || sub.status === "trialing")) {
+  if (
+    sub.plan === "pro" &&
+    (sub.status === "active" || sub.status === "trialing")
+  ) {
     return null;
   }
 

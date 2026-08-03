@@ -19,7 +19,10 @@ import {
   computeMatchScoreDistribution,
   type ChartsSourceJob,
 } from "@/lib/dashboard-charts";
-import { computeDashboardStats, type DashboardStatsJob } from "@/lib/dashboard-stats";
+import {
+  computeDashboardStats,
+  type DashboardStatsJob,
+} from "@/lib/dashboard-stats";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isProfileComplete } from "@/lib/profile-completion";
 import type { ProfileRow } from "@/types";
@@ -34,14 +37,19 @@ const STATS_PAGE_SIZE = 1000;
 async function fetchAllStatsJobs(
   insforge: InsForgeClient,
   userId: string,
-): Promise<{ data: (DashboardStatsJob & ChartsSourceJob)[] | null; error: unknown }> {
+): Promise<{
+  data: (DashboardStatsJob & ChartsSourceJob)[] | null;
+  error: unknown;
+}> {
   const rows: (DashboardStatsJob & ChartsSourceJob)[] = [];
   let from = 0;
 
   for (;;) {
     const { data, error } = await insforge.database
       .from("jobs")
-      .select("match_score, company_research, found_at, company_research_completed_at")
+      .select(
+        "match_score, company_research, found_at, company_research_completed_at",
+      )
       .eq("user_id", userId)
       .order("id", { ascending: true })
       .range(from, from + STATS_PAGE_SIZE - 1);
@@ -79,7 +87,8 @@ export default async function DashboardPage({
   }
 
   const { upgraded } = await searchParams;
-  const showUpgradeSuccess = (Array.isArray(upgraded) ? upgraded[0] : upgraded) === "1";
+  const showUpgradeSuccess =
+    (Array.isArray(upgraded) ? upgraded[0] : upgraded) === "1";
 
   const [
     { data: row, error: profileError },
@@ -87,7 +96,11 @@ export default async function DashboardPage({
     { data: agentRunRows, error: agentRunsError },
     { data: researchedJobRows, error: researchedJobsError },
   ] = await Promise.all([
-    insforge.database.from("profiles").select("*").eq("id", data.user.id).maybeSingle<ProfileRow>(),
+    insforge.database
+      .from("profiles")
+      .select("*")
+      .eq("id", data.user.id)
+      .maybeSingle<ProfileRow>(),
     fetchAllStatsJobs(insforge, data.user.id),
     insforge.database
       .from("agent_runs")
@@ -142,7 +155,10 @@ export default async function DashboardPage({
   const matchScoreDistribution = computeMatchScoreDistribution(rows);
   const companyResearchActivity = computeCompanyResearchActivity(rows);
 
-  const activity = computeRecentActivity(agentRunRows ?? [], researchedJobRows ?? []);
+  const activity = computeRecentActivity(
+    agentRunRows ?? [],
+    researchedJobRows ?? [],
+  );
 
   return (
     <div className="min-h-screen bg-background text-text-primary">

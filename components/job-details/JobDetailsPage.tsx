@@ -22,7 +22,10 @@ type JobDetailsPageProps = {
   researchRemaining: { used: number; limit: number } | null;
 };
 
-export function JobDetailsPage({ job, researchRemaining }: JobDetailsPageProps): JSX.Element {
+export function JobDetailsPage({
+  job,
+  researchRemaining,
+}: JobDetailsPageProps): JSX.Element {
   const externalJobUrl = resolveExternalJobUrl(job);
 
   return (
@@ -55,7 +58,12 @@ export function JobDetailsPage({ job, researchRemaining }: JobDetailsPageProps):
         requirements={normalizeStringList(job.requirements)}
         responsibilities={normalizeStringList(job.responsibilities)}
       />
-      <CompanyResearchCard company={job.company} dossier={job.company_research} jobId={job.id} researchRemaining={researchRemaining} />
+      <CompanyResearchCard
+        company={job.company}
+        dossier={job.company_research}
+        jobId={job.id}
+        researchRemaining={researchRemaining}
+      />
       <JobActions company={job.company} externalJobUrl={externalJobUrl} />
     </div>
   );

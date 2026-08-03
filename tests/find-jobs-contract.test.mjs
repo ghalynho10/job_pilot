@@ -65,7 +65,10 @@ test("find-jobs page fetches the caller's existing jobs server side, newest firs
     source,
     /\.from\("jobs"\)\s*\.select\("\*"\)\s*\.eq\("user_id", data\.user\.id\)\s*\.order\("found_at", \{ ascending: false \}\)/,
   );
-  assert.match(source, /const initialJobs = \(jobRows \?\? \[\]\) as JobRow\[\];/);
+  assert.match(
+    source,
+    /const initialJobs = \(jobRows \?\? \[\]\) as JobRow\[\];/,
+  );
 });
 
 test("job title and location inputs are real, controlled text inputs wired to state", async () => {
@@ -73,8 +76,14 @@ test("job title and location inputs are real, controlled text inputs wired to st
 
   assert.match(source, /id="job-title"/);
   assert.match(source, /id="location"/);
-  assert.match(source, /onChange=\{\(event\) => setJobTitle\(event\.target\.value\)\}/);
-  assert.match(source, /onChange=\{\(event\) => setLocation\(event\.target\.value\)\}/);
+  assert.match(
+    source,
+    /onChange=\{\(event\) => setJobTitle\(event\.target\.value\)\}/,
+  );
+  assert.match(
+    source,
+    /onChange=\{\(event\) => setLocation\(event\.target\.value\)\}/,
+  );
 });
 
 test("Find Jobs button triggers a real search request against the agent endpoint", async () => {
@@ -118,7 +127,11 @@ test("the match dropdown offers High Match and Low Match, the sort dropdown offe
 test("changing the filter text, match filter, or sort resets the page back to 1 (AC-7)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  for (const fn of ["handleFilterTextChange", "handleMatchFilterChange", "handleSortModeChange"]) {
+  for (const fn of [
+    "handleFilterTextChange",
+    "handleMatchFilterChange",
+    "handleSortModeChange",
+  ]) {
     const start = source.indexOf(`function ${fn}(`);
     assert.ok(start !== -1, `${fn} not found`);
     const end = source.indexOf("\n  }", start);
@@ -154,9 +167,15 @@ test("pagination Previous, Next, and page number buttons are wired with real cli
   assert.ok(paginationStart !== -1, "pagination nav not found");
   const paginationSection = source.slice(paginationStart);
 
-  assert.match(paginationSection, /onClick=\{\(\) => setPage\(currentPage - 1\)\}/);
+  assert.match(
+    paginationSection,
+    /onClick=\{\(\) => setPage\(currentPage - 1\)\}/,
+  );
   assert.match(paginationSection, /onClick=\{\(\) => setPage\(pageNumber\)\}/);
-  assert.match(paginationSection, /onClick=\{\(\) => setPage\(currentPage \+ 1\)\}/);
+  assert.match(
+    paginationSection,
+    /onClick=\{\(\) => setPage\(currentPage \+ 1\)\}/,
+  );
   assert.match(paginationSection, /disabled=\{currentPage === 1\}/);
   assert.match(paginationSection, /disabled=\{currentPage === totalPages\}/);
 });
@@ -229,7 +248,10 @@ test("pagination footer shows real results copy and a real page count driven by 
 test("the current page is marked aria-current, driven by real page state, not a hardcoded page 1 (AC-6)", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /aria-current=\{pageNumber === currentPage \? "page" : undefined\}/);
+  assert.match(
+    source,
+    /aria-current=\{pageNumber === currentPage \? "page" : undefined\}/,
+  );
 });
 
 test("Previous and Next are disabled at the real first and last page boundaries (AC-6)", async () => {
@@ -249,7 +271,10 @@ test("a returning user with no jobs yet sees a distinct message on page load, no
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /status === "idle" \? \(/);
-  assert.match(source, /No jobs yet\. Run a search above to find your first matches\./);
+  assert.match(
+    source,
+    /No jobs yet\. Run a search above to find your first matches\./,
+  );
 });
 
 test("a filter and match combination matching zero rows shows a distinct message, not an empty table (AC-8)", async () => {
@@ -287,21 +312,33 @@ test("the search inputs and button are disabled while a search is in flight", as
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /disabled=\{!hasSkills \|\| isLoading\}/);
-  assert.match(source, /disabled=\{!hasSkills \|\| isLoading \|\| jobTitle\.trim\(\)\.length === 0\}/);
+  assert.match(
+    source,
+    /disabled=\{!hasSkills \|\| isLoading \|\| jobTitle\.trim\(\)\.length === 0\}/,
+  );
 });
 
 test("a profile with no skills blocks the search before any request is made", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
   assert.match(source, /if \(!hasSkills \|\| isLoading\) \{\s*return;/);
-  assert.match(source, /Add your skills to your profile before searching for jobs\./);
+  assert.match(
+    source,
+    /Add your skills to your profile before searching for jobs\./,
+  );
 });
 
 test("both job title and location inputs have a visible, associated label", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  assert.match(source, /<label className=\{FIELD_LABEL_CLASSES\} htmlFor="job-title">/);
-  assert.match(source, /<label className=\{FIELD_LABEL_CLASSES\} htmlFor="location">/);
+  assert.match(
+    source,
+    /<label className=\{FIELD_LABEL_CLASSES\} htmlFor="job-title">/,
+  );
+  assert.match(
+    source,
+    /<label className=\{FIELD_LABEL_CLASSES\} htmlFor="location">/,
+  );
 });
 
 test("the filter input and both dropdowns have an accessible name via aria-label", async () => {
@@ -312,11 +349,16 @@ test("the filter input and both dropdowns have an accessible name via aria-label
   assert.match(source, /aria-label="Sort by match score"/);
 });
 
-test("every table column header uses scope=\"col\" for correct table semantics", async () => {
+test('every table column header uses scope="col" for correct table semantics', async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
-  const headerMatches = source.match(/<th className="px-4 py-3" scope="col">/g) ?? [];
-  assert.equal(headerMatches.length, 6, "expected all 6 column headers to use scope=\"col\"");
+  const headerMatches =
+    source.match(/<th className="px-4 py-3" scope="col">/g) ?? [];
+  assert.equal(
+    headerMatches.length,
+    6,
+    'expected all 6 column headers to use scope="col"',
+  );
 });
 
 test("the pagination nav has an accessible name", async () => {
@@ -388,7 +430,11 @@ test("find-jobs files never use hardcoded hex colors or raw Tailwind color class
   ]) {
     const source = await readProjectFile(file);
 
-    assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b/, `${file} contains a hardcoded hex color`);
+    assert.doesNotMatch(
+      source,
+      /#[0-9a-fA-F]{3,8}\b/,
+      `${file} contains a hardcoded hex color`,
+    );
     assert.doesNotMatch(
       source,
       rawTailwindColor,

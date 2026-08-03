@@ -17,7 +17,11 @@ function copyResponseCookies(
   }
 }
 
-function shouldShowSessionError(request: NextRequest, hadSession: boolean, hasError: boolean): boolean {
+function shouldShowSessionError(
+  request: NextRequest,
+  hadSession: boolean,
+  hasError: boolean,
+): boolean {
   if (hadSession || hasError) {
     return true;
   }
@@ -29,7 +33,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.next({ request });
   const hadSession = Boolean(
     request.cookies.get(DEFAULT_ACCESS_TOKEN_COOKIE) ||
-      request.cookies.get(DEFAULT_REFRESH_TOKEN_COOKIE),
+    request.cookies.get(DEFAULT_REFRESH_TOKEN_COOKIE),
   );
 
   try {
@@ -70,9 +74,5 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/profile/:path*",
-    "/find-jobs/:path*",
-  ],
+  matcher: ["/dashboard/:path*", "/profile/:path*", "/find-jobs/:path*"],
 };

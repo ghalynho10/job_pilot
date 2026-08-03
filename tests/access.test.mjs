@@ -86,10 +86,20 @@ test("agentRunsEnabled reads nothing from the process environment", async () => 
 
 test("a free user under the cap is allowed and the count is returned (AC-1)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: true, plan: "free", used: 4, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: true,
+      plan: "free",
+      used: 4,
+      limit_val: 10,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
-  const result = await checkAndIncrementUsage("user-1", "search", () => insforge);
+  const result = await checkAndIncrementUsage(
+    "user-1",
+    "search",
+    () => insforge,
+  );
 
   assert.equal(result.allowed, true);
   assert.equal(result.plan, "free");
@@ -99,10 +109,20 @@ test("a free user under the cap is allowed and the count is returned (AC-1)", as
 
 test("a free user at the cap is denied without incrementing (AC-2)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: false, plan: "free", used: 10, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: false,
+      plan: "free",
+      used: 10,
+      limit_val: 10,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
-  const result = await checkAndIncrementUsage("user-1", "search", () => insforge);
+  const result = await checkAndIncrementUsage(
+    "user-1",
+    "search",
+    () => insforge,
+  );
 
   assert.equal(result.allowed, false);
   assert.equal(result.used, 10);
@@ -111,10 +131,20 @@ test("a free user at the cap is denied without incrementing (AC-2)", async () =>
 
 test("a Pro user in good standing is always allowed and no counter is touched (AC-3)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: true, plan: "pro", used: 0, limit_val: 0, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: true,
+      plan: "pro",
+      used: 0,
+      limit_val: 0,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
-  const result = await checkAndIncrementUsage("user-1", "research", () => insforge);
+  const result = await checkAndIncrementUsage(
+    "user-1",
+    "research",
+    () => insforge,
+  );
 
   assert.equal(result.allowed, true);
   assert.equal(result.plan, "pro");
@@ -123,7 +153,9 @@ test("a Pro user in good standing is always allowed and no counter is touched (A
 });
 
 test("an RPC error fails closed (allowed = false)", async () => {
-  const insforge = fakeServiceInsforge({ rpcError: { message: "function not found" } });
+  const insforge = fakeServiceInsforge({
+    rpcError: { message: "function not found" },
+  });
   const { result, logged } = await captureErrors(() =>
     checkAndIncrementUsage("user-1", "search", () => insforge),
   );
@@ -146,7 +178,13 @@ test("a thrown RPC call fails closed", async () => {
 
 test("checkAndIncrementUsage calls the RPC with the correct function name and caps (AC-1)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 3, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: true,
+      plan: "free",
+      used: 1,
+      limit_val: 3,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
   await checkAndIncrementUsage("user-1", "research", () => insforge);
@@ -155,13 +193,25 @@ test("checkAndIncrementUsage calls the RPC with the correct function name and ca
   assert.equal(insforge.rpcCalls[0].fnName, "check_and_increment_usage");
   assert.equal(insforge.rpcCalls[0].params.p_user_id, "user-1");
   assert.equal(insforge.rpcCalls[0].params.p_action, "research");
-  assert.equal(insforge.rpcCalls[0].params.p_search_limit, FREE_TIER_CAPS.search);
-  assert.equal(insforge.rpcCalls[0].params.p_research_limit, FREE_TIER_CAPS.research);
+  assert.equal(
+    insforge.rpcCalls[0].params.p_search_limit,
+    FREE_TIER_CAPS.search,
+  );
+  assert.equal(
+    insforge.rpcCalls[0].params.p_research_limit,
+    FREE_TIER_CAPS.research,
+  );
 });
 
 test("checkAndIncrementUsage passes the search cap for a search action and research cap for research", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: true,
+      plan: "free",
+      used: 1,
+      limit_val: 10,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
   await checkAndIncrementUsage("user-1", "search", () => insforge);
@@ -198,15 +248,29 @@ test("checkAndIncrementUsage returns denied when RPC data is null or empty", asy
 
 test("checkAndIncrementUsage maps the RPC return fields correctly for both actions", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 3, period_start: "2026-08-01T00:00:00Z" },
+    rpcData: {
+      allowed: true,
+      plan: "free",
+      used: 1,
+      limit_val: 3,
+      period_start: "2026-08-01T00:00:00Z",
+    },
   });
 
-  const researchResult = await checkAndIncrementUsage("user-1", "research", () => insforge);
+  const researchResult = await checkAndIncrementUsage(
+    "user-1",
+    "research",
+    () => insforge,
+  );
   assert.equal(researchResult.used, 1);
   assert.equal(researchResult.limit, 3);
   assert.equal(researchResult.periodStart, "2026-08-01T00:00:00Z");
 
-  const searchResult = await checkAndIncrementUsage("user-1", "search", () => insforge);
+  const searchResult = await checkAndIncrementUsage(
+    "user-1",
+    "search",
+    () => insforge,
+  );
   assert.equal(searchResult.used, 1);
   assert.equal(searchResult.limit, 3);
   assert.equal(searchResult.periodStart, "2026-08-01T00:00:00Z");
@@ -361,7 +425,7 @@ test("the find route calls enforceUsageCap after the profile check and before ru
   const source = await readProjectFile("app/api/agent/find/route.ts");
 
   const profileCheckIndex = source.indexOf("!profileRow || !profileRow.skills");
-  const capCheckIndex = source.indexOf("enforceUsageCap(userId, \"search\")");
+  const capCheckIndex = source.indexOf('enforceUsageCap(userId, "search")');
   const runJobSearchIndex = source.indexOf("runJobSearch(");
 
   assert.ok(profileCheckIndex !== -1, "must check profile has skills");
@@ -381,7 +445,7 @@ test("the research route calls enforceUsageCap after the job lookup and before r
   const source = await readProjectFile("app/api/agent/research/route.ts");
 
   const jobLookupIndex = source.indexOf("!jobRow");
-  const capCheckIndex = source.indexOf("enforceUsageCap(userId, \"research\")");
+  const capCheckIndex = source.indexOf('enforceUsageCap(userId, "research")');
   const runResearchIndex = source.indexOf("runCompanyResearch(");
 
   assert.ok(jobLookupIndex !== -1, "must check job exists");
@@ -470,7 +534,14 @@ test("remainingUsage returns null for a Pro user in good standing, no cap to sho
 });
 
 test("remainingUsage returns a count for a Pro user with lapsed status, capped like free (AC-3)", async () => {
-  for (const lapsedStatus of ["past_due", "unpaid", "canceled", "incomplete", "incomplete_expired", "paused"]) {
+  for (const lapsedStatus of [
+    "past_due",
+    "unpaid",
+    "canceled",
+    "incomplete",
+    "incomplete_expired",
+    "paused",
+  ]) {
     const row = {
       plan: "pro",
       status: lapsedStatus,
@@ -487,7 +558,9 @@ test("remainingUsage returns a count for a Pro user with lapsed status, capped l
 });
 
 test("remainingUsage reports the full cap as remaining when the window has expired (AC-4)", async () => {
-  const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+  const fortyDaysAgo = new Date(
+    Date.now() - 40 * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const row = {
     plan: "free",
     status: "active",
@@ -500,8 +573,16 @@ test("remainingUsage reports the full cap as remaining when the window has expir
 
   const result = await remainingUsage("user-1", "research", makeClient);
   assert.notEqual(result, null);
-  assert.equal(result.used, 0, "an expired window must report 0 used, not the stale count");
-  assert.equal(result.limit, FREE_TIER_CAPS.research, "the limit stays the same even after expiry");
+  assert.equal(
+    result.used,
+    0,
+    "an expired window must report 0 used, not the stale count",
+  );
+  assert.equal(
+    result.limit,
+    FREE_TIER_CAPS.research,
+    "the limit stays the same even after expiry",
+  );
 });
 
 test("remainingUsage returns null when getSubscription fails", async () => {
@@ -509,7 +590,11 @@ test("remainingUsage returns null when getSubscription fails", async () => {
   const makeClient = () => insforge;
 
   const result = await remainingUsage("user-1", "search", makeClient);
-  assert.equal(result, null, "a failed read must return null so the UI can hide the counter");
+  assert.equal(
+    result,
+    null,
+    "a failed read must return null so the UI can hide the counter",
+  );
 });
 
 test("remainingUsage never calls the RPC, it only reads the subscriptions table", async () => {
