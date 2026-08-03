@@ -3,7 +3,7 @@ import type { JSX } from "react";
 
 import { JobDetailsPage } from "@/components/job-details/JobDetailsPage";
 import { Navbar } from "@/components/layout/Navbar";
-import { requireApprovedPage } from "@/lib/access";
+import { remainingUsage } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { isValidUuid } from "@/lib/job-details";
 import type { JobRow } from "@/types";
@@ -28,8 +28,6 @@ export default async function FindJobDetailsRoutePage({
     redirect("/login?error=session");
   }
 
-  await requireApprovedPage(insforge, data.user.id);
-
   const { data: jobRow, error: jobError } = await insforge.database
     .from("jobs")
     .select("*")
@@ -47,6 +45,8 @@ export default async function FindJobDetailsRoutePage({
 
   const job = jobRow as JobRow;
 
+  const researchRemaining = await remainingUsage(data.user.id, "research");
+
   return (
     <div className="min-h-screen bg-background text-text-primary">
       <a
@@ -57,7 +57,7 @@ export default async function FindJobDetailsRoutePage({
       </a>
       <Navbar authenticated />
       <main className="mx-auto max-w-[1440px] px-6 py-10 sm:px-8" id="main-content">
-        <JobDetailsPage job={job} />
+        <JobDetailsPage job={job} researchRemaining={researchRemaining} />
       </main>
     </div>
   );

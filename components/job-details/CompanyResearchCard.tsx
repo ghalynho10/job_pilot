@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, Loader2, Search } from "lucide-react";
+import { Building2, Loader2, Search, Zap } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type JSX } from "react";
 
@@ -11,18 +12,27 @@ type CompanyResearchCardProps = {
   jobId: string;
   company: string;
   dossier: CompanyResearchDossier | null;
+  researchRemaining: { used: number; limit: number } | null;
 };
 
-type RequestStatus = "idle" | "loading" | "error";
+type RequestStatus = "idle" | "loading" | "error" | "capped";
 
-export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearchCardProps): JSX.Element {
+type CappedError = {
+  code: string;
+  used: number;
+  limit: number;
+};
+
+export function CompanyResearchCard({ jobId, company, dossier, researchRemaining }: CompanyResearchCardProps): JSX.Element {
   const router = useRouter();
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cappedInfo, setCappedInfo] = useState<CappedError | null>(null);
 
   async function handleResearch(): Promise<void> {
     setStatus("loading");
     setErrorMessage(null);
+    setCappedInfo(null);
 
     try {
       const response = await fetch("/api/agent/research", {
@@ -30,9 +40,14 @@ export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearch
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId }),
       });
-      const result: ActionResult<{ data: CompanyResearchDossier }> = await response.json();
+      const result = await response.json();
 
       if (!result.success) {
+        if (result.code === "usage_capped") {
+          setStatus("capped");
+          setCappedInfo({ code: result.code, used: result.used, limit: result.limit });
+          return;
+        }
         setStatus("error");
         setErrorMessage(result.error);
         return;
@@ -46,6 +61,11 @@ export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearch
     }
   }
 
+  const remaining = researchRemaining
+    ? researchRemaining.limit - researchRemaining.used
+    : null;
+  const atCap = remaining !== null && remaining <= 0;
+
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm" aria-labelledby="company-research">
       <div className="flex flex-col gap-4 border-b border-border p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -57,7 +77,12 @@ export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearch
             Company Research
           </h2>
         </div>
-        {dossier ? null : (
+        {dossier ? null : atCap ? (
+          <div className="flex items-center gap-2 rounded-md bg-warning/10 px-4 py-2 text-sm font-medium text-warning">
+            <Zap aria-hidden="true" className="size-4" />
+            0 of {researchRemaining?.limit} research runs left
+          </div>
+        ) : (
           <button
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-70"
             disabled={status === "loading"}
@@ -73,6 +98,11 @@ export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearch
           </button>
         )}
       </div>
+      {remaining !== null && !atCap && !dossier && (
+        <div className="border-b border-border bg-surface-secondary px-6 py-2 text-sm text-text-secondary">
+          {remaining} of {researchRemaining?.limit} research runs left this cycle
+        </div>
+      )}
       {dossier ? (
         <div className="space-y-6 p-6">
           <section>
@@ -102,7 +132,24 @@ export function CompanyResearchCard({ jobId, company, dossier }: CompanyResearch
         </div>
       ) : (
         <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
-          {status === "error" ? (
+          {status === "capped" || (atCap && status === "idle") ? (
+            <>
+              <div className="flex size-14 items-center justify-center rounded-xl bg-warning/10">
+                <Zap aria-hidden="true" className="size-6 text-warning" />
+              </div>
+              <p className="mt-5 text-base font-semibold text-text-primary">Free limit reached</p>
+              <p className="mt-2 max-w-sm text-base leading-6 text-text-muted">
+                You have used all {researchRemaining?.limit ?? 3} of your free research runs for this cycle. Upgrade to Pro for unlimited company research.
+              </p>
+              <Link
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                href="/profile#billing"
+              >
+                <Zap aria-hidden="true" className="size-4" />
+                Upgrade to Pro
+              </Link>
+            </>
+          ) : status === "error" ? (
             <>
               <div className="flex size-14 items-center justify-center rounded-xl bg-error/10">
                 <Building2 aria-hidden="true" className="size-6 text-error" />

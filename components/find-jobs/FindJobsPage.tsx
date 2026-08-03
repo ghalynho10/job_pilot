@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Building2, Search, Sparkles } from "lucide-react";
+import { AlertCircle, Building2, Search, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { useMemo, useState, type FormEvent, type JSX } from "react";
@@ -60,10 +60,12 @@ function MatchScoreBar({ matchScore }: { matchScore: number | null }): JSX.Eleme
 export function FindJobsPage({
   hasSkills,
   initialJobs,
+  searchRemaining,
   userId,
 }: {
   hasSkills: boolean;
   initialJobs: JobRow[];
+  searchRemaining: { used: number; limit: number } | null;
   userId: string;
 }): JSX.Element {
   const [jobTitle, setJobTitle] = useState("");
@@ -125,12 +127,15 @@ export function FindJobsPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobTitle, location }),
       });
-      const result: ActionResult<{ jobsFound: number; strongMatches: number; message: string }> =
-        await response.json();
+      const result = await response.json();
 
       if (!result.success) {
         setStatus("error");
         setErrorMessage(result.error);
+        if (result.code === "usage_capped") {
+          setStatus("error");
+          setErrorMessage(result.error);
+        }
         return;
       }
 
@@ -222,6 +227,21 @@ export function FindJobsPage({
             Add your skills to your profile before searching for jobs.
           </div>
         ) : null}
+
+        {searchRemaining && (
+          <div className="mt-4 text-sm text-text-secondary">
+            {searchRemaining.limit - searchRemaining.used} of {searchRemaining.limit} searches left this cycle
+            {searchRemaining.used >= searchRemaining.limit ? (
+              <Link
+                className="ml-3 inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                href="/profile#billing"
+              >
+                <Zap aria-hidden="true" className="size-3" />
+                Upgrade to Pro
+              </Link>
+            ) : null}
+          </div>
+        )}
 
         {status === "success" ? (
           <div

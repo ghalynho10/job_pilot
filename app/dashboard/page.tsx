@@ -11,7 +11,7 @@ import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UpgradeSuccessBanner } from "@/components/dashboard/UpgradeSuccessBanner";
 import { Navbar } from "@/components/layout/Navbar";
-import { requireApprovedPage } from "@/lib/access";
+import { getSubscription } from "@/lib/access";
 import { computeRecentActivity } from "@/lib/dashboard-activity";
 import {
   computeCompanyResearchActivity,
@@ -77,8 +77,6 @@ export default async function DashboardPage({
   if (error || !data.user) {
     redirect("/login?error=session");
   }
-
-  await requireApprovedPage(insforge, data.user.id);
 
   const { upgraded } = await searchParams;
   const showUpgradeSuccess = (Array.isArray(upgraded) ? upgraded[0] : upgraded) === "1";

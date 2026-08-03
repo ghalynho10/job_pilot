@@ -22,19 +22,16 @@ test("find-jobs page redirects to login when there is no authenticated session (
   );
 });
 
-test("find-jobs page sends an unapproved user to the private beta screen before reading any data", async () => {
+test("find-jobs page no longer calls the old private beta gate (AC-7)", async () => {
   const source = await readProjectFile("app/find-jobs/page.tsx");
 
-  const redirectIndex = source.indexOf('redirect("/login?error=session")');
-  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
-  const readIndex = source.indexOf('.from("profiles")');
-
-  assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
-  assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
-  assert.ok(gateIndex < readIndex, "the gate must run before the page reads anything");
+  assert.ok(
+    !source.includes("requireApprovedPage"),
+    "the old private beta gate must not be called; usage gating replaces it",
+  );
   assert.ok(
     !source.includes("user_access"),
-    "the page must go through requireApprovedPage, never query user_access itself",
+    "the page must never query user_access directly",
   );
 });
 
@@ -57,7 +54,7 @@ test("find-jobs page composes the shared Navbar and the interactive client compo
   assert.match(source, /<Navbar authenticated \/>/);
   assert.match(
     source,
-    /<FindJobsPage hasSkills=\{hasSkills\} initialJobs=\{initialJobs\} userId=\{data\.user\.id\} \/>/,
+    /<FindJobsPage hasSkills=\{hasSkills\} initialJobs=\{initialJobs\} searchRemaining=\{searchRemaining\} userId=\{data\.user\.id\} \/>/,
   );
 });
 

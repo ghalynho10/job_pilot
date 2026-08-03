@@ -32,7 +32,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | done |
 | 1a | Privileged subscriptions read | Foundation (Billing) | done |
 | 2 | Checkout & subscribe | Slice 1: Monetization | done |
-| 3 | Free tier usage gating | Slice 1: Monetization | planned |
+| 3 | Free tier usage gating | Slice 1: Monetization | done |
 | 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
 | 5 | Job application status tracking | Slice 3: Application Tracking | planned |
 
@@ -183,10 +183,18 @@ code in `migrations/20260802201242_add-checkout-session-rls.sql`, `migrations/20
 - [x] Verify it: `/check verify checkout & subscribe`
 - [x] Test it: `/test checkout & subscribe`
 
-### 3. Free tier usage gating · needs a decision · full
+### 3. Free tier usage gating · done
 Cap monthly Adzuna searches and company research runs for free tier accounts; block and prompt to upgrade once the cap is hit. Paid accounts are uncapped (or a much higher cap).
 **Done when:** a free user hitting the monthly cap sees an upgrade prompt instead of the agent running, a paid user is not capped, and counts reset each billing cycle.
-- [ ] Design it (spec): `/architect free tier usage gating`
+- [x] Design it (spec): [0018](../specs/0018-free-tier-usage-gating.md)
+- [x] Build it: `/develop free tier usage gating`
+  - [x] Migration: `adzuna_searches_used` column + `check_and_increment_usage` atomic RPC (AC-1, AC-3, AC-4, AC-5)
+  - [x] `lib/access-rules.ts` / `lib/access.ts`: `checkAndIncrementUsage`, `remainingUsage`, `enforceUsageCap`; remove `isUserApproved` (AC-1, AC-2, AC-3, AC-4, AC-7)
+  - [x] Wire company research then job search end to end (route + UI banner + remaining count) (AC-1, AC-2, AC-6, AC-8)
+  - [x] Remove the old private beta gate: `/private-beta`, `requireApprovedPage` call sites, proxy matcher entry (AC-7)
+code in `migrations/20260802220000_add-adzuna-searches-usage-gating.sql`, `lib/access-rules.ts`, `lib/access.ts`, `app/api/agent/find/route.ts`, `app/api/agent/research/route.ts`, `components/find-jobs/FindJobsPage.tsx`, `components/job-details/CompanyResearchCard.tsx`, `types/index.ts`
+- [x] Verify it: `/check verify free tier usage gating`
+- [x] Test it: `/test free tier usage gating`
 
 ## Slice 2: Resume Quality
 

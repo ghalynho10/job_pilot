@@ -1,25 +1,29 @@
 import type { InsForgeClient } from "@insforge/sdk";
-import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 import {
   DENIAL_MESSAGES,
   agentRunsEnabled,
+  checkAndIncrementUsage,
   getSubscription,
-  isUserApproved,
+  remainingUsage,
+  type MeteredAction,
+  type UsageResult,
 } from "@/lib/access-rules";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
-// The temporary private beta gate. Every part of JobPilot that spends real
-// money at Adzuna, Browserbase, or OpenAI passes through here first.
+// The usage gating seam. Every part of JobPilot that spends real money at
+// Adzuna, Browserbase, or OpenAI passes through guardPaidRoute first.
 //
 // This file is the seam the rest of the app imports from. The rules themselves
 // live in lib/access-rules.ts, which has no runtime imports so the tests can
 // load it; both halves are re-exported here so no call site needs to know
 // about the split.
-// See docs/specs/0012-portfolio-private-access-gate/index.md.
+// See docs/specs/0012-portfolio-private-access-gate/index.md and
+// docs/specs/0018-free-tier-usage-gating.md.
 
-export { agentRunsEnabled, getSubscription, isUserApproved };
+export { agentRunsEnabled, checkAndIncrementUsage, getSubscription, remainingUsage };
+export type { MeteredAction, UsageResult };
 
 type DenialBody = { success: false; error: string };
 
@@ -43,15 +47,15 @@ function denial(error: string, status: number): NextResponse<DenialBody> {
 }
 
 /**
- * The route handler guard. The actual security boundary of this feature.
+ * The route handler guard. The actual security boundary for paid actions.
  *
  * Call it as the first statement of every route that reaches a paid provider,
  * before request body parsing and before any database read, so a denied caller
  * costs one auth call and one indexed primary key lookup and nothing else.
  *
- * The page gate is user experience only. A hand crafted request with a valid
- * session cookie never renders a page, which is why each paid route re-checks
- * here on its own rather than trusting the redirect.
+ * Checks: valid session, then (for agent routes only) the kill switch.
+ * Usage enforcement is done separately by each metered route after its own
+ * validation, so a request that fails validation never burns quota.
  */
 export async function guardPaidRoute({
   requireAgentSwitch,
@@ -65,12 +69,6 @@ export async function guardPaidRoute({
 
   const userId = data.user.id;
 
-  // Identical message whether the row is missing, pending, or blocked, so the
-  // response never reveals the owner's decision about a specific account.
-  if (!(await isUserApproved(insforge, userId))) {
-    return { ok: false, response: denial(DENIAL_MESSAGES.notApproved, 403) };
-  }
-
   if (requireAgentSwitch && !agentRunsEnabled(process.env.ENABLE_AGENT_RUNS)) {
     return { ok: false, response: denial(DENIAL_MESSAGES.agentsPaused, 503) };
   }
@@ -79,22 +77,41 @@ export async function guardPaidRoute({
 }
 
 /**
- * The page level counterpart: send an unapproved user to the private beta
- * screen instead of showing them an app they cannot use.
+ * Check whether this user is under the usage cap for the given metered action.
  *
- * Assumes the caller already checked the session, so it takes the client and
- * user id the page has already fetched rather than making its own auth call.
+ * Returns an ok/false discriminated result. On denial (capped), the response
+ * carries code "usage_capped" and the current usage/limit so the caller can
+ * show how many remain. On ok, a full UsageResult is passed through so the
+ * caller can read the remaining count.
  *
- * Never wrap this in a try block. Next.js's redirect works by throwing, so a
- * catch would swallow the redirect and let the page render anyway.
+ * Call this after the route's own validation (profile has skills, job exists)
+ * and right before the paid provider call. Quota is only spent on a request
+ * that passes validation.
  */
-export async function requireApprovedPage(
-  insforge: InsForgeClient,
+export async function enforceUsageCap(
   userId: string,
-): Promise<void> {
-  const approved = await isUserApproved(insforge, userId);
+  action: MeteredAction,
+): Promise<
+  | { ok: true; usage: UsageResult }
+  | { ok: false; response: NextResponse<DenialBody & { code: string; used: number; limit: number }> }
+> {
+  const usage = await checkAndIncrementUsage(userId, action);
 
-  if (!approved) {
-    redirect("/private-beta");
+  if (!usage.allowed) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: DENIAL_MESSAGES.usageCapped,
+          code: "usage_capped",
+          used: usage.used,
+          limit: usage.limit,
+        },
+        { status: 403 },
+      ),
+    };
   }
+
+  return { ok: true, usage };
 }

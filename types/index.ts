@@ -222,6 +222,7 @@ export type SubscriptionRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   research_runs_used: number;
+  adzuna_searches_used: number;
   usage_period_start: string;
   created_at: string;
   updated_at: string;
@@ -231,6 +232,7 @@ export type Subscription = {
   plan: SubscriptionRow["plan"];
   status: SubscriptionRow["status"];
   researchRunsUsed: number;
+  adzunaSearchesUsed: number;
   usagePeriodStart: string;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;

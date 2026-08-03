@@ -27,19 +27,16 @@ test("job details route uses async params, redirects signed out users, and hides
   assert.match(source, /if \(!jobRow\) \{\s*notFound\(\);/);
 });
 
-test("job details page sends an unapproved user to the private beta screen before reading the job", async () => {
+test("job details page no longer calls the old private beta gate (AC-7)", async () => {
   const source = await readProjectFile("app/find-jobs/[id]/page.tsx");
 
-  const redirectIndex = source.indexOf('redirect("/login?error=session")');
-  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
-  const readIndex = source.indexOf('.from("jobs")');
-
-  assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
-  assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
-  assert.ok(gateIndex < readIndex, "the gate must run before the job row is read");
+  assert.ok(
+    !source.includes("requireApprovedPage"),
+    "the old private beta gate must not be called; usage gating replaces it",
+  );
   assert.ok(
     !source.includes("user_access"),
-    "the page must go through requireApprovedPage, never query user_access itself",
+    "the page must never query user_access directly",
   );
 });
 
@@ -81,7 +78,7 @@ test("job details route keeps the existing authenticated shell and skip link (AC
   assert.match(source, /<Navbar authenticated \/>/);
   assert.match(source, /href="#main-content"/);
   assert.match(source, /id="main-content"/);
-  assert.match(source, /<JobDetailsPage job=\{job\} \/>/);
+  assert.match(source, /<JobDetailsPage job=\{job\} researchRemaining=\{researchRemaining\} \/>/);
 });
 
 test("Find Jobs table links each role to the details route with keyboard focus styling (AC-3)", async () => {
@@ -258,7 +255,7 @@ test("job details page passes one safe external url to both external actions (AC
   assert.match(source, /<JobActions company=\{job\.company\} externalJobUrl=\{externalJobUrl\} \/>/);
   assert.match(
     source,
-    /<CompanyResearchCard company=\{job\.company\} dossier=\{job\.company_research\} jobId=\{job\.id\} \/>/,
+    /<CompanyResearchCard company=\{job\.company\} dossier=\{job\.company_research\} jobId=\{job\.id\} researchRemaining=\{researchRemaining\} \/>/,
   );
 });
 
@@ -338,7 +335,9 @@ test("company research card shows the empty state, an enabled button, and no dos
 
   assert.match(source, /Research Company/);
   assert.match(source, /No research yet/);
-  assert.match(source, /dossier \? null : \(/);
+  // The button is now conditionally rendered: atCap shows an upgrade link,
+  // dossier hides it, otherwise the Research Company button shows.
+  assert.match(source, /dossier \? null : atCap \?/);
 });
 
 test("company research card blocks the button while loading and shows an inline error on failure, never a partial dossier (AC-7, AC-11)", async () => {
@@ -346,7 +345,8 @@ test("company research card blocks the button while loading and shows an inline 
 
   assert.match(source, /disabled=\{status === "loading"\}/);
   assert.match(source, /Researching…/);
-  assert.match(source, /if \(!result\.success\) \{\s*setStatus\("error"\);\s*setErrorMessage\(result\.error\);\s*return;/);
+  // The error path now checks for usage_capped before generic error.
+  assert.match(source, /if \(result\.code === "usage_capped"\)/);
   assert.match(source, /Research failed/);
   assert.match(source, /role="alert"/);
 });

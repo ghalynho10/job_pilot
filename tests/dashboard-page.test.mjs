@@ -19,19 +19,20 @@ test("dashboard page keeps the auth redirect, skip link, Navbar, and PostHog ide
   assert.match(source, /<DashboardIdentity userId=\{data\.user\.id\} \/>/);
 });
 
-test("dashboard page sends an unapproved user to the private beta screen before reading any data", async () => {
+test("dashboard page no longer calls the old private beta gate (AC-7)", async () => {
   const source = await readProjectFile("app/dashboard/page.tsx");
 
-  const redirectIndex = source.indexOf('redirect("/login?error=session")');
-  const gateIndex = source.indexOf("await requireApprovedPage(insforge, data.user.id);");
-  const readIndex = source.indexOf("await Promise.all([");
-
-  assert.notEqual(gateIndex, -1, "the page must call the shared approval gate");
-  assert.ok(redirectIndex < gateIndex, "the signed in check comes first");
-  assert.ok(gateIndex < readIndex, "the gate must run before the page reads anything");
+  assert.ok(
+    !source.includes("requireApprovedPage"),
+    "the old private beta gate must not be called; usage gating replaces it",
+  );
   assert.ok(
     !source.includes("user_access"),
-    "the page must go through requireApprovedPage, never query user_access itself",
+    "the page must never query user_access directly",
+  );
+  assert.ok(
+    !source.includes("/private-beta"),
+    "the page must never redirect to the deleted private beta screen",
   );
 });
 

@@ -19,9 +19,10 @@ import type { JobRow } from "@/types";
 
 type JobDetailsPageProps = {
   job: JobRow;
+  researchRemaining: { used: number; limit: number } | null;
 };
 
-export function JobDetailsPage({ job }: JobDetailsPageProps): JSX.Element {
+export function JobDetailsPage({ job, researchRemaining }: JobDetailsPageProps): JSX.Element {
   const externalJobUrl = resolveExternalJobUrl(job);
 
   return (
@@ -54,7 +55,7 @@ export function JobDetailsPage({ job }: JobDetailsPageProps): JSX.Element {
         requirements={normalizeStringList(job.requirements)}
         responsibilities={normalizeStringList(job.responsibilities)}
       />
-      <CompanyResearchCard company={job.company} dossier={job.company_research} jobId={job.id} />
+      <CompanyResearchCard company={job.company} dossier={job.company_research} jobId={job.id} researchRemaining={researchRemaining} />
       <JobActions company={job.company} externalJobUrl={externalJobUrl} />
     </div>
   );

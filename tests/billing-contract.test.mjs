@@ -36,45 +36,17 @@ test("startCheckout checks auth before anything else (AC-2)", async () => {
     source.indexOf("export async function startCheckout"),
   );
   const authCheckIndex = fnBody.indexOf("getCurrentUser");
-  const approvalCheckIndex = fnBody.indexOf("isUserApproved");
   const subscriptionCheckIndex = fnBody.indexOf("getSubscription");
   const checkoutCallIndex = fnBody.indexOf("createCheckoutSession");
 
   assert.ok(authCheckIndex !== -1, "must check auth");
-  assert.ok(approvalCheckIndex !== -1, "must check isUserApproved");
   assert.ok(
-    authCheckIndex < approvalCheckIndex,
-    "auth must be checked before approval",
+    authCheckIndex < checkoutCallIndex,
+    "auth must be checked before creating a checkout session",
   );
-  assert.ok(
-    approvalCheckIndex < checkoutCallIndex,
-    "approval must be checked before creating a checkout session",
-  );
-  // getSubscription must also be called before createCheckoutSession to check
-  // the plan, but its position relative to isUserApproved is flexible.
   assert.ok(
     subscriptionCheckIndex < checkoutCallIndex,
     "plan must be checked before creating a checkout session",
-  );
-});
-
-test("startCheckout re-checks isUserApproved, not only the page level gate (AC-4)", async () => {
-  const source = await readProjectFile("actions/billing.ts");
-
-  assert.match(
-    source,
-    /isUserApproved\(insforge, data\.user\.id\)/,
-    "a Server Action is directly invocable with just a session cookie, so it must re-check approval itself",
-  );
-});
-
-test("startCheckout redirects an unapproved caller to the private beta screen (AC-4)", async () => {
-  const source = await readProjectFile("actions/billing.ts");
-
-  assert.match(
-    source,
-    /redirect\("\/private-beta"\)/,
-    "an unapproved caller must be sent to the private beta screen, the same as every other paid action",
   );
 });
 
@@ -179,7 +151,6 @@ test("startCheckout never throws, every failure path redirects (AC-4)", async ()
     redirects.includes("/login?error=session"),
     "auth failure must redirect",
   );
-  assert.ok(redirects.includes("/private-beta"), "unapproved must redirect");
   assert.ok(
     redirects.includes("/profile?error=checkout"),
     "read failure must redirect",

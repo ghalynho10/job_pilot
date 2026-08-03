@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { getSubscription, isUserApproved } from "@/lib/access";
+import { getSubscription } from "@/lib/access";
 import { getAppOrigin } from "@/lib/auth-routing";
 import { createInsforgeServer } from "@/lib/insforge-server";
 
@@ -37,10 +37,6 @@ export async function startCheckout(): Promise<never> {
 
   if (authError || !data.user) {
     redirect("/login?error=session");
-  }
-
-  if (!(await isUserApproved(insforge, data.user.id))) {
-    redirect("/private-beta");
   }
 
   const subscriptionResult = await getSubscription(data.user.id);

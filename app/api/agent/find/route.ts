@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { runJobSearch } from "@/agent/adzuna";
-import { guardPaidRoute } from "@/lib/access";
+import { enforceUsageCap, guardPaidRoute } from "@/lib/access";
 import type { ActionResult, Profile, ProfileRow } from "@/types";
 
 function mapRowToProfile(row: ProfileRow): Profile {
@@ -96,6 +96,12 @@ export async function POST(
     }
 
     const profile = mapRowToProfile(profileRow as ProfileRow);
+
+    const cap = await enforceUsageCap(userId, "search");
+    if (!cap.ok) {
+      return cap.response;
+    }
+
     const result = await runJobSearch(
       insforge,
       userId,

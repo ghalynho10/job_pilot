@@ -4,8 +4,9 @@ import test from "node:test";
 
 import {
   agentRunsEnabled,
+  checkAndIncrementUsage,
+  FREE_TIER_CAPS,
   getSubscription,
-  isUserApproved,
 } from "../lib/access-rules.ts";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -14,9 +15,543 @@ async function readProjectFile(path) {
   return readFile(new URL(path, projectRoot), "utf8");
 }
 
+// A stand in for the InsForge service role client that records RPC calls, so
+// the tests can prove checkAndIncrementUsage calls the right function with the
+// right arguments and handles every return shape correctly.
+function fakeServiceInsforge({
+  rpcData = null,
+  rpcError = null,
+  throwOnRpc = false,
+} = {}) {
+  const rpcCalls = [];
+
+  return {
+    rpcCalls,
+    database: {
+      async rpc(fnName, params) {
+        rpcCalls.push({ fnName, params });
+        if (throwOnRpc) {
+          throw new Error("connection lost");
+        }
+        return { data: rpcData, error: rpcError };
+      },
+    },
+  };
+}
+
+// console.error is part of the contract: a real RPC failure must be logged
+// and fail closed.
+async function captureErrors(run) {
+  const original = console.error;
+  const logged = [];
+  console.error = (...args) => logged.push(args);
+
+  try {
+    return { result: await run(), logged };
+  } finally {
+    console.error = original;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// agentRunsEnabled (unchanged from the old gate)
+// ---------------------------------------------------------------------------
+
+test("only the exact string false disables agent runs", () => {
+  assert.equal(agentRunsEnabled("false"), false);
+});
+
+test("agent runs stay enabled when the flag is unset, empty, true, or misspelled", () => {
+  assert.equal(agentRunsEnabled(undefined), true);
+  assert.equal(agentRunsEnabled(""), true);
+  assert.equal(agentRunsEnabled("true"), true);
+  assert.equal(agentRunsEnabled("FALSE"), true);
+  assert.equal(agentRunsEnabled("False"), true);
+  assert.equal(agentRunsEnabled(" false "), true);
+});
+
+test("agentRunsEnabled reads nothing from the process environment", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+  const body = source.slice(source.indexOf("export function agentRunsEnabled"));
+
+  assert.ok(
+    !body.includes("process.env"),
+    "agentRunsEnabled must take the flag as an argument, not read it",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// checkAndIncrementUsage (feature 3, AC-1 through AC-5)
+// ---------------------------------------------------------------------------
+
+test("a free user under the cap is allowed and the count is returned (AC-1)", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: true, plan: "free", used: 4, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  const result = await checkAndIncrementUsage("user-1", "search", () => insforge);
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.plan, "free");
+  assert.equal(result.used, 4);
+  assert.equal(result.limit, 10);
+});
+
+test("a free user at the cap is denied without incrementing (AC-2)", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: false, plan: "free", used: 10, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  const result = await checkAndIncrementUsage("user-1", "search", () => insforge);
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.used, 10);
+  assert.equal(result.limit, 10);
+});
+
+test("a Pro user in good standing is always allowed and no counter is touched (AC-3)", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: true, plan: "pro", used: 0, limit_val: 0, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  const result = await checkAndIncrementUsage("user-1", "research", () => insforge);
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.plan, "pro");
+  assert.equal(result.used, 0);
+  assert.equal(result.limit, 0);
+});
+
+test("an RPC error fails closed (allowed = false)", async () => {
+  const insforge = fakeServiceInsforge({ rpcError: { message: "function not found" } });
+  const { result, logged } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", () => insforge),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.plan, "free");
+  assert.equal(result.limit, FREE_TIER_CAPS.search);
+  assert.equal(logged.length, 1);
+});
+
+test("a thrown RPC call fails closed", async () => {
+  const insforge = fakeServiceInsforge({ throwOnRpc: true });
+  const { result, logged } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", () => insforge),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(logged.length, 1);
+});
+
+test("checkAndIncrementUsage calls the RPC with the correct function name and caps (AC-1)", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 3, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  await checkAndIncrementUsage("user-1", "research", () => insforge);
+
+  assert.equal(insforge.rpcCalls.length, 1);
+  assert.equal(insforge.rpcCalls[0].fnName, "check_and_increment_usage");
+  assert.equal(insforge.rpcCalls[0].params.p_user_id, "user-1");
+  assert.equal(insforge.rpcCalls[0].params.p_action, "research");
+  assert.equal(insforge.rpcCalls[0].params.p_search_limit, FREE_TIER_CAPS.search);
+  assert.equal(insforge.rpcCalls[0].params.p_research_limit, FREE_TIER_CAPS.research);
+});
+
+test("checkAndIncrementUsage passes the search cap for a search action and research cap for research", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 10, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  await checkAndIncrementUsage("user-1", "search", () => insforge);
+
+  assert.equal(insforge.rpcCalls[0].params.p_search_limit, 10);
+  assert.equal(insforge.rpcCalls[0].params.p_research_limit, 3);
+});
+
+test("checkAndIncrementUsage returns denied when the client factory throws (AC-3)", async () => {
+  const makeClient = () => {
+    throw new Error("SERVICE_ROLE_KEY is not set");
+  };
+  const { result, logged } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", makeClient),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.plan, "free");
+  assert.equal(result.used, FREE_TIER_CAPS.search);
+  assert.equal(result.limit, FREE_TIER_CAPS.search);
+  assert.equal(logged.length, 1);
+});
+
+test("checkAndIncrementUsage returns denied when RPC data is null or empty", async () => {
+  // The RPC returned no data (not an error, just no result).
+  const insforge = fakeServiceInsforge({ rpcData: null });
+  const { result, logged } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", () => insforge),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(logged.length, 1);
+});
+
+test("checkAndIncrementUsage maps the RPC return fields correctly for both actions", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: { allowed: true, plan: "free", used: 1, limit_val: 3, period_start: "2026-08-01T00:00:00Z" },
+  });
+
+  const researchResult = await checkAndIncrementUsage("user-1", "research", () => insforge);
+  assert.equal(researchResult.used, 1);
+  assert.equal(researchResult.limit, 3);
+  assert.equal(researchResult.periodStart, "2026-08-01T00:00:00Z");
+
+  const searchResult = await checkAndIncrementUsage("user-1", "search", () => insforge);
+  assert.equal(searchResult.used, 1);
+  assert.equal(searchResult.limit, 3);
+  assert.equal(searchResult.periodStart, "2026-08-01T00:00:00Z");
+});
+
+// ---------------------------------------------------------------------------
+// guardPaidRoute: status codes (feature 3, AC-2, AC-7)
+// ---------------------------------------------------------------------------
+
+test("the guard returns 401 for a signed out caller and 503 for the kill switch, but no longer checks approval", async () => {
+  const source = await readProjectFile("lib/access.ts");
+
+  assert.match(
+    source,
+    /if \(error \|\| !data\.user\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.signedOut, 401\) \};/,
+    "no session must be 401",
+  );
+  assert.match(
+    source,
+    /if \(requireAgentSwitch && !agentRunsEnabled\(process\.env\.ENABLE_AGENT_RUNS\)\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.agentsPaused, 503\) \};/,
+    "the kill switch must be 503 and must only apply when requireAgentSwitch is set",
+  );
+  // The old approval check must be gone (AC-7).
+  assert.ok(
+    !source.includes("isUserApproved"),
+    "guardPaidRoute must not reference isUserApproved; the old private beta gate is removed",
+  );
+});
+
+test("denial messages use the new usage cap wording, not the old private beta wording (AC-2, AC-7)", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+
+  assert.match(
+    source,
+    /usageCapped: "You have used all your free searches for this cycle\. Upgrade to Pro for unlimited access\."/,
+    "the cap message must mention the free tier cycle and upgrading to Pro",
+  );
+  // The old private beta message must be gone from DENIAL_MESSAGES.
+  // The comment mentioning "private beta gate" is in the file header, not
+  // in DENIAL_MESSAGES, so check only the constant block.
+  const denialBlock = source.slice(
+    source.indexOf("DENIAL_MESSAGES"),
+    source.indexOf("} as const"),
+  );
+  assert.ok(
+    !denialBlock.includes("private beta"),
+    "DENIAL_MESSAGES must not mention private beta; the old gate is removed",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Old gate removal: no remaining references (AC-7)
+// ---------------------------------------------------------------------------
+
+test("user_access is never read outside lib/access-rules.ts", async () => {
+  const searchRoots = ["app", "lib", "components", "actions", "agent"];
+  const offenders = [];
+
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await readdir(new URL(`${dir}/`, projectRoot), {
+        withFileTypes: true,
+      });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        await walk(path);
+        continue;
+      }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+      // The types file has the type definition, which is inert; it's the
+      // runtime reads that matter.
+      if (path === "lib/access-rules.ts" || path === "types/index.ts") continue;
+
+      const source = await readProjectFile(path);
+      if (source.includes("user_access")) {
+        offenders.push(path);
+      }
+    }
+  }
+
+  for (const root of searchRoots) {
+    await walk(root);
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `user_access must only be defined in types and access-rules, found in: ${offenders.join(", ")}`,
+  );
+});
+
+test("the private beta page is deleted (AC-7)", async () => {
+  let exists = true;
+  try {
+    await readProjectFile("app/private-beta/page.tsx");
+  } catch {
+    exists = false;
+  }
+
+  assert.equal(exists, false, "app/private-beta/page.tsx must not exist");
+});
+
+test("the proxy no longer routes /private-beta (AC-7)", async () => {
+  const source = await readProjectFile("proxy.ts");
+
+  assert.ok(
+    !source.includes("/private-beta"),
+    "the proxy matcher must not include /private-beta",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// enforceUsageCap: cap enforcement response shape (AC-2)
+// ---------------------------------------------------------------------------
+
+test("enforceUsageCap exists and returns the usage_capped code on denial", async () => {
+  const source = await readProjectFile("lib/access.ts");
+
+  assert.match(
+    source,
+    /export async function enforceUsageCap/,
+    "enforceUsageCap must be exported from lib/access.ts",
+  );
+  assert.match(
+    source,
+    /code: "usage_capped"/,
+    "the capped denial must carry code usage_capped for the UI to detect",
+  );
+  assert.match(
+    source,
+    /used: usage\.used/,
+    "the capped response must carry the used count",
+  );
+  assert.match(
+    source,
+    /limit: usage\.limit/,
+    "the capped response must carry the limit",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Route wiring: enforceUsageCap is called in both metered routes (AC-6)
+// ---------------------------------------------------------------------------
+
+test("the find route calls enforceUsageCap after the profile check and before runJobSearch (AC-6)", async () => {
+  const source = await readProjectFile("app/api/agent/find/route.ts");
+
+  const profileCheckIndex = source.indexOf("!profileRow || !profileRow.skills");
+  const capCheckIndex = source.indexOf("enforceUsageCap(userId, \"search\")");
+  const runJobSearchIndex = source.indexOf("runJobSearch(");
+
+  assert.ok(profileCheckIndex !== -1, "must check profile has skills");
+  assert.ok(capCheckIndex !== -1, "must enforce usage cap");
+  assert.ok(runJobSearchIndex !== -1, "must call runJobSearch");
+  assert.ok(
+    profileCheckIndex < capCheckIndex,
+    "profile check must come before usage enforcement so invalid requests never spend quota",
+  );
+  assert.ok(
+    capCheckIndex < runJobSearchIndex,
+    "usage enforcement must come before the paid provider call",
+  );
+});
+
+test("the research route calls enforceUsageCap after the job lookup and before runCompanyResearch (AC-6)", async () => {
+  const source = await readProjectFile("app/api/agent/research/route.ts");
+
+  const jobLookupIndex = source.indexOf("!jobRow");
+  const capCheckIndex = source.indexOf("enforceUsageCap(userId, \"research\")");
+  const runResearchIndex = source.indexOf("runCompanyResearch(");
+
+  assert.ok(jobLookupIndex !== -1, "must check job exists");
+  assert.ok(capCheckIndex !== -1, "must enforce usage cap");
+  assert.ok(runResearchIndex !== -1, "must call runCompanyResearch");
+  assert.ok(
+    jobLookupIndex < capCheckIndex,
+    "job lookup must come before usage enforcement so a missing job never spends quota",
+  );
+  assert.ok(
+    capCheckIndex < runResearchIndex,
+    "usage enforcement must come before the paid provider call",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// remainingUsage: read only helper (AC-8)
+// ---------------------------------------------------------------------------
+
+import { remainingUsage } from "../lib/access-rules.ts";
+
+test("remainingUsage is exported from access-rules", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+
+  assert.match(
+    source,
+    /export async function remainingUsage/,
+    "remainingUsage must be a named export",
+  );
+});
+
+test("remainingUsage returns { used, limit } for a free user with some usage", async () => {
+  const row = {
+    plan: "free",
+    status: "active",
+    research_runs_used: 2,
+    usage_period_start: new Date().toISOString(),
+  };
+  const insforge = fakeInsforge({ data: row });
+  const makeClient = () => insforge;
+
+  const result = await remainingUsage("user-1", "research", makeClient);
+
+  assert.notEqual(result, null);
+  assert.equal(result.used, 2);
+  assert.equal(result.limit, FREE_TIER_CAPS.research);
+});
+
+test("remainingUsage returns search count for the search action and research count for research", async () => {
+  const row = {
+    plan: "free",
+    status: "active",
+    research_runs_used: 2,
+    adzuna_searches_used: 5,
+    usage_period_start: new Date().toISOString(),
+  };
+  const insforge = fakeInsforge({ data: row });
+  const makeClient = () => insforge;
+
+  const searchResult = await remainingUsage("user-1", "search", makeClient);
+  assert.equal(searchResult.used, 5);
+  assert.equal(searchResult.limit, FREE_TIER_CAPS.search);
+
+  const researchResult = await remainingUsage("user-1", "research", makeClient);
+  assert.equal(researchResult.used, 2);
+  assert.equal(researchResult.limit, FREE_TIER_CAPS.research);
+});
+
+test("remainingUsage returns null for a Pro user in good standing, no cap to show (AC-8)", async () => {
+  // Pro + active
+  const activeRow = {
+    plan: "pro",
+    status: "active",
+    research_runs_used: 20,
+    usage_period_start: new Date().toISOString(),
+  };
+  const insforge = fakeInsforge({ data: activeRow });
+  const result = await remainingUsage("user-1", "research", () => insforge);
+  assert.equal(result, null, "Pro active must show no cap");
+
+  // Pro + trialing
+  const trialingRow = { ...activeRow, status: "trialing" };
+  const insforge2 = fakeInsforge({ data: trialingRow });
+  const result2 = await remainingUsage("user-1", "research", () => insforge2);
+  assert.equal(result2, null, "Pro trialing must show no cap");
+});
+
+test("remainingUsage returns a count for a Pro user with lapsed status, capped like free (AC-3)", async () => {
+  for (const lapsedStatus of ["past_due", "unpaid", "canceled", "incomplete", "incomplete_expired", "paused"]) {
+    const row = {
+      plan: "pro",
+      status: lapsedStatus,
+      research_runs_used: 3,
+      adzuna_searches_used: 10,
+      usage_period_start: new Date().toISOString(),
+    };
+    const insforge = fakeInsforge({ data: row });
+    const result = await remainingUsage("user-1", "research", () => insforge);
+    assert.notEqual(result, null, `Pro ${lapsedStatus} must show a cap`);
+    assert.equal(result.used, 3);
+    assert.equal(result.limit, FREE_TIER_CAPS.research);
+  }
+});
+
+test("remainingUsage reports the full cap as remaining when the window has expired (AC-4)", async () => {
+  const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+  const row = {
+    plan: "free",
+    status: "active",
+    research_runs_used: 3,
+    adzuna_searches_used: 10,
+    usage_period_start: fortyDaysAgo,
+  };
+  const insforge = fakeInsforge({ data: row });
+  const makeClient = () => insforge;
+
+  const result = await remainingUsage("user-1", "research", makeClient);
+  assert.notEqual(result, null);
+  assert.equal(result.used, 0, "an expired window must report 0 used, not the stale count");
+  assert.equal(result.limit, FREE_TIER_CAPS.research, "the limit stays the same even after expiry");
+});
+
+test("remainingUsage returns null when getSubscription fails", async () => {
+  const insforge = fakeInsforge({ error: { message: "permission denied" } });
+  const makeClient = () => insforge;
+
+  const result = await remainingUsage("user-1", "search", makeClient);
+  assert.equal(result, null, "a failed read must return null so the UI can hide the counter");
+});
+
+test("remainingUsage never calls the RPC, it only reads the subscriptions table", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+  const body = source.slice(
+    source.indexOf("export async function remainingUsage"),
+    source.indexOf("export async function getSubscription"),
+  );
+
+  assert.match(body, /getSubscription\b/);
+  assert.doesNotMatch(body, /\binsert\b/i);
+  assert.doesNotMatch(body, /\bupdate\b/i);
+  assert.doesNotMatch(body, /\brpc\b/i);
+  assert.doesNotMatch(body, /\bcheck_and_increment_usage\b/);
+});
+
+// ---------------------------------------------------------------------------
+// getSubscription (billing foundation AC-3, feature 1a AC-2, AC-3, feature 3)
+// ---------------------------------------------------------------------------
+
+test("getSubscription includes adzuna_searches_used in its select (feature 3)", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+
+  assert.match(
+    source,
+    /adzuna_searches_used/,
+    "getSubscription must select adzuna_searches_used",
+  );
+});
+
+test("the free plan default includes adzunaSearchesUsed set to 0", async () => {
+  const source = await readProjectFile("lib/access-rules.ts");
+
+  assert.match(
+    source,
+    /adzunaSearchesUsed: 0/,
+    "the free plan default must initialize adzunaSearchesUsed to 0",
+  );
+});
+
 // A stand in for the InsForge client that records what was asked for, so the
-// tests can prove isUserApproved reads user_access scoped to one user id and
-// nothing else.
+// getSubscription tests can prove the right table and columns are read.
 function fakeInsforge({
   data = null,
   error = null,
@@ -55,237 +590,8 @@ function fakeInsforge({
   };
 }
 
-// console.error is part of the contract here: a real query failure must be
-// logged, and a missing row must not be, because a missing row is the ordinary
-// state of every new signup rather than a fault worth paging anyone about.
-async function captureErrors(run) {
-  const original = console.error;
-  const logged = [];
-  console.error = (...args) => logged.push(args);
-
-  try {
-    return { result: await run(), logged };
-  } finally {
-    console.error = original;
-  }
-}
-
-test("only the exact string false disables agent runs", () => {
-  assert.equal(agentRunsEnabled("false"), false);
-});
-
-test("agent runs stay enabled when the flag is unset, empty, true, or misspelled", () => {
-  assert.equal(agentRunsEnabled(undefined), true);
-  assert.equal(agentRunsEnabled(""), true);
-  assert.equal(agentRunsEnabled("true"), true);
-  assert.equal(agentRunsEnabled("FALSE"), true);
-  assert.equal(agentRunsEnabled("False"), true);
-  assert.equal(agentRunsEnabled(" false "), true);
-});
-
-test("agentRunsEnabled reads nothing from the process environment", async () => {
-  const source = await readProjectFile("lib/access-rules.ts");
-  const body = source.slice(source.indexOf("export function agentRunsEnabled"));
-
-  assert.ok(
-    !body.includes("process.env"),
-    "agentRunsEnabled must take the flag as an argument, not read it",
-  );
-});
-
-test("an approved row is the only thing that opens the app", async () => {
-  const insforge = fakeInsforge({ data: { status: "approved" } });
-
-  assert.equal(await isUserApproved(insforge, "user-1"), true);
-});
-
-test("a pending row denies", async () => {
-  const insforge = fakeInsforge({ data: { status: "pending" } });
-
-  assert.equal(await isUserApproved(insforge, "user-1"), false);
-});
-
-test("a blocked row denies", async () => {
-  const insforge = fakeInsforge({ data: { status: "blocked" } });
-
-  assert.equal(await isUserApproved(insforge, "user-1"), false);
-});
-
-test("a missing row denies quietly, because that is every new signup", async () => {
-  const insforge = fakeInsforge({ data: null });
-  const { result, logged } = await captureErrors(() =>
-    isUserApproved(insforge, "user-1"),
-  );
-
-  assert.equal(result, false);
-  assert.deepEqual(
-    logged,
-    [],
-    "a missing row is not an error and must not be logged",
-  );
-});
-
-test("a query error denies and is logged rather than thrown, so a failure never opens the gate", async () => {
-  const insforge = fakeInsforge({ error: { message: "permission denied" } });
-  const { result, logged } = await captureErrors(() =>
-    isUserApproved(insforge, "user-1"),
-  );
-
-  assert.equal(result, false);
-  assert.equal(logged.length, 1);
-  assert.equal(logged[0][0], "[lib/access]");
-});
-
-test("a thrown query denies and is logged rather than escaping to the caller", async () => {
-  const insforge = fakeInsforge({ throwOnQuery: true });
-  const { result, logged } = await captureErrors(() =>
-    isUserApproved(insforge, "user-1"),
-  );
-
-  assert.equal(result, false);
-  assert.equal(logged.length, 1);
-  assert.equal(logged[0][0], "[lib/access]");
-});
-
-test("approval is read from user_access, scoped to the one user id", async () => {
-  const insforge = fakeInsforge({ data: { status: "approved" } });
-  await isUserApproved(insforge, "user-42");
-
-  assert.equal(insforge.queries.length, 1);
-  assert.equal(insforge.queries[0].table, "user_access");
-  assert.equal(insforge.queries[0].filters.user_id, "user-42");
-});
-
-test("isUserApproved is the only place in the app that reads user_access", async () => {
-  const searchRoots = ["app", "lib", "components", "actions", "agent"];
-  const offenders = [];
-
-  async function walk(dir) {
-    let entries;
-    try {
-      entries = await readdir(new URL(`${dir}/`, projectRoot), {
-        withFileTypes: true,
-      });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory()) {
-        await walk(path);
-        continue;
-      }
-      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
-      if (path === "lib/access-rules.ts") continue;
-
-      const source = await readProjectFile(path);
-      if (source.includes("user_access")) {
-        offenders.push(path);
-      }
-    }
-  }
-
-  for (const root of searchRoots) {
-    await walk(root);
-  }
-
-  assert.deepEqual(
-    offenders,
-    [],
-    `user_access must only be read through isUserApproved, found in: ${offenders.join(", ")}`,
-  );
-});
-
-test("the guard returns the documented status code for each way of being turned away", async () => {
-  const source = await readProjectFile("lib/access.ts");
-
-  assert.match(
-    source,
-    /if \(error \|\| !data\.user\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.signedOut, 401\) \};/,
-    "no session must be 401",
-  );
-  assert.match(
-    source,
-    /if \(!\(await isUserApproved\(insforge, userId\)\)\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.notApproved, 403\) \};/,
-    "signed in but not approved must be 403",
-  );
-  assert.match(
-    source,
-    /if \(requireAgentSwitch && !agentRunsEnabled\(process\.env\.ENABLE_AGENT_RUNS\)\) \{\s*return \{ ok: false, response: denial\(DENIAL_MESSAGES\.agentsPaused, 503\) \};/,
-    "the kill switch must be 503 and must only apply when requireAgentSwitch is set",
-  );
-});
-
-test("approval is checked before the kill switch, so an unapproved caller is never told the agents are merely paused", async () => {
-  const source = await readProjectFile("lib/access.ts");
-
-  const approvalIndex = source.indexOf("isUserApproved(insforge, userId)");
-  const switchIndex = source.indexOf("requireAgentSwitch && !agentRunsEnabled");
-
-  assert.ok(approvalIndex !== -1 && switchIndex !== -1);
-  assert.ok(approvalIndex < switchIndex);
-});
-
-test("denial messages give away nothing about why access was refused", async () => {
-  const source = await readProjectFile("lib/access-rules.ts");
-
-  assert.match(
-    source,
-    /notApproved: "JobPilot is in private beta\. Your account is not approved yet\."/,
-  );
-  // One message for missing, pending, and blocked alike. Anything that named
-  // the status would leak the owner's decision about a specific account.
-  assert.ok(
-    !/pending|blocked/.test(
-      source.slice(
-        source.indexOf("DENIAL_MESSAGES"),
-        source.indexOf("} as const"),
-      ),
-    ),
-  );
-});
-
-test("the page gate redirects to the private beta screen and is never wrapped in a try block", async () => {
-  const source = await readProjectFile("lib/access.ts");
-
-  const fnIndex = source.indexOf("export async function requireApprovedPage");
-  const body = source.slice(fnIndex);
-
-  assert.match(body, /redirect\("\/private-beta"\)/);
-  assert.ok(
-    !body.includes("try {"),
-    "redirect works by throwing, so a try block here would swallow it and render the page anyway",
-  );
-});
-
-test("the private beta screen sends an approved user away, so the two redirects cannot loop", async () => {
-  const source = await readProjectFile("app/private-beta/page.tsx");
-
-  assert.match(
-    source,
-    /if \(await isUserApproved\(insforge, data\.user\.id\)\) \{\s*redirect\("\/dashboard"\);/,
-  );
-  assert.match(source, /redirect\("\/login\?error=session"\)/);
-  assert.doesNotMatch(
-    source,
-    /await requireApprovedPage\(/,
-    "the private beta screen must do the opposite check, or it would redirect into itself",
-  );
-  assert.ok(
-    !/from "@\/components\/layout\/Navbar"/.test(source),
-    "the shared Navbar always renders the app links, so this screen must not use it",
-  );
-});
-
-test("the private beta screen is behind the session proxy", async () => {
-  const source = await readProjectFile("proxy.ts");
-
-  assert.match(source, /"\/private-beta"/);
-});
-
 // ---------------------------------------------------------------------------
-// getSubscription (billing foundation AC-3, feature 1a AC-2, AC-3)
+// getSubscription (unchanged from billing foundation, feature 1a)
 //
 // getSubscription is the only reader of the subscriptions table. It uses a
 // service role client internally because the table is revoked from the
@@ -664,21 +970,16 @@ test("the kill switch and the new table are documented where the next person wil
   assert.match(types, /export type UserAccessRow = \{/);
 });
 
-test("the private beta screen names the account and offers the shared sign out (AC-4)", async () => {
-  const source = await readProjectFile("app/private-beta/page.tsx");
-
-  assert.match(
-    source,
-    /\{data\.user\.email\}/,
-    "the visitor must be able to see which account they are on",
-  );
-  assert.match(source, /import \{ signOut \} from "@\/actions\/auth"/);
-  assert.match(
-    source,
-    /<form action=\{signOut\}/,
-    "sign out must be a real action, not a dead button",
-  );
-  assert.match(source, /title: "Private beta \| JobPilot"/);
+test("the old private beta screen no longer exists (AC-7)", async () => {
+  // The page was deleted in feature 3. The earlier test already proves
+  // the file doesn't exist; this test remains as a named tombstone.
+  let exists = true;
+  try {
+    await readProjectFile("app/private-beta/page.tsx");
+  } catch {
+    exists = false;
+  }
+  assert.equal(exists, false);
 });
 
 test("a denial never leaks who the caller is (AC-6)", async () => {
@@ -687,11 +988,10 @@ test("a denial never leaks who the caller is (AC-6)", async () => {
     access.indexOf("export async function guardPaidRoute"),
   );
 
-  // The denial bodies are built only from the fixed DENIAL_MESSAGES constants.
-  // Interpolating a user id, an email, or a status into them would turn the
-  // gate into an account enumeration tool.
+  // The denial bodies are built only from DENIAL_MESSAGES constants.
   const denials = denialBlock.match(/denial\([^)]*\)/g) ?? [];
-  assert.ok(denials.length >= 3);
+  // guardPaidRoute now has 2 denials: signedOut (401) and agentsPaused (503).
+  assert.ok(denials.length >= 2);
   for (const call of denials) {
     assert.match(
       call,
@@ -755,7 +1055,7 @@ test("every route that reaches a paid provider is guarded", async () => {
 // AC-4: getSubscription re-exported from lib/access.ts
 // ---------------------------------------------------------------------------
 
-test("getSubscription is re-exported from lib/access.ts alongside agentRunsEnabled and isUserApproved (AC-4)", async () => {
+test("getSubscription is re-exported from lib/access.ts alongside other access functions (AC-4)", async () => {
   const source = await readProjectFile("lib/access.ts");
 
   // The import from access-rules must include getSubscription.
@@ -772,13 +1072,11 @@ test("getSubscription is re-exported from lib/access.ts alongside agentRunsEnabl
     "lib/access.ts must re-export getSubscription",
   );
 
-  // Both agentRunsEnabled and isUserApproved must also be exported in the same
-  // statement, so the seam stays a single named surface for the rest of the
-  // app.
+  // checkAndIncrementUsage must also be exported in the same statement.
   const exportLine = source.match(/export\s*\{[^}]*\}/)[0];
   assert.match(exportLine, /\bagentRunsEnabled\b/);
   assert.match(exportLine, /\bgetSubscription\b/);
-  assert.match(exportLine, /\bisUserApproved\b/);
+  assert.match(exportLine, /\bcheckAndIncrementUsage\b/);
 });
 
 // ---------------------------------------------------------------------------

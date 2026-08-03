@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { runCompanyResearch } from "@/agent/research";
-import { guardPaidRoute } from "@/lib/access";
+import { enforceUsageCap, guardPaidRoute } from "@/lib/access";
 import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
 import { createPostHogServer } from "@/lib/posthog-server";
 import type { ActionResult, CompanyResearchDossier, JobRow, ProfileRow } from "@/types";
@@ -78,6 +78,11 @@ export async function POST(
     const profile = profileRow
       ? mapProfileRowToProfile(profileRow as ProfileRow)
       : buildEmptyProfile(userEmail);
+
+    const cap = await enforceUsageCap(userId, "research");
+    if (!cap.ok) {
+      return cap.response;
+    }
 
     const result = await runCompanyResearch(job, profile);
 

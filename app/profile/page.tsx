@@ -5,7 +5,7 @@ import { CompletionIndicator } from "@/components/profile/CompletionIndicator";
 import { ProfileEditor } from "@/components/profile/ProfileEditor";
 import { UpgradeCard } from "@/components/profile/UpgradeCard";
 import { Navbar } from "@/components/layout/Navbar";
-import { getSubscription, requireApprovedPage } from "@/lib/access";
+import { getSubscription } from "@/lib/access";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { deriveProfileCompletion } from "@/lib/profile-completion";
 import { buildEmptyProfile, mapProfileRowToProfile } from "@/lib/profile-mapping";
@@ -29,8 +29,6 @@ export default async function ProfilePage({
   if (error || !data.user) {
     redirect("/login?error=session");
   }
-
-  await requireApprovedPage(insforge, data.user.id);
 
   const { error: billingErrorCode } = await searchParams;
   const resolvedBillingErrorCode = Array.isArray(billingErrorCode)
