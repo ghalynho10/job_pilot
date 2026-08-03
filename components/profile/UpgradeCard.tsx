@@ -1,7 +1,6 @@
 import { CheckCircle } from "lucide-react";
 import type { JSX } from "react";
 
-import { startCheckout } from "@/actions/billing";
 import { UpgradeButton } from "@/components/profile/UpgradeButton";
 import type { Subscription } from "@/types";
 
@@ -29,9 +28,7 @@ export function UpgradeCard({ plan, errorMessage }: UpgradeCardProps): JSX.Eleme
             Pro
           </span>
         ) : (
-          <form action={startCheckout}>
-            <UpgradeButton />
-          </form>
+          <UpgradeButton />
         )}
       </div>
 

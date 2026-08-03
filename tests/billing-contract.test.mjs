@@ -193,9 +193,8 @@ test("UpgradeCard renders free plan copy and an Upgrade button when plan is free
     /free plan.*Upgrade to Pro/,
     "the free plan state must invite the user to upgrade",
   );
-  // The UpgradeButton form must only render when plan !== "pro".
+  // The UpgradeButton must only render when plan !== "pro".
   assert.match(source, /plan === "pro"/);
-  assert.match(source, /form action=\{startCheckout\}/);
   assert.match(source, /UpgradeButton/);
 });
 
@@ -240,6 +239,22 @@ test("UpgradeButton renders an Upgrade to Pro button (AC-1)", async () => {
 
   assert.match(source, /Upgrade/);
   assert.match(source, /button/i);
+});
+
+test("UpgradeButton resets pending state when returning from Stripe history", async () => {
+  const source = await readProjectFile("components/profile/UpgradeButton.tsx");
+
+  assert.match(
+    source,
+    /window\.addEventListener\("pageshow", resetPending\)/,
+    "returning from Stripe through browser history must not leave the button stuck pending",
+  );
+  assert.match(
+    source,
+    /window\.removeEventListener\("pageshow", resetPending\)/,
+    "the pageshow listener must be cleaned up",
+  );
+  assert.match(source, /setPending\(false\)/);
 });
 
 test("UpgradeButton uses token classes, not hardcoded hex colors", async () => {

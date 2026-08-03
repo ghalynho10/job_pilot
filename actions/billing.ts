@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSubscription } from "@/lib/access";
 import { getAppOrigin } from "@/lib/auth-routing";
 import { createInsforgeServer } from "@/lib/insforge-server";
+import type { ActionResult } from "@/types";
 
 /**
  * Start a Stripe Checkout Session for the Pro monthly plan and redirect the
@@ -18,10 +19,9 @@ import { createInsforgeServer } from "@/lib/insforge-server";
  *
  * Never throws: every failure path (including a malformed `NEXT_PUBLIC_APP_URL`
  * from `getAppOrigin`) redirects back to /profile with an error code rather
- * than surfacing an unhandled exception, since this runs as a form action
- * with no error boundary of its own.
+ * than surfacing an unhandled exception.
  */
-export async function startCheckout(): Promise<never> {
+export async function startCheckout(): Promise<ActionResult<{ checkoutUrl: string }>> {
   const insforge = await createInsforgeServer();
   const { data, error: authError } = await insforge.auth.getCurrentUser();
 
@@ -90,5 +90,5 @@ export async function startCheckout(): Promise<never> {
     redirect("/profile?error=checkout");
   }
 
-  redirect(checkoutUrl);
+  return { success: true, checkoutUrl };
 }
