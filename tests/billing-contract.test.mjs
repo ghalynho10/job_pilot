@@ -32,7 +32,9 @@ test("startCheckout uses the documented Pro price id (AC-2)", async () => {
 test("startCheckout checks auth before anything else (AC-2)", async () => {
   const source = await readProjectFile("actions/billing.ts");
 
-  const fnBody = source.slice(source.indexOf("export async function startCheckout"));
+  const fnBody = source.slice(
+    source.indexOf("export async function startCheckout"),
+  );
   const authCheckIndex = fnBody.indexOf("getCurrentUser");
   const approvalCheckIndex = fnBody.indexOf("isUserApproved");
   const subscriptionCheckIndex = fnBody.indexOf("getSubscription");
@@ -40,11 +42,20 @@ test("startCheckout checks auth before anything else (AC-2)", async () => {
 
   assert.ok(authCheckIndex !== -1, "must check auth");
   assert.ok(approvalCheckIndex !== -1, "must check isUserApproved");
-  assert.ok(authCheckIndex < approvalCheckIndex, "auth must be checked before approval");
-  assert.ok(approvalCheckIndex < checkoutCallIndex, "approval must be checked before creating a checkout session");
+  assert.ok(
+    authCheckIndex < approvalCheckIndex,
+    "auth must be checked before approval",
+  );
+  assert.ok(
+    approvalCheckIndex < checkoutCallIndex,
+    "approval must be checked before creating a checkout session",
+  );
   // getSubscription must also be called before createCheckoutSession to check
   // the plan, but its position relative to isUserApproved is flexible.
-  assert.ok(subscriptionCheckIndex < checkoutCallIndex, "plan must be checked before creating a checkout session");
+  assert.ok(
+    subscriptionCheckIndex < checkoutCallIndex,
+    "plan must be checked before creating a checkout session",
+  );
 });
 
 test("startCheckout re-checks isUserApproved, not only the page level gate (AC-4)", async () => {
@@ -84,7 +95,10 @@ test("startCheckout rejects a Pro user before calling InsForge payments (AC-4)",
   const checkoutCallIndex = source.indexOf("createCheckoutSession");
 
   assert.ok(planCheckIndex !== -1, "must check plan before creating checkout");
-  assert.ok(planCheckIndex < checkoutCallIndex, "plan check must happen before the checkout API call");
+  assert.ok(
+    planCheckIndex < checkoutCallIndex,
+    "plan check must happen before the checkout API call",
+  );
   assert.match(
     source,
     /redirect\("\/profile\?error=already_pro"\)/,
@@ -152,21 +166,36 @@ test("startCheckout scopes the checkout session to the caller's own user id (AC-
 test("startCheckout never throws, every failure path redirects (AC-4)", async () => {
   const source = await readProjectFile("actions/billing.ts");
 
-  const fnBody = source.slice(source.indexOf("export async function startCheckout"));
+  const fnBody = source.slice(
+    source.indexOf("export async function startCheckout"),
+  );
   // Every redirect call must point to a known error page, not escape as an
   // unhandled exception since this runs as a form action with no error boundary.
-  const redirects = [...fnBody.matchAll(/redirect\("([^"]+)"\)/g)].map((m) => m[1]);
+  const redirects = [...fnBody.matchAll(/redirect\("([^"]+)"\)/g)].map(
+    (m) => m[1],
+  );
 
-  assert.ok(redirects.includes("/login?error=session"), "auth failure must redirect");
+  assert.ok(
+    redirects.includes("/login?error=session"),
+    "auth failure must redirect",
+  );
   assert.ok(redirects.includes("/private-beta"), "unapproved must redirect");
-  assert.ok(redirects.includes("/profile?error=checkout"), "read failure must redirect");
-  assert.ok(redirects.includes("/profile?error=already_pro"), "Pro user must redirect");
+  assert.ok(
+    redirects.includes("/profile?error=checkout"),
+    "read failure must redirect",
+  );
+  assert.ok(
+    redirects.includes("/profile?error=already_pro"),
+    "Pro user must redirect",
+  );
 });
 
 test("startCheckout wraps the InsForge call in try/catch (AC-4)", async () => {
   const source = await readProjectFile("actions/billing.ts");
 
-  const fnBody = source.slice(source.indexOf("export async function startCheckout"));
+  const fnBody = source.slice(
+    source.indexOf("export async function startCheckout"),
+  );
   assert.match(fnBody, /try\s*\{/);
   assert.match(fnBody, /catch\s*\(/);
 });
@@ -215,7 +244,10 @@ test("UpgradeCard uses token classes, not hardcoded hex colors or raw Tailwind c
   const source = await readProjectFile("components/profile/UpgradeCard.tsx");
 
   assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}/);
-  assert.doesNotMatch(source, /bg-(red|blue|green|yellow|purple|pink|orange|gray|slate|zinc|neutral|stone|amber|lime|emerald|teal|cyan|sky|indigo|violet|fuchsia|rose)-\d/);
+  assert.doesNotMatch(
+    source,
+    /bg-(red|blue|green|yellow|purple|pink|orange|gray|slate|zinc|neutral|stone|amber|lime|emerald|teal|cyan|sky|indigo|violet|fuchsia|rose)-\d/,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -240,7 +272,9 @@ test("UpgradeButton uses token classes, not hardcoded hex colors", async () => {
 // ---------------------------------------------------------------------------
 
 test("UpgradeSuccessBanner renders the success message (AC-3)", async () => {
-  const source = await readProjectFile("components/dashboard/UpgradeSuccessBanner.tsx");
+  const source = await readProjectFile(
+    "components/dashboard/UpgradeSuccessBanner.tsx",
+  );
 
   assert.match(
     source,
@@ -252,7 +286,9 @@ test("UpgradeSuccessBanner renders the success message (AC-3)", async () => {
 });
 
 test("UpgradeSuccessBanner uses token classes, not hardcoded hex colors", async () => {
-  const source = await readProjectFile("components/dashboard/UpgradeSuccessBanner.tsx");
+  const source = await readProjectFile(
+    "components/dashboard/UpgradeSuccessBanner.tsx",
+  );
 
   assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}/);
 });
@@ -317,7 +353,10 @@ test("the checkout session RLS migration creates INSERT and SELECT policies scop
     "migrations/20260802201242_add-checkout-session-rls.sql",
   );
 
-  assert.match(source, /CREATE POLICY[\s\S]*?ON payments\.stripe_checkout_sessions/);
+  assert.match(
+    source,
+    /CREATE POLICY[\s\S]*?ON payments\.stripe_checkout_sessions/,
+  );
   assert.match(source, /FOR INSERT/);
   assert.match(source, /FOR SELECT/);
   assert.match(
@@ -336,7 +375,10 @@ test("the fulfillment trigger migration creates a SECURITY DEFINER function (AC-
   );
 
   assert.match(source, /SECURITY DEFINER/);
-  assert.match(source, /CREATE OR REPLACE FUNCTION.*fulfill_stripe_subscription/);
+  assert.match(
+    source,
+    /CREATE OR REPLACE FUNCTION.*fulfill_stripe_subscription/,
+  );
 });
 
 // ---------------------------------------------------------------------------
