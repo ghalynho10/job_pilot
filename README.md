@@ -4,7 +4,7 @@ A full stack AI-powered job hunting assistant. Set up your profile once, upload 
 
 Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
 
-![Dashboard screenshot](./public/screenshot-dashboard.png)
+![Dashboard screenshot](./public/images/screenshot-dashboard.png)
 *Dashboard — stats, recent activity, and match-score analytics*
 
 > **Note on the live demo:** every agent run costs real money (OpenAI, Adzuna, Browserbase), so signed-in access to the paid features is manually approved. If you hit the private-beta screen, [email me](mailto:mghalynho@gmail.com) and I'll approve your account — usually within a day.
