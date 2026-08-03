@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Slice 1: Monetization
-**Last completed:** 1 Billing foundation: subscription data model & Stripe setup (verified, tested)
-**Next:** `/architect checkout & subscribe`
+**Last completed:** 2 Checkout & subscribe (spec 0017, verified and tested)
+**Next:** `/architect free tier usage gating` (feature 3)
 
 ---
 
@@ -53,6 +53,15 @@ Update this file after every completed feature. Any AI agent reading this should
 ### Phase 7 — Foundation (Profile)
 
 - [x] 0b Optional projects capture in resume extraction (spec 0014, verified, tested, accepted)
+
+### Phase 8 — Foundation (Billing)
+
+- [x] 1 Billing foundation: subscription data model & Stripe setup (spec 0015, verified, tested)
+- [x] 1a Privileged subscriptions read (spec 0016, verified, tested)
+
+### Phase 9 — Slice 1: Monetization
+
+- [x] 2 Checkout & subscribe (spec 0017, verified, tested)
 
 ---
 

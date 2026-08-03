@@ -31,7 +31,7 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 0b | Optional projects capture in resume extraction | Foundation (Profile) | done |
 | 1 | Billing foundation: subscription data model & Stripe setup | Foundation (Billing) | done |
 | 1a | Privileged subscriptions read | Foundation (Billing) | done |
-| 2 | Checkout & subscribe | Slice 1: Monetization | planned |
+| 2 | Checkout & subscribe | Slice 1: Monetization | done |
 | 3 | Free tier usage gating | Slice 1: Monetization | planned |
 | 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
 | 5 | Job application status tracking | Slice 3: Application Tracking | planned |
@@ -170,10 +170,18 @@ code in `lib/insforge-service.ts`, `lib/access-rules.ts`, `lib/access.ts`, `migr
 
 ## Slice 1: Monetization
 
-### 2. Checkout & subscribe · needs a decision · full
+### 2. Checkout & subscribe · full
 A signed in user upgrades to the paid plan through Stripe Checkout, and the subscription activates off the webhook, no manual portal or self-serve management yet.
 **Done when:** a user clicks Upgrade, completes Stripe Checkout, the webhook marks their account paid, and the UI reflects the new plan.
-- [ ] Design it (spec): `/architect checkout & subscribe`
+- [x] Design it (spec): [0017](../specs/0017-checkout-and-subscribe.md)
+- [x] Build it: `/develop checkout & subscribe`
+  - [x] Migration: `last_stripe_event_at` column + RLS on `payments.stripe_checkout_sessions` (AC-2, AC-5)
+  - [x] Migration: `SECURITY DEFINER` fulfillment trigger on `payments.webhook_events` (AC-3, AC-5)
+  - [x] Server Action `startCheckout` in `actions/billing.ts` (AC-1, AC-2, AC-4)
+  - [x] UI: upgrade card on `/profile`, success banner on `/dashboard` (AC-1, AC-3, AC-4, AC-6)
+code in `migrations/20260802201242_add-checkout-session-rls.sql`, `migrations/20260802201305_add-stripe-subscription-fulfillment.sql`, `actions/billing.ts`, `components/profile/UpgradeCard.tsx`, `components/profile/UpgradeButton.tsx`, `components/dashboard/UpgradeSuccessBanner.tsx`, `app/profile/page.tsx`, `app/dashboard/page.tsx`
+- [x] Verify it: `/check verify checkout & subscribe`
+- [x] Test it: `/test checkout & subscribe`
 
 ### 3. Free tier usage gating · needs a decision · full
 Cap monthly Adzuna searches and company research runs for free tier accounts; block and prompt to upgrade once the cap is hit. Paid accounts are uncapped (or a much higher cap).

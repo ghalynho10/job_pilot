@@ -209,6 +209,35 @@ Non-visual client wrapper, no styling classes of its own; composes `ResumeUpload
 
 **Pattern notes:** every interactive element in this project (buttons, links, icon-only remove buttons) must carry `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`, matching `Navbar`, `OAuthButton`, and `DashboardPage`. The `ProfileForm`/`ResumeUpload` Add, Add role, dropzone, and tag-remove buttons were initially built without it and caught and fixed during `/imprint` — check for this specifically on any new icon-only or non-primary button.
 
+### UpgradeCard
+
+File: `components/profile/UpgradeCard.tsx` (+ `components/profile/UpgradeButton.tsx`)
+
+Last updated: 2026-08-02 (feature 2, Checkout & subscribe)
+
+| Property | Class |
+| --- | --- |
+| Card surface | `rounded-xl border border-border bg-surface p-6 shadow-sm` |
+| Card title | `text-lg font-semibold text-text-primary` |
+| Body text | `text-sm text-text-secondary` |
+| Pro state pill | `rounded-full bg-success-lightest px-3 py-1.5 text-sm font-medium text-success-foreground` with `CheckCircle` icon |
+| Upgrade button (primary) | `min-h-11 rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60` |
+| Error alert | `rounded-md border border-error bg-surface px-4 py-3 text-sm text-error`, `role="alert"` |
+
+Server-renderable card on `app/profile/page.tsx` (per [spec 0017](../docs/specs/0017-checkout-and-subscribe.md)) showing the account's current plan (via `getSubscription`) and either the Upgrade CTA (free plan) or a Pro pill (already Pro, CTA hidden). `UpgradeButton` is a small client component using `useFormStatus` for a pending state, the same pattern as `OAuthButton`, wired to a `<form action={startCheckout}>` Server Action (`actions/billing.ts`) rather than a client side fetch, matching how `actions/auth.ts`'s OAuth buttons work.
+
+### UpgradeSuccessBanner
+
+File: `components/dashboard/UpgradeSuccessBanner.tsx`
+
+Last updated: 2026-08-02 (feature 2, Checkout & subscribe)
+
+| Property | Class |
+| --- | --- |
+| Banner | `rounded-lg bg-success-lightest px-4 py-3 text-sm font-medium text-success-foreground` with `CheckCircle` icon, `role="status"` |
+
+Shown on `/dashboard` when `?upgraded=1` is present (the Stripe Checkout `successUrl`), reusing the same banner shape as `IncompleteProfileBanner` with the success token pair instead of warning.
+
 ### FindJobsPage
 
 File: `app/find-jobs/page.tsx` (auth shell) + `components/find-jobs/FindJobsPage.tsx` (interactive client component)
