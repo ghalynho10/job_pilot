@@ -2,9 +2,13 @@
 
 import { createAuthActions } from "@insforge/sdk/ssr";
 import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getAppOrigin } from "@/lib/auth-routing";
+import {
+  getAppOrigin,
+  getRequestOriginFromHeaders,
+} from "@/lib/auth-routing";
 import type { ActionResult } from "@/types";
 
 type OAuthProvider = "google" | "github";
@@ -89,6 +93,7 @@ async function startOAuth(provider: OAuthProvider): Promise<never> {
 
   try {
     const cookieStore = await cookies();
+    const requestHeaders = await headers();
     const auth = createAuthActions({ cookies: cookieStore });
     const { data, error } = await auth.signInWithOAuth(provider, {
       redirectTo: new URL(
@@ -96,6 +101,7 @@ async function startOAuth(provider: OAuthProvider): Promise<never> {
         getAppOrigin({
           appUrl: process.env.NEXT_PUBLIC_APP_URL,
           nodeEnv: process.env.NODE_ENV,
+          requestOrigin: getRequestOriginFromHeaders(requestHeaders),
         }),
       ).toString(),
       skipBrowserRedirect: true,

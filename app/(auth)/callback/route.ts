@@ -12,6 +12,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const appOrigin = getAppOrigin({
     appUrl: process.env.NEXT_PUBLIC_APP_URL,
     nodeEnv: process.env.NODE_ENV,
+    requestOrigin: request.nextUrl.origin,
   });
 
   if (!code || !verifier) {

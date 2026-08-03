@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createLoginUrl,
   getAppOrigin,
+  getRequestOriginFromHeaders,
 } from "../lib/auth-routing.ts";
 
 test("uses the configured application origin for OAuth callbacks", () => {
@@ -19,6 +20,47 @@ test("uses localhost only outside production when no application URL is set", ()
   const origin = getAppOrigin({ nodeEnv: "development" });
 
   assert.equal(origin, "http://localhost:3000");
+});
+
+test("uses the current request origin outside production", () => {
+  const origin = getAppOrigin({
+    appUrl: "http://localhost:3000",
+    nodeEnv: "development",
+    requestOrigin: "http://localhost:3002",
+  });
+
+  assert.equal(origin, "http://localhost:3002");
+});
+
+test("production ignores the request origin and uses the configured origin", () => {
+  const origin = getAppOrigin({
+    appUrl: "https://jobs.example.com",
+    nodeEnv: "production",
+    requestOrigin: "http://localhost:3002",
+  });
+
+  assert.equal(origin, "https://jobs.example.com");
+});
+
+test("reads the request origin from the Origin header first", () => {
+  const origin = getRequestOriginFromHeaders(
+    new Headers({
+      host: "localhost:3000",
+      origin: "http://localhost:3002",
+    }),
+  );
+
+  assert.equal(origin, "http://localhost:3002");
+});
+
+test("falls back to the Host header when Origin is absent", () => {
+  const origin = getRequestOriginFromHeaders(
+    new Headers({
+      host: "localhost:3002",
+    }),
+  );
+
+  assert.equal(origin, "http://localhost:3002");
 });
 
 test("fails closed when the production application URL is missing", () => {
