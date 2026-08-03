@@ -5,16 +5,10 @@ import Link from "next/link";
 import posthog from "posthog-js";
 import { useMemo, useState, type FormEvent, type JSX } from "react";
 
-import {
-  filterJobs,
-  paginateJobs,
-  sortJobs,
-  type MatchFilter,
-  type SortMode,
-} from "@/lib/find-jobs-filters";
+import { filterJobs, paginateJobs, sortJobs, type MatchFilter, type SortMode } from "@/lib/find-jobs-filters";
 import { insforge } from "@/lib/insforge-client";
 import { getMatchScoreTier, type MatchScoreTier } from "@/lib/match-score";
-import type { ActionResult, JobRow } from "@/types";
+import type { JobRow } from "@/types";
 
 const MATCH_SCORE_TIER_CLASSES: Record<MatchScoreTier, string> = {
   high: "bg-success",
@@ -168,9 +162,7 @@ export function FindJobsPage({
 
       if (fetchError) {
         setStatus("error");
-        setErrorMessage(
-          "Search completed, but the results could not be loaded. Please refresh.",
-        );
+        setErrorMessage("Search completed, but the results could not be loaded. Please refresh.");
         return;
       }
 
@@ -179,9 +171,7 @@ export function FindJobsPage({
       setStatus("success");
     } catch {
       setStatus("error");
-      setErrorMessage(
-        "Something went wrong searching for jobs. Please try again.",
-      );
+      setErrorMessage("Something went wrong searching for jobs. Please try again.");
     }
   }
 
@@ -317,9 +307,7 @@ export function FindJobsPage({
               <select
                 aria-label="Filter by match"
                 className={SELECT_CLASSES}
-                onChange={(event) =>
-                  handleMatchFilterChange(event.target.value as MatchFilter)
-                }
+                onChange={(event) => handleMatchFilterChange(event.target.value as MatchFilter)}
                 value={matchFilter}
               >
                 <option value="all">All Matches</option>
@@ -334,9 +322,7 @@ export function FindJobsPage({
               <select
                 aria-label="Sort by match score"
                 className={SELECT_CLASSES}
-                onChange={(event) =>
-                  handleSortModeChange(event.target.value as SortMode)
-                }
+                onChange={(event) => handleSortModeChange(event.target.value as SortMode)}
                 value={sortMode}
               >
                 <option value="match-score">Match Score</option>
@@ -448,10 +434,7 @@ export function FindJobsPage({
                   </span>{" "}
                   results
                 </p>
-                <nav
-                  aria-label="Pagination"
-                  className="flex items-center gap-2"
-                >
+                <nav aria-label="Pagination" className="flex items-center gap-2">
                   <button
                     className={PAGINATION_BUTTON_CLASSES}
                     disabled={currentPage === 1}
@@ -465,9 +448,7 @@ export function FindJobsPage({
                     (_, index) => index + 1,
                   ).map((pageNumber) => (
                     <button
-                      aria-current={
-                        pageNumber === currentPage ? "page" : undefined
-                      }
+                      aria-current={pageNumber === currentPage ? "page" : undefined}
                       className={
                         pageNumber === currentPage
                           ? "rounded-md border border-accent bg-accent-light px-3 py-1.5 text-sm font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

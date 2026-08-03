@@ -58,12 +58,7 @@ export function JobDetailsPage({
         requirements={normalizeStringList(job.requirements)}
         responsibilities={normalizeStringList(job.responsibilities)}
       />
-      <CompanyResearchCard
-        company={job.company}
-        dossier={job.company_research}
-        jobId={job.id}
-        researchRemaining={researchRemaining}
-      />
+      <CompanyResearchCard company={job.company} dossier={job.company_research} jobId={job.id} researchRemaining={researchRemaining} />
       <JobActions company={job.company} externalJobUrl={externalJobUrl} />
     </div>
   );

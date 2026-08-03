@@ -14,8 +14,7 @@ import type { Subscription, SubscriptionRow } from "@/types";
 
 export const DENIAL_MESSAGES = {
   signedOut: "You must be signed in to do that.",
-  usageCapped:
-    "You have used all your free searches for this cycle. Upgrade to Pro for unlimited access.",
+  usageCapped: "You have used all your free searches for this cycle. Upgrade to Pro for unlimited access.",
   agentsPaused: "Job search and company research are temporarily paused.",
 } as const;
 

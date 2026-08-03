@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type JSX } from "react";
 
 import { StructuredList } from "@/components/job-details/StructuredList";
-import type { ActionResult, CompanyResearchDossier } from "@/types";
+import type { CompanyResearchDossier } from "@/types";
 
 type CompanyResearchCardProps = {
   jobId: string;
@@ -17,12 +17,6 @@ type CompanyResearchCardProps = {
 
 type RequestStatus = "idle" | "loading" | "error" | "capped";
 
-type CappedError = {
-  code: string;
-  used: number;
-  limit: number;
-};
-
 export function CompanyResearchCard({
   jobId,
   company,
@@ -32,12 +26,10 @@ export function CompanyResearchCard({
   const router = useRouter();
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [cappedInfo, setCappedInfo] = useState<CappedError | null>(null);
 
   async function handleResearch(): Promise<void> {
     setStatus("loading");
     setErrorMessage(null);
-    setCappedInfo(null);
 
     try {
       const response = await fetch("/api/agent/research", {
@@ -50,11 +42,6 @@ export function CompanyResearchCard({
       if (!result.success) {
         if (result.code === "usage_capped") {
           setStatus("capped");
-          setCappedInfo({
-            code: result.code,
-            used: result.used,
-            limit: result.limit,
-          });
           return;
         }
         setStatus("error");
@@ -66,9 +53,7 @@ export function CompanyResearchCard({
       router.refresh();
     } catch {
       setStatus("error");
-      setErrorMessage(
-        "Something went wrong researching this company. Please try again.",
-      );
+      setErrorMessage("Something went wrong researching this company. Please try again.");
     }
   }
 

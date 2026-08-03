@@ -11,7 +11,6 @@ import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UpgradeSuccessBanner } from "@/components/dashboard/UpgradeSuccessBanner";
 import { Navbar } from "@/components/layout/Navbar";
-import { getSubscription } from "@/lib/access";
 import { computeRecentActivity } from "@/lib/dashboard-activity";
 import {
   computeCompanyResearchActivity,
@@ -45,11 +44,9 @@ async function fetchAllStatsJobs(
   let from = 0;
 
   for (;;) {
-    const { data, error } = await insforge.database
+    const { data: page, error } = await insforge.database
       .from("jobs")
-      .select(
-        "match_score, company_research, found_at, company_research_completed_at",
-      )
+      .select("match_score, company_research, found_at, company_research_completed_at")
       .eq("user_id", userId)
       .order("id", { ascending: true })
       .range(from, from + STATS_PAGE_SIZE - 1);
@@ -57,7 +54,9 @@ async function fetchAllStatsJobs(
     if (error) {
       return { data: rows.length > 0 ? rows : null, error };
     }
-    if (!data || data.length === 0) {
+
+    const data = page ?? [];
+    if (data.length === 0) {
       break;
     }
 

@@ -59,9 +59,7 @@ export default async function ProfilePage({
     console.error("[app/profile]", profileError);
   }
 
-  const profile = row
-    ? mapProfileRowToProfile(row)
-    : buildEmptyProfile(data.user.email);
+  const profile = row ? mapProfileRowToProfile(row) : buildEmptyProfile(data.user.email);
 
   const completion = deriveProfileCompletion({
     fullName: row?.full_name ?? "",

@@ -114,10 +114,7 @@ export async function POST(
 
     const { error: updateError } = await insforge.database
       .from("jobs")
-      .update({
-        company_research: result.data,
-        company_research_completed_at: completedAt,
-      })
+      .update({ company_research: result.data, company_research_completed_at: completedAt })
       .eq("id", jobId)
       .eq("user_id", userId);
 
@@ -147,11 +144,7 @@ export async function POST(
   } catch (error) {
     console.error("[api/agent/research]", error);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          "Something went wrong researching this company. Please try again.",
-      },
+      { success: false, error: "Something went wrong researching this company. Please try again." },
       { status: 500 },
     );
   }

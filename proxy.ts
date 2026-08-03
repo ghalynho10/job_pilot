@@ -17,11 +17,7 @@ function copyResponseCookies(
   }
 }
 
-function shouldShowSessionError(
-  request: NextRequest,
-  hadSession: boolean,
-  hasError: boolean,
-): boolean {
+function shouldShowSessionError(request: NextRequest, hadSession: boolean, hasError: boolean): boolean {
   if (hadSession || hasError) {
     return true;
   }
