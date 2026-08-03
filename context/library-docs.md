@@ -198,12 +198,13 @@ const { data, error } = await insforge.payments.stripe.createCheckoutSession(
     cancelUrl: `${origin}/billing`,
     subject: { type: "user", id: user.id },
     customerEmail: user.email,
-    idempotencyKey: `user:${user.id}:pro-monthly`,
   },
 );
 ```
 
 Before wiring UI, add app specific RLS on `payments.stripe_checkout_sessions` for authenticated users where `subject_type = 'user'` and `subject_id = auth.uid()::text`. Add both `INSERT` and `SELECT` policies if checkout uses an `idempotencyKey`.
+
+Do not reuse a stable per user `idempotencyKey` for subscription checkout. InsForge rejects a repeated key when the checkout request differs, and Stripe Checkout Sessions expire. The app currently omits `idempotencyKey` so each click can create a fresh Checkout Session after cancellation or configuration changes.
 
 ### Fulfillment
 

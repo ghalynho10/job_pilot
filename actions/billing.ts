@@ -58,14 +58,6 @@ export async function startCheckout(): Promise<ActionResult<{ checkoutUrl: strin
       nodeEnv: process.env.NODE_ENV,
     });
 
-    // Bucketed by UTC date rather than a permanent per-user key: InsForge
-    // reuses an existing payments.stripe_checkout_sessions row for a repeat
-    // idempotencyKey, and Stripe Checkout Sessions expire after 24 hours, so
-    // a permanent key risks handing back an expired session URL on a retry
-    // days later. The daily bucket still dedupes rapid double clicks or a
-    // retried request within the same day, which is what the key is for.
-    const idempotencyKey = `user:${data.user.id}:pro-monthly:${new Date().toISOString().slice(0, 10)}`;
-
     const { data: checkout, error: checkoutError } =
       await insforge.payments.stripe.createCheckoutSession("test", {
         mode: "subscription",
@@ -74,7 +66,6 @@ export async function startCheckout(): Promise<ActionResult<{ checkoutUrl: strin
         cancelUrl: `${origin}/profile`,
         subject: { type: "user", id: data.user.id },
         customerEmail: data.user.email ?? undefined,
-        idempotencyKey,
       });
 
     if (checkoutError) {

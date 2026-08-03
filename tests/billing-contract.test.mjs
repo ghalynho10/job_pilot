@@ -103,20 +103,13 @@ test("startCheckout redirects on a failed subscription read rather than throwing
   );
 });
 
-test("startCheckout uses a dated idempotency key to avoid stale Checkout URLs (AC-2)", async () => {
+test("startCheckout does not reuse an idempotency key across checkout attempts (AC-2)", async () => {
   const source = await readProjectFile("actions/billing.ts");
 
-  // The key must bucket by UTC date so a retry days later never gets a stale
-  // (expired, 24h) Checkout Session URL from InsForge's ON CONFLICT reuse.
-  assert.match(
+  assert.doesNotMatch(
     source,
-    /idempotencyKey\s*=\s*`user:\$\{data\.user\.id\}:pro-monthly:\$\{/,
-    "the idempotency key must include the user id and plan",
-  );
-  assert.match(
-    source,
-    /toISOString\(\)\.slice\(0,\s*10\)/,
-    "the idempotency key must be bucketed by UTC date, not a permanent per-user key",
+    /idempotencyKey/,
+    "a reused checkout key can make a canceled or changed Checkout request block later attempts",
   );
 });
 
