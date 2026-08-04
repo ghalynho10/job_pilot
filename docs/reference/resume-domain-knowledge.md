@@ -182,7 +182,27 @@ Some of the guidance above is reliably followed when stated in a prompt. Some is
 - Em dash presence — trivially checkable, and models reintroduce them regardless of instruction
 - Banned vocabulary — a string check against the avoid list is cheaper and more reliable than trusting the prompt
 - Bullet length over two lines
-- Any numeral appearing in output that does not appear in the source profile data, which is the mechanical proxy for an invented metric
+- Numerals that do not trace to profile data, which is the mechanical proxy for an invented metric
+
+### Validating numerals: two tiers, not one
+
+A flat "every numeral in output must appear in source data" check fails on the numbers a resume most needs. "Three roles spanning four and a half years" is true and derivable, but neither figure appears literally anywhere in `profiles`. A naive string match flags it as fabricated.
+
+Split the problem instead.
+
+**Tier 1, literal pass-through.** Numbers stated directly in profile data: `years_experience`, percentages or dollar amounts inside a `work_experience` description, team sizes the user typed. Validate these by string match. Any Tier 1 numeral in output must trace to a numeral in source.
+
+**Tier 2, derived.** Role counts from array length, tenure computed from start and end dates, total years summed across roles. Do not let the model derive these and then try to verify the result. Compute them in code before generation, inject them into the prompt as finished facts, and treat them as Tier 1 literals from that point on.
+
+This closes two problems at once. The false positive disappears, because the model is restating a number rather than inventing one. And the arithmetic never runs inside the model, which matters because verifying a model's math after the fact is strictly worse than not asking it to do math. Tenure and count arithmetic belongs in deterministic backend code.
+
+**Implementation note.** This means two allowlists at prompt-construction time, raw profile values and derived precomputed values, checked as one combined set at validation time. Write it as an explicit function rather than letting it stay implicit:
+
+```
+buildAllowedNumerals(profile) -> Set<string>
+```
+
+The failure mode this guards against is a later schema change adding a derived field that nobody remembers to register — the validator then rejects a correct number, or worse, someone loosens the check to make the error go away. One named function with one obvious place to add to is cheap insurance against that.
 
 ---
 
