@@ -54,7 +54,10 @@ Return ONLY valid JSON matching this shape:
 }
 "workExperienceBullets" must have exactly one entry per work experience item given to you, in the same order, indexed 0 to N minus 1. Write a single paragraph professional summary, 3 to 4 sentences.`;
 
-function computeRoleDuration(startDate: string, endDate: string | null): number | null {
+function computeRoleDuration(
+  startDate: string,
+  endDate: string | null,
+): number | null {
   const [startYear, startMonth] = startDate.split("-").map(Number);
   if (!startYear || !startMonth) return null;
 
@@ -84,16 +87,21 @@ function buildUserMessage(profile: Profile): string {
     skills: profile.skills,
     industries: profile.industries,
     education: profile.education,
-    workExperience: profile.workExperience.slice(0, MAX_WORK_EXPERIENCE_ENTRIES).map((entry, index) => ({
-      index,
-      company: entry.company,
-      jobTitle: entry.jobTitle,
-      startDate: entry.startDate,
-      endDate: entry.endDate,
-      currentlyWorkingHere: entry.currentlyWorkingHere,
-      keyResponsibilities: entry.keyResponsibilities,
-      durationYears: computeRoleDuration(entry.startDate, entry.endDate ?? null),
-    })),
+    workExperience: profile.workExperience
+      .slice(0, MAX_WORK_EXPERIENCE_ENTRIES)
+      .map((entry, index) => ({
+        index,
+        company: entry.company,
+        jobTitle: entry.jobTitle,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        currentlyWorkingHere: entry.currentlyWorkingHere,
+        keyResponsibilities: entry.keyResponsibilities,
+        durationYears: computeRoleDuration(
+          entry.startDate,
+          entry.endDate ?? null,
+        ),
+      })),
   });
 }
 
@@ -108,17 +116,22 @@ function reconcileBullets(
   profile: Profile,
   generatedBullets: string[][],
 ): string[][] {
-  return profile.workExperience.slice(0, MAX_WORK_EXPERIENCE_ENTRIES).map((entry, index) => {
-    const generated = generatedBullets[index];
-    if (Array.isArray(generated) && generated.length > 0) {
-      return generated.slice(0, MAX_BULLETS_PER_ROLE);
-    }
-    // The model dropped or reordered this index; fall back to the entry's own
-    // notes so a role is never rendered empty and nothing is fabricated. Capped
-    // the same as the model path, so the fallback can't overflow the one page
-    // layout either.
-    return splitIntoLines(entry.keyResponsibilities).slice(0, MAX_BULLETS_PER_ROLE);
-  });
+  return profile.workExperience
+    .slice(0, MAX_WORK_EXPERIENCE_ENTRIES)
+    .map((entry, index) => {
+      const generated = generatedBullets[index];
+      if (Array.isArray(generated) && generated.length > 0) {
+        return generated.slice(0, MAX_BULLETS_PER_ROLE);
+      }
+      // The model dropped or reordered this index; fall back to the entry's own
+      // notes so a role is never rendered empty and nothing is fabricated. Capped
+      // the same as the model path, so the fallback can't overflow the one page
+      // layout either.
+      return splitIntoLines(entry.keyResponsibilities).slice(
+        0,
+        MAX_BULLETS_PER_ROLE,
+      );
+    });
 }
 
 function fallbackSummary(profile: Profile): string {
@@ -149,11 +162,17 @@ function buildAllowedNumerals(profile: Profile): Set<string> {
   collect(profile.currentTitle);
   collect(profile.education?.fieldOfStudy);
 
-  for (const entry of profile.workExperience.slice(0, MAX_WORK_EXPERIENCE_ENTRIES)) {
+  for (const entry of profile.workExperience.slice(
+    0,
+    MAX_WORK_EXPERIENCE_ENTRIES,
+  )) {
     collect(entry.jobTitle);
     collect(entry.keyResponsibilities);
     // Tier 2: computed per-role duration, rounded to nearest year
-    const duration = computeRoleDuration(entry.startDate, entry.endDate ?? null);
+    const duration = computeRoleDuration(
+      entry.startDate,
+      entry.endDate ?? null,
+    );
     if (duration !== null) numerals.add(String(duration));
   }
 
@@ -162,7 +181,10 @@ function buildAllowedNumerals(profile: Profile): Set<string> {
 
 export async function generateResumeContent(
   profile: Profile,
-): Promise<{ success: true; data: GeneratedResumeContent } | { success: false; error: string }> {
+): Promise<
+  | { success: true; data: GeneratedResumeContent }
+  | { success: false; error: string }
+> {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -179,7 +201,10 @@ export async function generateResumeContent(
 
     const rawContent = response.choices[0]?.message.content;
     if (!rawContent) {
-      return { success: false, error: "Resume generation returned no content. Please try again." };
+      return {
+        success: false,
+        error: "Resume generation returned no content. Please try again.",
+      };
     }
 
     let parsedJson: unknown;
@@ -187,18 +212,31 @@ export async function generateResumeContent(
       parsedJson = JSON.parse(rawContent);
     } catch (parseError) {
       console.error("[agent/resume-generator]", parseError);
-      return { success: false, error: "Resume generation returned an unreadable response. Please try again." };
+      return {
+        success: false,
+        error:
+          "Resume generation returned an unreadable response. Please try again.",
+      };
     }
 
     const validated = generatedResumeSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("[agent/resume-generator]", validated.error);
-      return { success: false, error: "Resume generation returned an unexpected response. Please try again." };
+      return {
+        success: false,
+        error:
+          "Resume generation returned an unexpected response. Please try again.",
+      };
     }
 
     const summary =
-      validated.data.summary.trim().length > 0 ? validated.data.summary : fallbackSummary(profile);
-    const workExperienceBullets = reconcileBullets(profile, validated.data.workExperienceBullets);
+      validated.data.summary.trim().length > 0
+        ? validated.data.summary
+        : fallbackSummary(profile);
+    const workExperienceBullets = reconcileBullets(
+      profile,
+      validated.data.workExperienceBullets,
+    );
 
     // Strip em dashes: a deterministic fix on top of the prompt instruction,
     // since this one rule needs no judgment call to enforce.
@@ -220,38 +258,46 @@ export async function generateResumeContent(
       validatedSummary = stripEmDashes(fallbackSummary(profile));
     }
 
-    const validatedBullets = workExperienceBullets.map((roleBullets, roleIndex) => {
-      const kept = roleBullets.filter((bullet) => {
-        const digits = extractDigitSequences(bullet);
-        const ok = digits.every((d) => allowedNumerals.has(d));
-        if (!ok) {
+    const validatedBullets = workExperienceBullets.map(
+      (roleBullets, roleIndex) => {
+        const kept = roleBullets.filter((bullet) => {
+          const digits = extractDigitSequences(bullet);
+          const ok = digits.every((d) => allowedNumerals.has(d));
+          if (!ok) {
+            console.warn(
+              `[agent/resume-generator] Fabricated number in role ${roleIndex} bullet — dropped: "${bullet}"`,
+            );
+          }
+          return ok;
+        });
+
+        // If every bullet for this role was dropped, fall back to the entry's
+        // own written text, the same path reconcileBullets already uses.
+        if (kept.length === 0) {
           console.warn(
-            `[agent/resume-generator] Fabricated number in role ${roleIndex} bullet — dropped: "${bullet}"`,
+            `[agent/resume-generator] All bullets dropped for role ${roleIndex} — falling back to raw responsibilities`,
           );
+          return splitIntoLines(
+            profile.workExperience[roleIndex]?.keyResponsibilities ?? "",
+          ).slice(0, MAX_BULLETS_PER_ROLE);
         }
-        return ok;
-      });
 
-      // If every bullet for this role was dropped, fall back to the entry's
-      // own written text, the same path reconcileBullets already uses.
-      if (kept.length === 0) {
-        console.warn(
-          `[agent/resume-generator] All bullets dropped for role ${roleIndex} — falling back to raw responsibilities`,
-        );
-        return splitIntoLines(
-          profile.workExperience[roleIndex]?.keyResponsibilities ?? "",
-        ).slice(0, MAX_BULLETS_PER_ROLE);
-      }
-
-      return kept.map(stripEmDashes);
-    });
+        return kept.map(stripEmDashes);
+      },
+    );
 
     return {
       success: true,
-      data: { summary: validatedSummary, workExperienceBullets: validatedBullets },
+      data: {
+        summary: validatedSummary,
+        workExperienceBullets: validatedBullets,
+      },
     };
   } catch (error) {
     console.error("[agent/resume-generator]", error);
-    return { success: false, error: "Something went wrong generating your resume. Please try again." };
+    return {
+      success: false,
+      error: "Something went wrong generating your resume. Please try again.",
+    };
   }
 }

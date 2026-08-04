@@ -73,7 +73,10 @@ test("resume generator never invents facts, per its system prompt (AC-3)", async
 test("resume generator falls back to a generic summary if the model returns an empty one, and reports the same error shape as extraction (AC-1, AC-8)", async () => {
   const source = await readProjectFile("agent/resume-generator.ts");
 
-  assert.match(source, /function fallbackSummary\(profile: Profile\): string \{/);
+  assert.match(
+    source,
+    /function fallbackSummary\(profile: Profile\): string \{/,
+  );
   assert.match(
     source,
     /const summary =\s*validated\.data\.summary\.trim\(\)\.length > 0 \? validated\.data\.summary : fallbackSummary\(profile\);/,
@@ -128,10 +131,7 @@ test("system prompt includes the XYZ bullet structure with a weak and strong exa
 test("system prompt instructs the model to vary bullet shape so a section does not read as machine-produced (AC-1)", async () => {
   const source = await readProjectFile("agent/resume-generator.ts");
 
-  assert.match(
-    source,
-    /Vary each bullet.s shape deliberately/,
-  );
+  assert.match(source, /Vary each bullet.s shape deliberately/);
   assert.match(source, /reads as machine-produced/);
 });
 
@@ -209,7 +209,10 @@ test("system prompt instructs the model not to pad sparse profiles and states le
 
   assert.match(source, /SPARSE PROFILES/);
   assert.match(source, /Do not pad it with generic filler/);
-  assert.match(source, /Length is never a target to hit at the cost of accuracy/);
+  assert.match(
+    source,
+    /Length is never a target to hit at the cost of accuracy/,
+  );
 });
 
 // AC-7: computeRoleDuration exists and rounds to nearest year
@@ -251,9 +254,7 @@ test("buildAllowedNumerals collects from the named field list only, never from p
   assert.match(source, /profile\.education\?\.fieldOfStudy/);
 
   // The excluded fields must not appear inside buildAllowedNumerals.
-  const fnMatch = source.match(
-    /function buildAllowedNumerals\([\s\S]+?\n\}/,
-  );
+  const fnMatch = source.match(/function buildAllowedNumerals\([\s\S]+?\n\}/);
   const fnBody = fnMatch ? fnMatch[0] : "";
   assert.ok(
     !fnBody.includes("phone"),
@@ -308,9 +309,7 @@ test("digit sequences are compared as whole strings, so '20' never matches '2020
   // digits.  "2020" extracts as ["2020"], and "20" extracts as ["20"].  These
   // are different strings, so Set.has("20") correctly returns false when only
   // "2020" is in the set.  No substring check exists anywhere in the code.
-  const fnMatch = source.match(
-    /function extractDigitSequences\([\s\S]+?\n\}/,
-  );
+  const fnMatch = source.match(/function extractDigitSequences\([\s\S]+?\n\}/);
   const fnBody = fnMatch ? fnMatch[0] : "";
   assert.ok(
     !fnBody.includes("includes"),
@@ -338,10 +337,7 @@ test("a fabricated number in the summary triggers the generic summary fallback a
 test("a fabricated number in one bullet drops only that bullet and logs a warning (AC-8, AC-11)", async () => {
   const source = await readProjectFile("agent/resume-generator.ts");
 
-  assert.match(
-    source,
-    /Fabricated number in role.*bullet.*dropped/,
-  );
+  assert.match(source, /Fabricated number in role.*bullet.*dropped/);
 });
 
 // AC-8: Role-level fallback — when every bullet is dropped, the role falls back to raw keyResponsibilities
