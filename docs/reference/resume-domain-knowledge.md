@@ -48,17 +48,45 @@ Order matters — lead with outcome, not activity. A screener reading only the f
 
 No bullet exceeds two lines. White space is what makes a resume skimmable, and skimmability decides the first seven seconds.
 
+**The pattern is a tool, not a template.** If every bullet in a section carries the same rhythm and the same clause order, the section reads as machine-produced. Real resumes are uneven, because some accomplishments need a clause of context and others do not. Vary the shape deliberately.
+
 ### Action verbs
 
-Vary them so bullets do not all sound alike:
-
-- **Built:** architected, engineered, shipped, implemented, developed, prototyped
-- **Improved:** optimized, reduced, accelerated, streamlined, refactored, hardened
-- **Led:** spearheaded, drove, coordinated, mentored, owned
-- **Analyzed:** diagnosed, modeled, evaluated, benchmarked, investigated
-- **Scaled:** migrated, automated, deployed, integrated, consolidated
+Open every bullet with a concrete one: architected, shipped, reduced, migrated, automated, rebuilt, cut, scaled, diagnosed, benchmarked, consolidated.
 
 Never generate: "responsible for", "helped with", "worked on", "assisted in", "participated in". These describe presence, not contribution.
+
+**Do not rotate synonyms to avoid repetition.** If the same verb is the accurate one for two bullets, use it twice. Cycling through a thesaurus for variety's sake is itself a generated-text tell, and it usually costs precision. Genuine low-effort repetition (three identical openers in a row on unrelated work) is worth breaking; accurate repetition is not.
+
+### Sounding human
+
+This section matters more for generated resumes than for reviewed ones. A human writing their own resume produces AI-sounding text occasionally. A language model producing it from structured data will produce AI-sounding text by default, on every bullet, unless explicitly steered away.
+
+The stakes are concrete: recruiters and hiring managers now read with AI-written text in mind, and a resume that pattern-matches to machine output gets discounted before its content is judged. Output that clears the parser and then fails the human read has not succeeded.
+
+Keep the list short and specific. General humanizing advice does not transfer to resumes — title-case section headers, bold job titles, clipped fragments, and parallel bullet structure are all correct in this format and should be left alone. Only these patterns actually cost the candidate.
+
+**The vocabulary cluster.** These read as generated on sight:
+
+| Avoid | Use instead |
+| --- | --- |
+| leveraged, utilized | used, or the specific verb (queried, indexed, cached) |
+| spearheaded, orchestrated | led, built, ran, shipped |
+| passionate about, deeply passionate | cut entirely, or show it with a project |
+| results-driven, detail-oriented, self-starter | cut; claims with no evidence behind them |
+| proven track record of | the track record itself, with a number |
+| seasoned professional, subject matter expert | the years and the domain, stated plainly |
+| robust, seamless, cutting-edge, innovative | cut; if the thing was genuinely novel, say what was novel |
+
+**Em dashes.** Do not generate them in resume prose. Comma, period, or colon. Mechanical, and worth enforcing at the prompt level rather than hoping the model avoids it.
+
+**Significance inflation.** "Played a pivotal role in driving the company's data transformation" says nothing and sounds generated. What was built, and what changed as a result.
+
+**Hedging.** "Helped to improve", "contributed to reducing", "assisted in the development of". Either the person did the thing, in which case say so, or they were one of several, in which case name their part specifically. Hedged verbs read as both machine-written and weak.
+
+**Uniform bullet shape.** Covered above under bullet structure, and it belongs here too: identical rhythm down a section is one of the strongest generated-text signals in a resume.
+
+**This never outranks accuracy.** If removing inflated language leaves a bullet with nothing concrete underneath, the correct output is the thinner honest bullet, not better-sounding filler. The never-invent constraint below wins every time.
 
 ### Keyword placement
 
@@ -99,7 +127,7 @@ Highest-leverage fixes, in order:
 1. A summary stating the target role explicitly — the only place to reframe before anything else is read.
 2. Surface genuinely relevant work already present in the old experience (data work, automation, analysis, ML-adjacent features), promoting it above routine bullets.
 3. Reorder within each role so the most relevant bullet comes first.
-4. Name a study/building period filling an employment gap — an unexplained gap reads worse than a dated entry describing deliberate investment.
+4. Name a study or building period filling an employment gap — an unexplained gap reads worse than a dated entry describing deliberate investment.
 
 ---
 
@@ -109,7 +137,7 @@ JobPilot generates a resume from `profiles` table data, not from an existing doc
 
 ### Available inputs
 
-Generation draws on: `full_name`, `email`, `phone`, `location`, `current_title`, `experience_level`, `years_experience`, `skills[]`, `industries[]`, `work_experience` (jsonb, up to 3 roles), `education` (jsonb), `linkedin_url`, `portfolio_url`, `work_authorization`.
+Generation draws on: `full_name`, `email`, `phone`, `location`, `current_title`, `experience_level`, `years_experience`, `skills[]`, `industries[]`, `work_experience` (jsonb, up to 3 roles), `education` (jsonb), `projects` (jsonb, optional), `linkedin_url`, `portfolio_url`, `work_authorization`.
 
 Note the ceiling of three roles — generated output is structurally bounded to a short history, which suits the one-page target but means role selection matters when a user has more.
 
@@ -119,12 +147,14 @@ The single most important constraint. The model must not fabricate metrics, tool
 
 When a role's description lacks quantification, the correct output is a strong unquantified bullet — not an invented percentage. Prefer scale and scope drawn from real data ("across a 12-person team") over fabricated improvement figures.
 
+This constraint and the sounding-human guidance pull against each other in one specific place: puffed-up language is often what a model reaches for when the underlying data is thin. Removing it exposes the thinness. That exposure is correct. A short honest bullet beats an impressive-sounding empty one, and the generation prompt should say so explicitly rather than leaving the model to resolve the tension on its own.
+
 ### Handling sparse profiles
 
 Profiles will often be thin — a title, a few skills, no detailed accomplishments. Generation must degrade gracefully rather than padding.
 
 - Thin `work_experience` → fewer, honest bullets, not invented ones
-- Missing summary material → derive from `current_title`, `years_experience`, and top `skills[]` rather than generic filler ("results-driven professional")
+- Missing summary material → derive from `current_title`, `years_experience`, and top `skills[]` rather than generic filler ("results-driven professional", which is both empty and on the avoid list above)
 - No projects → omit the section rather than emitting an empty header
 
 A short honest resume outperforms a padded one, and padding is the failure mode a generative system falls into by default.
@@ -137,9 +167,22 @@ A short honest resume outperforms a padded one, and padding is the failure mode 
 
 `skills[]` is user-entered and often unordered and over-inclusive. Generation should group into conventional categories (Languages / Frameworks / Tools) rather than emitting a flat list, and should not silently drop entries — grouping is presentation, not filtering.
 
+### Projects section
+
+`projects` is optional and frequently absent, since many users are not in technical fields. When present, the same rules apply as to work bullets: outcome first, no invented metrics, no inflated language. When absent, omit the section entirely rather than generating a placeholder.
+
 ### PDF constraints
 
 Output goes through `@react-pdf/renderer`, so the parser rules above are enforced at the template layer, not by the model: single column, no tables, standard headers, real text layer. The model's job is content; the template's job is parse-safety. Both need to hold.
+
+### Where this most likely needs enforcement rather than instruction
+
+Some of the guidance above is reliably followed when stated in a prompt. Some is not, and is better handled by validating the output before it reaches the PDF layer. Candidates for the second category, worth deciding at spec time:
+
+- Em dash presence — trivially checkable, and models reintroduce them regardless of instruction
+- Banned vocabulary — a string check against the avoid list is cheaper and more reliable than trusting the prompt
+- Bullet length over two lines
+- Any numeral appearing in output that does not appear in the source profile data, which is the mechanical proxy for an invented metric
 
 ---
 
