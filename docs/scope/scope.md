@@ -33,8 +33,9 @@ Full stack AI powered job hunting assistant: the agent discovers jobs, scores th
 | 1a | Privileged subscriptions read | Foundation (Billing) | done |
 | 2 | Checkout & subscribe | Slice 1: Monetization | done |
 | 3 | Free tier usage gating | Slice 1: Monetization | done |
-| 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | planned |
+| 4 | Resume generation quality (ATS domain knowledge) | Slice 2: Resume Quality | done |
 | 5 | Job application status tracking | Slice 3: Application Tracking | planned |
+| 6 | Projects section in generated resumes | Slice 2: Resume Quality | planned |
 
 ## Existing
 
@@ -198,10 +199,22 @@ code in `migrations/20260802220000_add-adzuna-searches-usage-gating.sql`, `lib/a
 
 ## Slice 2: Resume Quality
 
-### 4. Resume generation quality (ATS domain knowledge) · needs a decision
+### 4. Resume generation quality (ATS domain knowledge) · done
 Raise the quality of output from the existing resume generation path (feature H) by enriching its generation prompt with ATS and resume writing domain knowledge: bullet structure (the XYZ formula), parser safe formatting rules, keyword placement weighting, seniority calibration, and a trimming priority order. Quality of output only, no new capability; cover letter generation and per job resume tailoring stay out of scope per `context/project-overview.md`. Source material already in the repo: `docs/reference/resume-domain-knowledge.md`. Lowest priority of anything currently planned; comes after the three billing features.
 **Done when:** generated resumes consistently apply the XYZ bullet formula, use parser safe formatting, place keywords per the documented weighting, calibrate detail and tone to seniority, and trim in the documented priority order when content must be cut, all checked against `docs/reference/resume-domain-knowledge.md`.
-- [ ] Design it (spec): `/architect resume generation quality`
+- [x] Design it (spec): [0019](../specs/0019-resume-generation-quality/index.md)
+- [x] Build it: `/develop resume generation quality`
+  - [x] Prompt enrichment: accuracy priority, bullet structure, vocabulary/em dash, keyword placement, seniority tone, trim guidance, sparse profile handling (AC-1 to AC-6)
+  - [x] Numeral safeguard: the allowed number set and the post generation check with its bullet, role, and summary fallbacks (AC-7, AC-8, AC-11)
+  - [x] Confirm no PDF template or model/token change, tests, full suite clean (AC-9, AC-10)
+code in `agent/resume-generator.ts`, `tests/resume-generator.test.mjs`
+- [x] Verify it: `/check verify resume generation quality`
+- [x] Test it: `/test resume generation quality`
+
+### 6. Projects section in generated resumes · needs a decision · from spec 0019
+Send `profile.projects` to the resume generation model, render a Projects section on the generated PDF, and order it ahead of Experience for early career profiles, per `docs/reference/resume-domain-knowledge.md`'s "Projects section" and seniority calibration guidance. Deliberately left out of spec 0019 (feature 4) since it is new output the product does not have today, not a quality fix to existing output; the engineer confirmed this is the intended next piece of work once feature 4 ships.
+**Done when:** a profile with projects generates a PDF with a Projects section using the same never invent guarantee as Experience, and an early career profile (per `experienceLevel`) shows Projects ahead of Experience.
+- [ ] Design it (spec): `/architect projects section in generated resumes`
 
 ## Slice 3: Application Tracking
 
@@ -216,6 +229,7 @@ Out of scope for this pass, kept so the plan stays honest.
 - **Legal pages**: Terms of Service, Privacy Policy · needs a decision
 - **Multiple pricing tiers**: beyond the single paid plan · needs a decision
 - **Payment failure / dunning handling**: failed renewal, past due state, retry emails · needs a decision
+- **Skills grouping in generated resumes**: categorize Skills into Languages/Frameworks/Tools instead of one flat line, a PDF template change · from spec 0019, blocks nothing
 
 ## Legend
 
