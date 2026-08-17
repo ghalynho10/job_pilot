@@ -86,13 +86,15 @@ test("agentRunsEnabled reads nothing from the process environment", async () => 
 
 test("a free user under the cap is allowed and the count is returned (AC-1)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: true,
-      plan: "free",
-      used: 4,
-      limit_val: 10,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: true,
+        plan: "free",
+        used: 4,
+        limit_val: 10,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   const result = await checkAndIncrementUsage(
@@ -109,13 +111,15 @@ test("a free user under the cap is allowed and the count is returned (AC-1)", as
 
 test("a free user at the cap is denied without incrementing (AC-2)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: false,
-      plan: "free",
-      used: 10,
-      limit_val: 10,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: false,
+        plan: "free",
+        used: 10,
+        limit_val: 10,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   const result = await checkAndIncrementUsage(
@@ -131,13 +135,15 @@ test("a free user at the cap is denied without incrementing (AC-2)", async () =>
 
 test("a Pro user in good standing is always allowed and no counter is touched (AC-3)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: true,
-      plan: "pro",
-      used: 0,
-      limit_val: 0,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: true,
+        plan: "pro",
+        used: 0,
+        limit_val: 0,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   const result = await checkAndIncrementUsage(
@@ -150,6 +156,58 @@ test("a Pro user in good standing is always allowed and no counter is touched (A
   assert.equal(result.plan, "pro");
   assert.equal(result.used, 0);
   assert.equal(result.limit, 0);
+});
+
+// Regression: check_and_increment_usage is declared RETURNS TABLE(...), so
+// PostgREST replies with an array of rows. The original implementation cast
+// that array straight to a single object and read .allowed off it, which is
+// always undefined, so enforceUsageCap denied every metered action for every
+// account, Pro included. The three tests below pin the wire shape itself.
+test("an array response is unwrapped to its first row, not read as an object", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: [
+      {
+        allowed: true,
+        plan: "pro",
+        used: 0,
+        limit_val: 0,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
+  });
+
+  const result = await checkAndIncrementUsage(
+    "user-1",
+    "search",
+    () => insforge,
+  );
+
+  assert.equal(result.allowed, true);
+  assert.equal(typeof result.allowed, "boolean");
+  assert.equal(result.plan, "pro");
+});
+
+test("an empty array response fails closed rather than reading as denied-with-undefined", async () => {
+  const insforge = fakeServiceInsforge({ rpcData: [] });
+  const { result } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", () => insforge),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.limit, FREE_TIER_CAPS.search);
+  assert.equal(result.used, FREE_TIER_CAPS.search);
+});
+
+test("a row whose allowed field is missing fails closed", async () => {
+  const insforge = fakeServiceInsforge({
+    rpcData: [{ plan: "free", used: 2, limit_val: 10 }],
+  });
+  const { result } = await captureErrors(() =>
+    checkAndIncrementUsage("user-1", "search", () => insforge),
+  );
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.limit, FREE_TIER_CAPS.search);
 });
 
 test("an RPC error fails closed (allowed = false)", async () => {
@@ -178,13 +236,15 @@ test("a thrown RPC call fails closed", async () => {
 
 test("checkAndIncrementUsage calls the RPC with the correct function name and caps (AC-1)", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: true,
-      plan: "free",
-      used: 1,
-      limit_val: 3,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: true,
+        plan: "free",
+        used: 1,
+        limit_val: 3,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   await checkAndIncrementUsage("user-1", "research", () => insforge);
@@ -205,13 +265,15 @@ test("checkAndIncrementUsage calls the RPC with the correct function name and ca
 
 test("checkAndIncrementUsage passes the search cap for a search action and research cap for research", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: true,
-      plan: "free",
-      used: 1,
-      limit_val: 10,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: true,
+        plan: "free",
+        used: 1,
+        limit_val: 10,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   await checkAndIncrementUsage("user-1", "search", () => insforge);
@@ -248,13 +310,15 @@ test("checkAndIncrementUsage returns denied when RPC data is null or empty", asy
 
 test("checkAndIncrementUsage maps the RPC return fields correctly for both actions", async () => {
   const insforge = fakeServiceInsforge({
-    rpcData: {
-      allowed: true,
-      plan: "free",
-      used: 1,
-      limit_val: 3,
-      period_start: "2026-08-01T00:00:00Z",
-    },
+    rpcData: [
+      {
+        allowed: true,
+        plan: "free",
+        used: 1,
+        limit_val: 3,
+        period_start: "2026-08-01T00:00:00Z",
+      },
+    ],
   });
 
   const researchResult = await checkAndIncrementUsage(
@@ -312,7 +376,7 @@ test("denial messages use the new usage cap wording, not the old private beta wo
 
   assert.match(
     source,
-    /usageCapped: "You have used all your free searches for this cycle\. Upgrade to Pro for unlimited access\."/,
+    /usageCapped:\s*"You have used all your free searches for this cycle\. Upgrade to Pro for unlimited access\."/,
     "the cap message must mention the free tier cycle and upgrading to Pro",
   );
   // The old private beta message must be gone from DENIAL_MESSAGES.

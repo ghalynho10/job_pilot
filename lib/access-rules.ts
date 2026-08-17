@@ -150,7 +150,26 @@ export async function checkAndIncrementUsage(
       },
     );
 
-    if (error || !data) {
+    // check_and_increment_usage is declared RETURNS TABLE(...), so PostgREST
+    // sends back an array of rows, not a bare object. Unwrap the first row
+    // before reading it: reading .allowed straight off the array yields
+    // undefined, and !undefined reads as "denied" in enforceUsageCap, which
+    // silently caps every account on every metered action, Pro included.
+    // Tolerates a bare object too, so a future single-row RPC shape still works.
+    const result = (Array.isArray(data) ? data[0] : data) as
+      | {
+          allowed: boolean;
+          plan: string;
+          used: number;
+          limit_val: number;
+          period_start: string;
+        }
+      | undefined;
+
+    // typeof check, not truthiness: a row whose allowed field is missing or
+    // non-boolean is a malformed response, not a denial, and must fail closed
+    // through the same path as a database error rather than be read as false.
+    if (error || !result || typeof result.allowed !== "boolean") {
       console.error("[lib/access]", error);
       return {
         allowed: false,
@@ -160,14 +179,6 @@ export async function checkAndIncrementUsage(
         periodStart: new Date().toISOString(),
       };
     }
-
-    const result = data as {
-      allowed: boolean;
-      plan: string;
-      used: number;
-      limit_val: number;
-      period_start: string;
-    };
 
     return {
       allowed: result.allowed,
