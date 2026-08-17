@@ -4,10 +4,10 @@ An AI-powered job hunting assistant. Set up your profile, upload your resume, an
 
 Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
 
-![Dashboard screenshot](./public/screenshot-dashboard.png)
+![Dashboard screenshot](./public/images/screenshot-dashboard.png)
 *Dashboard — stats, recent activity, and match-score analytics*
 
-The free tier caps job searches and company research runs over a rolling 30-day window (10 searches, 3 research runs). Upgrade through Stripe Checkout to remove the cap.
+The free tier caps job searches and company research runs over a rolling 30-day window (10 searches, 3 research runs). Upgrade through Stripe Checkout to remove the cap — though checkout currently runs in Stripe **test mode** and the Upgrade button sits behind an allowlist, so no account has been billed. Details under [Billing](#what-it-does) and [Roadmap](#roadmap).
 
 ## Why I built this
 
@@ -32,7 +32,7 @@ Full user flow and feature scope: [context/project-overview.md](./context/projec
 
 **InsForge over Supabase or Firebase, for two reasons.** Cost at the scale I needed, and InsForge is built agentic-development-first — which mattered because I was building this entirely spec-driven, with an agent doing the implementation against written specs rather than me hand-coding it. A backend designed around that workflow was a better fit than retrofitting one that wasn't.
 
-**Company research runs on a single bounded Browserbase session** (`agent/research.ts`), not an unbounded crawl. It reads the homepage, ranks the internal links it found by a fixed preference order (about, engineering, blog, product, team, other, careers), visits at most `MAX_SUB_PAGES = 3` of them sequentially, and closes the session in a `finally` block. Longer crawls cost more and don't reliably produce a better dossier — most public company sites don't have much more than a homepage and an about/careers page worth reading — so the page count is capped. Note the cost shape: Stagehand is configured with `gpt-4o`, so each `extract` is itself a model call, making one research run 3–5 GPT-4o calls, not one.
+**Company research runs on a single bounded Browserbase session** (`agent/research.ts`), not an unbounded crawl. It reads the homepage, ranks the internal links it found by a fixed preference order (about, engineering, blog, product, team, other, careers), visits at most `MAX_SUB_PAGES = 3` of them sequentially, and closes the session in a `finally` block. Longer crawls cost more and don't reliably produce a better dossier — most public company sites don't have much more than a homepage and an about/careers page worth reading — so the page count is capped. Note the cost shape: Stagehand is configured with `gpt-4o`, so each `extract` is itself a model call. One research run is **2–5 GPT-4o calls**, not one: one homepage `extract`, zero to three sub-page `extract`s, and one synthesis call. (Resolving the homepage URL is a plain `fetch`, not a model call.)
 
 **The company homepage is resolved first, guessed second.** `agent/research.ts` follows the job's `external_apply_url` with `redirect: "follow"` and, if the final hostname isn't Adzuna's, strips it to its last two labels. Only when that fails does it fall back to guessing `https://www.{name}.com`, where `{name}` is the company name with every non-alphanumeric character removed (so "Acme Inc." becomes `acmeinc.com` — the fallback does *not* strip legal suffixes, and misses companies whose domain doesn't match their name). When both paths fail or the page is unreachable, the research agent doesn't fail: it falls back to a dossier synthesized from the company name and job description alone, and is instructed to say so in `companyOverview`, so the feature always returns *something* rather than an empty state. See the `Invariants` section of [context/architecture.md](./context/architecture.md#invariants).
 
@@ -45,12 +45,12 @@ Full user flow and feature scope: [context/project-overview.md](./context/projec
 | Layer | Tool |
 | --- | --- |
 | Framework | Next.js 16 (App Router), React 19, TypeScript strict |
-| Auth, DB, Storage, Realtime | [InsForge](https://insforge.dev) |
+| Auth, DB, Storage | [InsForge](https://insforge.dev) |
 | Job discovery | Adzuna API |
 | AI | OpenAI GPT-4o |
 | Company research | Browserbase + Stagehand |
 | Analytics | PostHog |
-| Billing | Stripe (Checkout, webhooks) |
+| Billing | Stripe via InsForge's managed integration (no `stripe` SDK dependency; fulfillment is a Postgres trigger) |
 | PDF generation | `@react-pdf/renderer` |
 | Styling | Tailwind CSS v4, hand-written (no component library) |
 | Hosting | Vercel |
@@ -76,7 +76,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_INSFORGE_ANON_KEY` | InsForge anon key |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog public key |
 | `NEXT_PUBLIC_POSTHOG_HOST` | PostHog host |
-| `OPENAI_API_KEY` | GPT-4o: matching, resume extraction, research synthesis |
+| `OPENAI_API_KEY` | GPT-4o: matching, resume extraction, resume generation, research synthesis (and Stagehand's own `extract` calls) |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | Job discovery |
 | `BROWSERBASE_API_KEY` / `BROWSERBASE_PROJECT_ID` | Company research |
 | `ENABLE_AGENT_RUNS` | Kill switch for agent routes (find, research). Only the exact string `false` disables. |
@@ -117,7 +117,7 @@ Full breakdown: [context/architecture.md](./context/architecture.md#folder-struc
 
 ## Working on this project
 
-Most of this codebase was built through a structured spec → build → verify → test cycle rather than ad hoc prompting, using a personal fork of an Agent Skills pipeline — the agent reads a fixed set of context docs (architecture, UI conventions, code standards) before touching any code, and every non-trivial feature has a design spec under `docs/specs/` before implementation starts. Full workflow, doc order, and available commands: [AGENTS.md](./AGENTS.md).
+Most of this codebase was built through a structured spec → build → verify → test cycle rather than ad hoc prompting, using a vendored Agent Skills pipeline pinned in `skills-lock.json` — the agent reads a fixed set of context docs (architecture, UI conventions, code standards) before touching any code, and every non-trivial feature has a design spec under `docs/specs/` before implementation starts. The workflow skills (`architect`, `develop`, `check`, `debug`, `scope`, `sync`, `test`, `document`, `audit`) are pinned unmodified from `JavaScript-Mastery-Pro/skills`, alongside third-party skills from Browserbase and Stripe and one self-authored skill (`checkpoint`). Full workflow, doc order, and available commands: [AGENTS.md](./AGENTS.md).
 
 Build approach is **skateboard**: ship the thinnest usable whole first, then grow it. Current scope and status: [docs/scope/scope.md](./docs/scope/scope.md).
 
