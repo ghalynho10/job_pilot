@@ -8,6 +8,20 @@ async function readProjectFile(path) {
   return readFile(new URL(path, projectRoot), "utf8");
 }
 
+/**
+ * Read a source file with every run of whitespace collapsed to one space.
+ *
+ * Use this for any assertion whose regex spans more than a token or two. A
+ * source-contract regex is meant to pin what the code *does*, not how the
+ * formatter happened to wrap it: three assertions in this file broke purely
+ * because commit 9ae2777 re-wrapped long lines without changing behaviour.
+ * Normalizing first keeps the assertion honest and stops the formatter from
+ * being able to fail the suite.
+ */
+async function readNormalized(path) {
+  return (await readProjectFile(path)).replace(/\s+/g, " ");
+}
+
 test("resume generator calls GPT-4o with a higher, more generative temperature than extraction (AC-1)", async () => {
   const source = await readProjectFile("agent/resume-generator.ts");
 
@@ -28,15 +42,15 @@ test("resume generator's schema tolerates a malformed shape via catch fallbacks 
 });
 
 test("resume generator reconciles bullets against the profile's own work experience by index, never trusting the model's count or order (AC-1, AC-3)", async () => {
-  const source = await readProjectFile("agent/resume-generator.ts");
+  const source = await readNormalized("agent/resume-generator.ts");
 
   assert.match(
     source,
-    /function reconcileBullets\(\s*profile: Profile,\s*generatedBullets: string\[\]\[\],\s*\): string\[\]\[\] \{/,
+    /function reconcileBullets\( profile: Profile, generatedBullets: string\[\]\[\], \): string\[\]\[\] \{/,
   );
   assert.match(
     source,
-    /profile\.workExperience\.slice\(0, MAX_WORK_EXPERIENCE_ENTRIES\)\.map\(\(entry, index\) => \{/,
+    /profile\.workExperience \.slice\(0, MAX_WORK_EXPERIENCE_ENTRIES\) \.map\(\(entry, index\) => \{/,
   );
   assert.match(
     source,
@@ -45,18 +59,18 @@ test("resume generator reconciles bullets against the profile's own work experie
   );
   assert.match(
     source,
-    /return splitIntoLines\(entry\.keyResponsibilities\)\.slice\(0, MAX_BULLETS_PER_ROLE\);/,
+    /return splitIntoLines\(entry\.keyResponsibilities\)\.slice\( 0, MAX_BULLETS_PER_ROLE, \);/,
     "a dropped or reordered index must fall back to the entry's own notes, capped the same as the model path, never render empty and never fabricate",
   );
 });
 
 test("resume generator caps work experience at 3 entries before building the prompt, defense in depth against a large profile truncating the response (AC-1)", async () => {
-  const source = await readProjectFile("agent/resume-generator.ts");
+  const source = await readNormalized("agent/resume-generator.ts");
 
   assert.match(source, /const MAX_WORK_EXPERIENCE_ENTRIES = 3;/);
   assert.match(
     source,
-    /workExperience: profile\.workExperience\.slice\(0, MAX_WORK_EXPERIENCE_ENTRIES\)\.map\(\(entry, index\) => \(\{/,
+    /workExperience: profile\.workExperience \.slice\(0, MAX_WORK_EXPERIENCE_ENTRIES\) \.map\(\(entry, index\) => \(\{/,
     "the prompt sent to GPT-4o must also be capped, not just the reconciliation step",
   );
 });
@@ -71,7 +85,7 @@ test("resume generator never invents facts, per its system prompt (AC-3)", async
 });
 
 test("resume generator falls back to a generic summary if the model returns an empty one, and reports the same error shape as extraction (AC-1, AC-8)", async () => {
-  const source = await readProjectFile("agent/resume-generator.ts");
+  const source = await readNormalized("agent/resume-generator.ts");
 
   assert.match(
     source,
@@ -79,24 +93,24 @@ test("resume generator falls back to a generic summary if the model returns an e
   );
   assert.match(
     source,
-    /const summary =\s*validated\.data\.summary\.trim\(\)\.length > 0 \? validated\.data\.summary : fallbackSummary\(profile\);/,
+    /const summary = validated\.data\.summary\.trim\(\)\.length > 0 \? validated\.data\.summary : fallbackSummary\(profile\);/,
   );
 
   assert.match(
     source,
-    /if \(!rawContent\) \{\s*return \{ success: false, error: "Resume generation returned no content\. Please try again\." \};/,
+    /if \(!rawContent\) \{ return \{ success: false, error: "Resume generation returned no content\. Please try again\.", \};/,
   );
   assert.match(
     source,
-    /catch \(parseError\) \{\s*console\.error\("\[agent\/resume-generator\]", parseError\);\s*return \{ success: false, error: "Resume generation returned an unreadable response\. Please try again\." \};/,
+    /catch \(parseError\) \{ console\.error\("\[agent\/resume-generator\]", parseError\); return \{ success: false, error: "Resume generation returned an unreadable response\. Please try again\.", \};/,
   );
   assert.match(
     source,
-    /if \(!validated\.success\) \{\s*console\.error\("\[agent\/resume-generator\]", validated\.error\);\s*return \{ success: false, error: "Resume generation returned an unexpected response\. Please try again\." \};/,
+    /if \(!validated\.success\) \{ console\.error\("\[agent\/resume-generator\]", validated\.error\); return \{ success: false, error: "Resume generation returned an unexpected response\. Please try again\.", \};/,
   );
   assert.match(
     source,
-    /\} catch \(error\) \{\s*console\.error\("\[agent\/resume-generator\]", error\);\s*return \{ success: false, error: "Something went wrong generating your resume\. Please try again\." \};/,
+    /\} catch \(error\) \{ console\.error\("\[agent\/resume-generator\]", error\); return \{ success: false, error: "Something went wrong generating your resume\. Please try again\.", \};/,
   );
 });
 

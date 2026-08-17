@@ -376,7 +376,7 @@ test("denial messages use the new usage cap wording, not the old private beta wo
 
   assert.match(
     source,
-    /usageCapped: "You have used all your free searches for this cycle\. Upgrade to Pro for unlimited access\."/,
+    /usageCapped:\s*"You have used all your free searches for this cycle\. Upgrade to Pro for unlimited access\."/,
     "the cap message must mention the free tier cycle and upgrading to Pro",
   );
   // The old private beta message must be gone from DENIAL_MESSAGES.

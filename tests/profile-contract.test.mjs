@@ -96,7 +96,7 @@ test("profile page fetches the real profiles row, scoped to the signed in user, 
   );
   assert.match(
     source,
-    /row \? mapProfileRowToProfile\(row\) : buildEmptyProfile\(data\.user\.email\)/,
+    /row\s*\?\s*mapProfileRowToProfile\(row\)\s*:\s*buildEmptyProfile\(data\.user\.email\)/,
   );
   assert.match(source, /deriveProfileCompletion\(/);
 });
