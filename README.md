@@ -1,73 +1,89 @@
 # JobPilot
 
-An AI-powered job hunting assistant. Set up your profile, upload your resume, and the agent finds jobs, scores them against your profile, researches each company, and tracks everything on a dashboard — so you walk into every application informed.
+An AI job-hunting assistant. You set up a profile and upload a resume; it finds jobs, scores each one against your profile, researches the company behind it, and tracks the whole search on a dashboard.
 
-Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app).
+Live at [job-pilot-blond.vercel.app](https://job-pilot-blond.vercel.app). Sign in with Google or GitHub and the full loop is open: search jobs, read match scores and their reasoning, run company research, generate a resume. Free accounts get 10 searches and 3 research runs per 30 days. The Upgrade button is behind an allowlist and Stripe is in test mode, so nothing bills.
 
-![Dashboard screenshot](./public/images/screenshot-dashboard.png)
-*Dashboard — stats, recent activity, and match-score analytics*
-
-The free tier caps job searches and company research runs over a rolling 30-day window (10 searches, 3 research runs). Upgrade through Stripe Checkout to remove the cap — though checkout currently runs in Stripe **test mode** and the Upgrade button sits behind an allowlist, so no account has been billed. Details under [Billing](#what-it-does) and [Roadmap](#roadmap).
+<!-- SCREENSHOT: replace this with a real capture of the job list showing match scores
+     plus one job's score reasoning. Not the dashboard, and not a mockup. -->
 
 ## Why I built this
 
-A deliberate skill-building project, and a practical one — I wanted to get better at building AI-native products while actually job hunting, so I built the tool I needed for the search I was already doing.
+I was job hunting and wanted to get better at building AI-native products, so I built the thing I needed for the search I was already doing.
+
+Then a bug in my own usage gate locked me out of it for two weeks. That story is [further down](#the-outage), and it's the most useful thing in this README.
 
 ## What it does
 
-- **Job discovery** — searches [Adzuna](https://www.adzuna.com) by title and location (IT jobs only). GPT-4o scores every result 0–100 against your profile and explains each match.
-- **Company research** — a single [Browserbase](https://www.browserbase.com) session with [Stagehand](https://www.stagehand.dev) browses the company's public pages. GPT-4o produces a dossier: overview, tech stack, culture, why the role exists, and interview prep. Falls back to a best-effort dossier from the company name and job description when the site is unreachable.
-- **Billing** — Stripe Checkout with webhook-driven subscription activation. Free tier caps run on a rolling 30-day window per account, reset by the first metered action after the window expires; the paid plan has no caps. **Currently wired to Stripe test mode only** — `actions/billing.ts` requests a `"test"` checkout session and the fulfillment trigger filters on `environment = 'test'`. The two flip together at live launch.
-- **Resume tools** — upload a PDF and optionally auto-fill your profile with GPT-4o, including project extraction. Or generate a clean resume PDF from your current profile data.
-- **Dashboard** — stats bar, activity feed, and charts computed from the user's own Postgres rows in `lib/dashboard-charts.ts` (jobs found over time, match score distribution, company research activity). PostHog is used for product analytics, not to drive these charts.
-- **Auth** — Google and GitHub OAuth via InsForge, with PKCE cookies owned server-side.
+- **Job discovery.** Searches [Adzuna](https://www.adzuna.com) by title and location, IT roles only. GPT-4o scores every result 0–100 against your profile and writes out why it fits and what you're missing.
+- **Company research.** One [Browserbase](https://www.browserbase.com) session driven by [Stagehand](https://www.stagehand.dev) reads the company's public pages, then GPT-4o writes a dossier: overview, tech stack, culture, why the role exists, interview prep. If the site is unreachable it still returns a dossier built from the company name and job description, and says so.
+- **Resume tools.** Upload a PDF and optionally auto-fill your profile from it, projects included. Or generate a clean resume PDF from the profile you already have.
+- **Dashboard.** Stats, activity feed, and charts built from your own Postgres rows in `lib/dashboard-charts.ts`. PostHog is for product analytics and doesn't feed these charts.
+- **Billing.** Stripe Checkout with webhook-driven activation. Currently test mode only: `actions/billing.ts` requests a `"test"` session and the fulfillment trigger filters on `environment = 'test'`. Both flip together at launch.
+- **Auth.** Google and GitHub OAuth through InsForge, PKCE cookies held server-side.
 
-JobPilot never auto-submits applications. Applying is always an explicit, one-click handoff to the employer's posting.
+JobPilot never auto-submits an application. Applying is always an explicit one-click handoff to the employer's posting.
 
-Full user flow and feature scope: [context/project-overview.md](./context/project-overview.md).
+Full flow and scope: [context/project-overview.md](./context/project-overview.md).
 
-## A few engineering decisions worth explaining
+## What a run costs
 
-**Billing can't double-activate a subscription, by construction.** Stripe fulfillment isn't a Next.js route — it's a Postgres trigger function (`fulfill_stripe_subscription()`, in `migrations/20260802214444_harden-stripe-fulfillment-and-checkout-rls.sql`) that InsForge's managed Stripe integration invokes on each event. It writes with `INSERT ... ON CONFLICT (user_id) DO UPDATE`, keyed on a unique `user_id`. Stripe can retry the same event as many times as it wants — it always hits the same row, and a guard on `last_stripe_event_at` means an out-of-order retry can't even overwrite newer state with stale data. There's no code path that creates a second subscription for one user; it's not handled by application logic, it's enforced by the schema.
+Worth knowing before you read the caps, because the caps are sized around it.
 
-**InsForge over Supabase or Firebase, for two reasons.** Cost at the scale I needed, and InsForge is built agentic-development-first — which mattered because I was building this entirely spec-driven, with an agent doing the implementation against written specs rather than me hand-coding it. A backend designed around that workflow was a better fit than retrofitting one that wasn't.
+A **job search** is one Adzuna call plus one GPT-4o call per job, run sequentially, with `results_per_page: "10"`. Jobs you've already seen are skipped, so a repeat search costs less than a first one. Roughly **$0.05** at 10 new jobs.
 
-**Company research runs on a single bounded Browserbase session** (`agent/research.ts`), not an unbounded crawl. It reads the homepage, ranks the internal links it found by a fixed preference order (about, engineering, blog, product, team, other, careers), visits at most `MAX_SUB_PAGES = 3` of them sequentially, and closes the session in a `finally` block. Longer crawls cost more and don't reliably produce a better dossier — most public company sites don't have much more than a homepage and an about/careers page worth reading — so the page count is capped. Note the cost shape: Stagehand is configured with `gpt-4o`, so each `extract` is itself a model call. One research run is **2–5 GPT-4o calls**, not one: one homepage `extract`, zero to three sub-page `extract`s, and one synthesis call. (Resolving the homepage URL is a plain `fetch`, not a model call.)
+A **research run** is 2–5 GPT-4o calls, not one. Stagehand is configured with `gpt-4o`, so every `extract` is itself a model call: one on the homepage, zero to three on sub-pages, then one synthesis call. Resolving the homepage URL is a plain `fetch`, not a model call. Roughly **$0.05–0.10** plus Browserbase session time.
 
-**The company homepage is resolved first, guessed second.** `agent/research.ts` follows the job's `external_apply_url` with `redirect: "follow"` and, if the final hostname isn't Adzuna's, strips it to its last two labels. Only when that fails does it fall back to guessing `https://www.{name}.com`, where `{name}` is the company name with every non-alphanumeric character removed (so "Acme Inc." becomes `acmeinc.com` — the fallback does *not* strip legal suffixes, and misses companies whose domain doesn't match their name). When both paths fail or the page is unreachable, the research agent doesn't fail: it falls back to a dossier synthesized from the company name and job description alone, and is instructed to say so in `companyOverview`, so the feature always returns *something* rather than an empty state. See the `Invariants` section of [context/architecture.md](./context/architecture.md#invariants).
+So a free account that exhausts both caps costs me well under a dollar a month in model spend. (Estimates from list prices and typical prompt sizes, not metered — replace with real numbers if you fork this.)
 
-**Access is gated below the database privilege layer, not just in the UI.** InsForge grants `SELECT/INSERT/UPDATE` on public tables to `anon`/`authenticated` by default — even with no matching RLS policy, so *not* writing a policy does not leave a table closed. Two tables take that default away explicitly. `user_access` (`migrations/20260801120001_create-user-access.sql`) revokes the default grants and hands back only `SELECT`, so approving an account is an admin-only SQL operation that application code — or a bug in it — could never perform. `subscriptions` (`migrations/20260802033103_create-subscriptions.sql`) goes further and grants nothing back at all: it has no RLS policies whatsoever and is reachable only through a service-role client on the server (`lib/insforge-service.ts`). Worth knowing about if you're evaluating InsForge for anything security-sensitive.
+## Engineering decisions
 
-**A known gap: Adzuna rate limits aren't retried.** `lib/adzuna.ts` throws on any non-2xx response — a 429 and a 500 are handled identically — and `agent/adzuna.ts` catches that once, marks the run failed, and returns a single generic message ("Something went wrong searching for jobs. Please try again.") with no backoff or retry. Fine at current usage; worth fixing before it isn't. Noted here rather than glossed over.
+**Billing can't double-activate a subscription, because the schema won't let it.** Fulfillment isn't a Next.js route. It's a Postgres trigger, `fulfill_stripe_subscription()` in `migrations/20260802214444_harden-stripe-fulfillment-and-checkout-rls.sql`, that InsForge's managed Stripe integration fires per event. It writes `INSERT ... ON CONFLICT (user_id) DO UPDATE` against a unique `user_id`, so every Stripe retry lands on the same row, and a `last_stripe_event_at` guard stops an out-of-order retry from overwriting newer state. There is no application code path that could create a second subscription for one user.
+
+**Access is revoked at the privilege layer, not just the UI.** InsForge grants `SELECT/INSERT/UPDATE` on public tables to `anon` and `authenticated` by default. Writing no RLS policy therefore does not leave a table closed, which is the opposite of what most people assume. Two tables take that default away. `user_access` ([migration](./migrations/20260801120001_create-user-access.sql)) revokes the grants and hands back only `SELECT`, so approving an account is an admin-only SQL operation that app code couldn't perform even with a bug in it. `subscriptions` ([migration](./migrations/20260802033103_create-subscriptions.sql)) grants nothing back at all and has no RLS policies, reachable only through the service-role client in `lib/insforge-service.ts`. Worth knowing if you're evaluating InsForge for anything security-sensitive.
+
+**Company research is capped at one bounded session, not a crawl.** `agent/research.ts` reads the homepage, ranks the internal links it finds by a fixed order (about, engineering, blog, product, team, other, careers), visits at most `MAX_SUB_PAGES = 3`, and closes the session in a `finally`. Longer crawls cost more without producing better dossiers, because most company sites don't have much past a homepage and an about page worth reading.
+
+**The homepage is resolved first and guessed second.** `agent/research.ts` follows the job's `external_apply_url` with `redirect: "follow"` and, when the final hostname isn't Adzuna's, strips it to its last two labels. Only if that fails does it guess `https://www.{name}.com` from the company name with non-alphanumerics removed. That fallback is weak: it doesn't strip legal suffixes, so "Acme Inc." becomes `acmeinc.com`, and it misses any company whose domain doesn't match its name. When both paths fail the run still returns a dossier synthesized from the name and job description, instructed to say so in `companyOverview`. See the invariants in [context/architecture.md](./context/architecture.md#invariants).
+
+**Adzuna rate limits aren't retried.** `lib/adzuna.ts` throws on any non-2xx, treating a 429 and a 500 identically. `agent/adzuna.ts` catches once, marks the run failed, and returns one generic message with no backoff. Fine at current usage, worth fixing before it isn't.
+
+## The outage
+
+`npm test` runs around 500 assertions across roughly 30 files, but only seven of them execute code (`dashboard-stats`, `dashboard-activity`, `find-jobs-filters`, `match-score`, `adzuna-client`, `access`, `job-signature`). The other twenty read implementation files and assert regexes against the source text, which pins how the code *reads* rather than what it does. Nothing calls a real external dependency. That gap cost me two weeks in production.
+
+The spec was right. [`0018-free-tier-usage-gating.md`](./docs/specs/0018-free-tier-usage-gating.md) defines the usage RPC as returning "exactly one row," and asks for a concurrency test driven straight at the RPC over two connections, reasoning that "the RPC boundary is where the guarantee actually lives." Both correct. `check_and_increment_usage` is declared `RETURNS TABLE(...)`, so PostgREST sends that one row as a one-element array. The client read `.allowed` off the array itself, got `undefined`, and `undefined` denied. Every metered action was refused for every account, free users under the cap and Pro users alike, from 3 to 17 August.
+
+The test the spec asked for would have caught it on the first run. It got written against a mock returning a bare object, so it encoded the same assumption as the code it was checking. And this is the one billing feature with no entry in [docs/reviews/](./docs/reviews/): the two before it were reviewed, this one shipped in the same commit as its own spec. The process didn't fail here. I stopped running it.
+
+Fixed in [#11](https://github.com/ghalynho10/job_pilot/pull/11). Next step is replacing the source-contract tests with executing ones, starting at the RPC boundary where this bug lived.
 
 ## Stack
 
 | Layer | Tool |
 | --- | --- |
 | Framework | Next.js 16 (App Router), React 19, TypeScript strict |
-| Auth, DB, Storage | [InsForge](https://insforge.dev) |
+| Auth, DB, storage | [InsForge](https://insforge.dev) |
 | Job discovery | Adzuna API |
 | AI | OpenAI GPT-4o |
 | Company research | Browserbase + Stagehand |
 | Analytics | PostHog |
-| Billing | Stripe via InsForge's managed integration (no `stripe` SDK dependency; fulfillment is a Postgres trigger) |
-| PDF generation | `@react-pdf/renderer` |
-| Styling | Tailwind CSS v4, hand-written (no component library) |
+| Billing | Stripe via InsForge's managed integration (no `stripe` dependency; fulfillment is a Postgres trigger) |
+| PDF | `@react-pdf/renderer` |
+| Styling | Tailwind CSS v4, hand-written |
 | Hosting | Vercel |
 
-Full architecture, folder structure, data flow, and invariants: [context/architecture.md](./context/architecture.md).
+Architecture, folder structure, data flow, invariants: [context/architecture.md](./context/architecture.md).
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the values below
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### Environment variables
+Then open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Purpose |
 | --- | --- |
@@ -76,68 +92,54 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_INSFORGE_ANON_KEY` | InsForge anon key |
 | `NEXT_PUBLIC_POSTHOG_KEY` | PostHog public key |
 | `NEXT_PUBLIC_POSTHOG_HOST` | PostHog host |
-| `OPENAI_API_KEY` | GPT-4o: matching, resume extraction, resume generation, research synthesis (and Stagehand's own `extract` calls) |
+| `OPENAI_API_KEY` | Matching, resume extraction and generation, research synthesis, and Stagehand's own `extract` calls |
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | Job discovery |
 | `BROWSERBASE_API_KEY` / `BROWSERBASE_PROJECT_ID` | Company research |
-| `ENABLE_AGENT_RUNS` | Kill switch for agent routes (find, research). Only the exact string `false` disables. |
-| `SERVICE_ROLE_KEY` | Service-role InsForge client. Reads `subscriptions` and invokes the usage RPC; bypasses RLS, so it is server-only and must never carry a `NEXT_PUBLIC_` prefix. |
-| `STRIPE_PRO_MONTHLY_PRICE_ID` | Stripe price ID for the Pro monthly plan |
+| `ENABLE_AGENT_RUNS` | Kill switch for the find and research routes. Only the exact string `false` disables. |
+| `SERVICE_ROLE_KEY` | Service-role InsForge client. Reads `subscriptions`, invokes the usage RPC, bypasses RLS. Server-only, never `NEXT_PUBLIC_`. |
+| `STRIPE_PRO_MONTHLY_PRICE_ID` | Stripe price ID for Pro monthly |
 
-`NEXT_PUBLIC_` variables inline into the client bundle at build time. Never put a secret behind that prefix. See [context/code-standards.md](./context/code-standards.md#environment-variables).
-
-### Tests
-
-```bash
-npm test
-```
-
-Runs 482 tests (`node:test`) on `tests/*.test.mjs`.
-
-Most of these are **source-contract** tests: they read the implementation file and assert regexes against its text, pinning that the code still *reads* a certain way. Only about six files import and execute code (`dashboard-stats`, `dashboard-activity`, `find-jobs-filters`, `match-score`, `adzuna-client`, `access`). There is no integration test that calls a real external dependency, and that gap has bitten once, expensively.
-
-`check_and_increment_usage` is declared `RETURNS TABLE(...)`, so PostgREST returns an array of rows. The client cast that array to a single object and read `.allowed` off it, which is always `undefined`, and `undefined` read as "denied" downstream. Every metered action was refused for every account — free users under the cap and Pro users alike — for two weeks. All six test mocks returned a bare object, encoding the same wrong assumption as the implementation, so the suite passed against a shape that never occurs on the wire. Mocks written from the same assumption as the code under test are not coverage.
+`NEXT_PUBLIC_` variables are inlined into the client bundle at build time, so never put a secret behind that prefix. See [context/code-standards.md](./context/code-standards.md#environment-variables).
 
 ## Project structure
 
-```
+```text
 app/            Pages and API routes — no business logic
 agent/          Agent logic (Adzuna, matching, research, extraction) — never touches React
 actions/        Server Actions for UI mutations (auth, profile save, checkout)
 components/     UI only — no data fetching, no direct database calls
 lib/            Client initialization and shared utilities
 types/          Shared TypeScript types
-context/        Agent context docs — read these before any change
+context/        Agent context docs — read before any change
 docs/scope/     Living feature scope
-docs/specs/     Per-feature design specs, rationale, and verification
+docs/specs/     Per-feature design specs and verification
 docs/reviews/   Point-in-time code reviews
 migrations/     Versioned InsForge SQL migrations
 ```
 
 Full breakdown: [context/architecture.md](./context/architecture.md#folder-structure).
 
-## Working on this project
+## How this was built
 
-Most of this codebase was built through a structured spec → build → verify → test cycle rather than ad hoc prompting, using a vendored Agent Skills pipeline pinned in `skills-lock.json` — the agent reads a fixed set of context docs (architecture, UI conventions, code standards) before touching any code, and every non-trivial feature has a design spec under `docs/specs/` before implementation starts. The workflow skills (`architect`, `develop`, `check`, `debug`, `scope`, `sync`, `test`, `document`, `audit`) are pinned unmodified from `JavaScript-Mastery-Pro/skills`, alongside third-party skills from Browserbase and Stripe and one self-authored skill (`checkpoint`). Full workflow, doc order, and available commands: [AGENTS.md](./AGENTS.md).
+I built this spec-first rather than by ad hoc prompting. Every non-trivial feature gets a design spec in `docs/specs/` before implementation, an agent implements against that spec plus a fixed set of context docs, and the result goes through a review pass recorded in `docs/reviews/`. The workflow skills are pinned unmodified from [`JavaScript-Mastery-Pro/skills`](https://github.com/JavaScript-Mastery-Pro/skills) in `skills-lock.json`, alongside third-party skills from Browserbase and Stripe. The tooling isn't mine; the specs and the architecture decisions are, and spec 0018 is a fair sample — it reasons about read-committed semantics under concurrent requests and rejects two alternatives on cost grounds.
 
-Build approach is **skateboard**: ship the thinnest usable whole first, then grow it. Current scope and status: [docs/scope/scope.md](./docs/scope/scope.md).
+The honest assessment of how well that held up is [above](#the-outage).
 
-### InsForge backend
-
-This project uses [InsForge](https://insforge.dev) for database, auth, storage, and edge functions. Credentials live in `.env.local` (app) and `.insforge/project.json` (CLI). Never commit them. See [AGENTS.md](./AGENTS.md) for available skills.
+Build approach is skateboard: ship the thinnest usable whole, then grow it. Current status: [docs/scope/scope.md](./docs/scope/scope.md). Workflow and doc order: [AGENTS.md](./AGENTS.md).
 
 ## Roadmap
 
-**Shipped:** auth, profile and resume tools (including project extraction and AI-generated resumes with anti-fabrication numeral validation), job discovery and matching, company research, dashboard analytics, and free-tier usage caps.
+**Shipped.** Auth, profile and resume tools (project extraction, AI-generated resumes with anti-fabrication numeral validation), job discovery and matching, company research, dashboard analytics, free-tier usage caps.
 
-**Partly shipped:** Stripe billing. Checkout and trigger-based webhook fulfillment are built and tested end to end, but against Stripe **test mode**, and the Upgrade button is still behind the `user_access` allowlist. Going live means flipping both the checkout call and the trigger's environment filter, then dropping the allowlist.
+**Partly shipped.** Stripe billing. Checkout and trigger-based fulfillment work end to end, but in test mode, and Upgrade is still behind the `user_access` allowlist. Going live means flipping the checkout call and the trigger's environment filter, then dropping the allowlist.
 
-**Known gaps:** `/api/resume/extract` and `/api/resume/generate` reach GPT-4o with no usage cap and no kill switch — the only uncapped spend path. Five `jobs` columns (`responsibilities`, `requirements`, `nice_to_have`, `benefits`, `about_company`) and the `agent_logs` table are read or created but never written, so the structured sections of the job details page never render.
+**Known gaps.** `/api/resume/extract` and `/api/resume/generate` reach GPT-4o with no cap and no kill switch, the only uncapped spend path. Five `jobs` columns (`responsibilities`, `requirements`, `nice_to_have`, `benefits`, `about_company`) and the `agent_logs` table are read or created but never written, so the structured sections of the job details page never render.
 
-**Next:** per-job application status tracking with a status-filtered view. Needs a design spec before work begins.
+**Next.** Per-job application status tracking with a status-filtered view. Needs a spec first.
 
 ## Deployment
 
-Hosted on Vercel (Hobby plan). Pushes to `main` deploy automatically. Production configuration (OAuth callbacks, env vars, `maxDuration` on the research route): [docs/specs/0013-deploy-target-production-config](./docs/specs/0013-deploy-target-production-config/index.md).
+Vercel Hobby. Pushes to `main` deploy automatically. Production config (OAuth callbacks, env vars, `maxDuration` on the research route): [docs/specs/0013-deploy-target-production-config](./docs/specs/0013-deploy-target-production-config/index.md).
 
 ## License
 
