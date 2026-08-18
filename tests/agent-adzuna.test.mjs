@@ -122,7 +122,11 @@ test("formatSalary returns null when Adzuna gives no salary_min, otherwise a rou
     /const max = job\.salary_max \? Math\.round\(job\.salary_max \/ 1000\) : min;/,
     "salary_max must fall back to the same value as min when Adzuna doesn't provide a max",
   );
-  assert.match(source, /return `\$\$\{min\}k - \$\$\{max\}k`;/);
+  assert.match(
+    source,
+    /return min === max \? `\$\$\{min\}k` : `\$\$\{min\}k - \$\$\{max\}k`;/,
+    "a point estimate must render as one figure, not as a range from a number to itself",
+  );
 });
 
 test("job_type falls back to fulltime when Adzuna omits contract_type", async () => {
@@ -175,5 +179,80 @@ test("an empty Adzuna result skips the dedupe lookup entirely rather than queryi
     source,
     /if \(adzunaJobs\.length > 0\) \{\s*const \{ data: existingRows, error: existingError \}/,
     "the dedupe lookup must be guarded by a non-empty check before running",
+  );
+});
+
+// Content dedupe: Adzuna lists one opening under several ids, so external_id
+// alone leaves visible duplicates. These mirror the external_id tests above.
+
+test("the signature lookup selects every field the signature keys on, so a seeded row and a fresh one hash the same way (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /\.select\("company, title, location, salary"\)/,
+    "omitting a field here would make every seeded signature differ from the one built in the loop, silently disabling the dedupe",
+  );
+  assert.match(
+    source,
+    /\.in\("company", \[\s*\.\.\.new Set\(adzunaJobs\.map\(\(job\) => job\.company\.display_name\)\),\s*\]\)/,
+    "the seeding query must be scoped to the companies in this batch, not the user's whole history",
+  );
+});
+
+test("the signature keys on location, so two cities are never merged into one job (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /jobSignature\(\s*adzunaJob\.company\.display_name,\s*adzunaJob\.title,\s*adzunaJob\.location\.display_name,\s*salary,\s*\)/,
+    "dropping location here silently discards a real posting, which is worse than showing a duplicate",
+  );
+});
+
+test("the signature skip runs before scoring, so a duplicate never costs a GPT-4o call (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  const loopIndex = source.indexOf("for (const adzunaJob of adzunaJobs) {");
+  const skipIndex = source.indexOf("if (existingSignatures.has(signature)) {");
+  const scoreCallIndex = source.indexOf("scoreJobMatch(");
+
+  assert.ok(
+    skipIndex !== -1 && skipIndex > loopIndex && skipIndex < scoreCallIndex,
+    "the signature check must skip a job before it reaches the scorer, not after",
+  );
+});
+
+test("a signature is recorded on insert, so duplicates inside one Adzuna response are caught too (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  const insertGuardIndex = source.indexOf("if (jobInsertError) {");
+  const addIndex = source.indexOf("existingSignatures.add(signature);");
+  const countIndex = source.indexOf("jobsFound += 1;");
+
+  assert.ok(
+    addIndex !== -1 && addIndex > insertGuardIndex,
+    "the signature must be recorded only after a successful insert, so a failed insert does not block a later retry of the same job",
+  );
+  assert.ok(addIndex < countIndex, "record the signature alongside the count, before the loop moves on");
+});
+
+test("an empty Adzuna result skips the signature lookup too, not just the external_id one (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /if \(adzunaJobs\.length > 0\) \{\s*const \{ data: signatureRows, error: signatureError \}/,
+    "the signature lookup must be guarded by a non-empty check before running",
+  );
+});
+
+test("a failed signature lookup logs and continues rather than aborting the search (content dedupe)", async () => {
+  const source = await readProjectFile("agent/adzuna.ts");
+
+  assert.match(
+    source,
+    /if \(signatureError\) \{\s*console\.error\("\[agent\/adzuna\]", signatureError\);\s*\}/,
+    "a dedupe lookup failure must fail open (duplicates shown) rather than failing the whole search",
   );
 });

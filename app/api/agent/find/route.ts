@@ -117,8 +117,22 @@ export async function POST(
       );
     }
 
-    const { jobsFound, strongMatches } = result.data;
-    const message = `Found ${jobsFound} jobs and saved ${strongMatches} strong matches.`;
+    const { jobsFound, strongMatches, resultsReturned } = result.data;
+    // jobsFound counts only rows inserted by this run; jobs the user already
+    // had are skipped before scoring. The copy has to say "new", or it reads
+    // as contradicting the full list rendered underneath it. The two zero cases
+    // are different and must not share wording: Adzuna returning nothing is not
+    // the same as Adzuna returning only jobs the user already had.
+    const jobLabel = jobsFound === 1 ? "job" : "jobs";
+    const matchLabel = strongMatches === 1 ? "match" : "matches";
+    let message;
+    if (jobsFound > 0) {
+      message = `Added ${jobsFound} new ${jobLabel}. ${strongMatches} strong ${matchLabel}.`;
+    } else if (resultsReturned === 0) {
+      message = "No jobs found for that search.";
+    } else {
+      message = "No new jobs. Every result was already in your list.";
+    }
 
     return NextResponse.json({
       success: true,

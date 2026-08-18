@@ -2,6 +2,7 @@ import type { InsForgeClient } from "@insforge/sdk";
 
 import { scoreJobMatch } from "@/agent/matcher";
 import { detectCountry, searchJobs, type AdzunaJob } from "@/lib/adzuna";
+import { jobSignature } from "@/lib/job-signature";
 import { MATCH_THRESHOLD } from "@/lib/match-score";
 import { createPostHogServer } from "@/lib/posthog-server";
 import type { Profile } from "@/types";
@@ -13,7 +14,10 @@ function formatSalary(job: AdzunaJob): string | null {
 
   const min = Math.round(job.salary_min / 1000);
   const max = job.salary_max ? Math.round(job.salary_max / 1000) : min;
-  return `$${min}k - $${max}k`;
+  // Adzuna often predicts a single figure rather than a band, and rounding to
+  // the nearest thousand collapses narrow bands too. Rendering "$103k - $103k"
+  // reads as a broken range, so a point estimate prints as one number.
+  return min === max ? `$${min}k` : `$${min}k - $${max}k`;
 }
 
 export async function runJobSearch(
@@ -23,7 +27,8 @@ export async function runJobSearch(
   jobTitle: string,
   location: string,
 ): Promise<
-  { success: true; data: { jobsFound: number; strongMatches: number } } | { success: false; error: string }
+  | { success: true; data: { jobsFound: number; strongMatches: number; resultsReturned: number } }
+  | { success: false; error: string }
 > {
   const { data: run, error: runInsertError } = await insforge.database
     .from("agent_runs")
@@ -86,12 +91,59 @@ export async function runJobSearch(
     }
   }
 
+  // Adzuna routinely lists one opening several times under different ids, so
+  // external_id alone cannot catch them: the same role at the same company for
+  // the same money arrives as two distinct rows. This second check keys on the
+  // content a user would compare by eye, and is seeded with what they already
+  // have so a repeat search does not re-add yesterday's duplicates. Scoped to
+  // the companies in this batch rather than the user's whole history.
+  const existingSignatures = new Set<string>();
+
+  if (adzunaJobs.length > 0) {
+    const { data: signatureRows, error: signatureError } = await insforge.database
+      .from("jobs")
+      .select("company, title, location, salary")
+      .eq("user_id", userId)
+      .in("company", [
+        ...new Set(adzunaJobs.map((job) => job.company.display_name)),
+      ]);
+
+    if (signatureError) {
+      console.error("[agent/adzuna]", signatureError);
+    }
+
+    for (const row of signatureRows ?? []) {
+      existingSignatures.add(
+        jobSignature(
+          (row.company as string | null) ?? "",
+          (row.title as string | null) ?? "",
+          (row.location as string | null) ?? "",
+          (row.salary as string | null) ?? null,
+        ),
+      );
+    }
+  }
+
   const posthog = createPostHogServer();
   let jobsFound = 0;
   let strongMatches = 0;
 
   for (const adzunaJob of adzunaJobs) {
     if (existingExternalIds.has(adzunaJob.id)) {
+      continue;
+    }
+
+    const salary = formatSalary(adzunaJob);
+    const signature = jobSignature(
+      adzunaJob.company.display_name,
+      adzunaJob.title,
+      adzunaJob.location.display_name,
+      salary,
+    );
+
+    // Added to the set on insert below, so duplicates inside this one Adzuna
+    // response are caught too, not only ones already in the database.
+    if (existingSignatures.has(signature)) {
       continue;
     }
 
@@ -119,7 +171,7 @@ export async function runJobSearch(
         title: adzunaJob.title,
         company: adzunaJob.company.display_name,
         location: adzunaJob.location.display_name,
-        salary: formatSalary(adzunaJob),
+        salary,
         job_type: adzunaJob.contract_type || "fulltime",
         about_role: adzunaJob.description,
         match_score: match.matchScore,
@@ -134,6 +186,7 @@ export async function runJobSearch(
       continue;
     }
 
+    existingSignatures.add(signature);
     jobsFound += 1;
     if ((match.matchScore ?? 0) >= MATCH_THRESHOLD) {
       strongMatches += 1;
@@ -157,5 +210,11 @@ export async function runJobSearch(
     })
     .eq("id", runId);
 
-  return { success: true, data: { jobsFound, strongMatches } };
+  // resultsReturned lets the caller tell "Adzuna found nothing" apart from
+  // "everything Adzuna found, you already had". Both leave jobsFound at 0, but
+  // only the second one means the results were already in the user's list.
+  return {
+    success: true,
+    data: { jobsFound, strongMatches, resultsReturned: adzunaJobs.length },
+  };
 }

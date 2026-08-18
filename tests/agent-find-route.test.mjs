@@ -91,7 +91,22 @@ test("a successful search returns the jobsFound/strongMatches summary and the ex
 
   assert.match(
     source,
-    /const message = `Found \$\{jobsFound\} jobs and saved \$\{strongMatches\} strong matches\.`;/,
+    /message = `Added \$\{jobsFound\} new \$\{jobLabel\}\. \$\{strongMatches\} strong \$\{matchLabel\}\.`;/,
+  );
+  assert.match(source, /const jobLabel = jobsFound === 1 \? "job" : "jobs";/);
+  assert.match(source, /const matchLabel = strongMatches === 1 \? "match" : "matches";/);
+
+  // The two zero cases are different and must not share wording: an empty
+  // Adzuna response has nothing that was "already in your list".
+  assert.match(
+    source,
+    /else if \(resultsReturned === 0\) \{\s*message = "No jobs found for that search\.";/,
+    "an empty Adzuna response must not claim the results were already saved",
+  );
+  assert.match(
+    source,
+    /else \{\s*message = "No new jobs\. Every result was already in your list\.";/,
+    "a run that adds nothing must say so, not report a count that contradicts the list on screen",
   );
   assert.match(
     source,
