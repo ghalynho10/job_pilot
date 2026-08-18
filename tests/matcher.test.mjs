@@ -12,7 +12,11 @@ test("matcher calls GPT-4o at the documented matching/scoring temperature and to
   const source = await readProjectFile("agent/matcher.ts");
 
   assert.match(source, /model:\s*"gpt-4o"/);
-  assert.match(source, /temperature:\s*0\.3/);
+  assert.match(
+    source,
+    /temperature:\s*0,/,
+    "scoring must be deterministic: the same profile against the same posting has to return the same number twice",
+  );
   assert.match(source, /max_tokens:\s*300/);
   assert.match(source, /response_format:\s*\{\s*type:\s*"json_object"\s*\}/);
 });

@@ -13,7 +13,13 @@ const jobMatchSchema = z.object({
 const SYSTEM_PROMPT = `You are a precise job matching assistant. You score how well a candidate's profile matches one job posting.
 
 Rules:
-- matchScore is an integer from 0 to 100, how well the candidate's skills and experience fit this specific job.
+- matchScore is an integer from 0 to 100, how well the candidate's skills and experience fit this specific job. Score against these bands, and use the whole range rather than settling near the middle:
+  - 90-100: meets essentially every stated requirement, and the seniority matches.
+  - 70-89: meets the core requirements; the gaps are secondary or learnable on the job.
+  - 50-69: meets some core requirements, with at least one significant gap.
+  - 30-49: partial overlap only, or the wrong seniority for the role.
+  - 0-29: a different discipline, or clearly unqualified.
+- Pick the number the evidence supports, not a round one. Multiples of five are not preferred, and a score of exactly 70 or 75 is almost never the most accurate answer available.
 - matchReason is one short paragraph explaining the score, grounded only in the candidate's profile and the job description given to you.
 - matchedSkills lists only skills the candidate's profile already has that the job description also asks for.
 - missingSkills lists only skills the job description asks for that are not in the candidate's profile.
@@ -58,7 +64,10 @@ export async function scoreJobMatch(
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       response_format: { type: "json_object" },
-      temperature: 0.3,
+      // Scoring must be reproducible: the same profile against the same posting
+      // has to return the same number twice. At 0.3 two near-identical listings
+      // were landing on different scores purely from sampling jitter.
+      temperature: 0,
       max_tokens: 300,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
