@@ -78,6 +78,11 @@ export function FindJobsPage({
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  // Whether the last run actually added anything. Separate from `status`, which
+  // stays "success" as long as the refetch returned rows: a run that added
+  // nothing is a successful search with nothing to celebrate, and should not
+  // render under the green banner and the sparkle.
+  const [addedJobs, setAddedJobs] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>(initialJobs);
   const [filterText, setFilterText] = useState("");
@@ -148,12 +153,6 @@ export function FindJobsPage({
         return;
       }
 
-      if (result.jobsFound === 0) {
-        setJobs([]);
-        setStatus("empty");
-        return;
-      }
-
       const { data: freshJobs, error: fetchError } = await insforge.database
         .from("jobs")
         .select("*")
@@ -166,9 +165,14 @@ export function FindJobsPage({
         return;
       }
 
-      setJobs((freshJobs ?? []) as JobRow[]);
+      // A search that adds nothing new is not an empty result: the user still
+      // has every job saved from earlier runs. Only a genuinely empty list is
+      // the empty state, otherwise a repeat search blanks the whole table.
+      const rows = (freshJobs ?? []) as JobRow[];
+      setJobs(rows);
       setResultMessage(result.message);
-      setStatus("success");
+      setAddedJobs(result.jobsFound > 0);
+      setStatus(rows.length === 0 ? "empty" : "success");
     } catch {
       setStatus("error");
       setErrorMessage("Something went wrong searching for jobs. Please try again.");
@@ -258,10 +262,14 @@ export function FindJobsPage({
 
         {status === "success" ? (
           <div
-            className="mt-4 flex items-center gap-2 rounded-lg bg-success-lightest px-4 py-3 text-sm font-medium text-success-foreground"
+            className={
+              addedJobs
+                ? "mt-4 flex items-center gap-2 rounded-lg bg-success-lightest px-4 py-3 text-sm font-medium text-success-foreground"
+                : "mt-4 flex items-center gap-2 rounded-lg bg-surface-secondary px-4 py-3 text-sm font-medium text-text-secondary"
+            }
             role="status"
           >
-            <Sparkles aria-hidden="true" className="size-4" />
+            {addedJobs ? <Sparkles aria-hidden="true" className="size-4" /> : null}
             {resultMessage}
           </div>
         ) : null}

@@ -301,6 +301,62 @@ test("a search with no results shows a distinct empty state, not the success ban
   assert.match(source, /No jobs found for that search/);
 });
 
+test("a search that adds nothing new must not wipe the jobs the user already has", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  // The regression this pins: an early return on jobsFound === 0 called
+  // setJobs([]) and set "empty", blanking a table that can hold dozens of
+  // saved jobs whenever a repeat search turned up nothing new.
+  assert.doesNotMatch(
+    source,
+    /result\.jobsFound === 0/,
+    "the component must not branch on the per-run delta; jobsFound counts only rows inserted by this run, not what the user has",
+  );
+  assert.doesNotMatch(
+    source,
+    /setJobs\(\[\]\)/,
+    "nothing may clear the visible list; it is refetched from the database on every search",
+  );
+});
+
+test("the empty state is derived from what the refetch actually returned, not from the per-run count", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /setStatus\(rows\.length === 0 \? "empty" : "success"\)/,
+    "only a genuinely empty result set is the empty state",
+  );
+
+  const refetchIndex = source.indexOf("const { data: freshJobs, error: fetchError }");
+  const statusIndex = source.indexOf('setStatus(rows.length === 0 ? "empty" : "success")');
+
+  assert.ok(
+    refetchIndex !== -1 && refetchIndex < statusIndex,
+    "the status must be decided after the refetch, from its rows",
+  );
+});
+
+test("a run that added nothing does not render under the celebratory success banner", async () => {
+  const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
+
+  assert.match(
+    source,
+    /setAddedJobs\(result\.jobsFound > 0\)/,
+    "whether anything was added is tracked separately from the status state machine",
+  );
+  assert.match(
+    source,
+    /addedJobs \? <Sparkles aria-hidden="true" className="size-4" \/> : null/,
+    "the sparkle belongs to a run that actually added jobs, not to 'no new jobs'",
+  );
+  assert.match(
+    source,
+    /addedJobs\s*\?\s*"mt-4 flex items-center gap-2 rounded-lg bg-success-lightest/,
+    "the green treatment is reserved for a run that added something",
+  );
+});
+
 test("a failed search shows an alert, not a silent failure", async () => {
   const source = await readProjectFile("components/find-jobs/FindJobsPage.tsx");
 
