@@ -399,20 +399,42 @@ any good.
 
 ---
 
-## Appendix: state of the working tree as of writing
+## Appendix: state of the repo as of writing
 
-Seven defects fixed on branch `bug-fixes`, not yet committed: the salary formatter, the
-banner copy (including the three-way split so an empty Adzuna response does not claim the
-results were already saved), the list-wiping early return, content-based dedup on
-company + title + location + salary (new `lib/job-signature.ts` with ten executing tests),
-the scoring rubric, `temperature: 0`, and the location gap the review caught.
+Committed to branch `bug-fixes` as four commits (`b00763d`, `45364eb`, `2ecd0bd`,
+`1f2496a`), not pushed:
 
-**500 tests pass**, `tsc --noEmit` clean, eslint clean. The first `/check review` returned
-**Blocked** on the location gap (see 2.9); its findings are in
-`docs/reviews/2026-08-18-bug-fixes.md`. A re-review of the corrected diff was running when
-this was written, landing in `docs/reviews/2026-08-18-bug-fixes-rereview.md`.
+- `formatSalary` renders a point estimate as one figure, not a range to itself.
+- Content dedup on company + title + location + salary, in `lib/job-signature.ts` with ten
+  executing tests, seeded from existing rows and scoped to the batch's companies.
+- The banner distinguishes three cases: jobs added, nothing new, and Adzuna returned
+  nothing at all.
+- The list-wiping early return is gone; "empty" now derives from what the refetch returned.
+- The scoring rubric plus `temperature: 0`.
 
-Deliberately not fixed, and each worth a line in any rebuild backlog: the null-score silent
-failure (2.5), the salary-jitter dedup gap (2.3), upstream data sanity checks (2.6),
-`z.number().catch(0)` now colliding with the legitimate 0–29 rubric band, and any backfill
-of historical rows (old salary strings and old scores both persist as stored values).
+**501 tests pass**, `tsc --noEmit` clean, eslint clean. Two `/check review` passes on the
+cross-model gate: the first returned **Blocked** on the location gap (see 2.9,
+`docs/reviews/2026-08-18-bug-fixes.md`), the second **Approve with nits** after it was fixed
+(`docs/reviews/2026-08-18-bug-fixes-rereview.md`). The re-review independently verified the
+fix by reconstructing the old three-parameter function and confirming the new tests fail
+against it, rather than taking the fix on trust.
+
+### Known gaps carried forward, each worth a line in any rebuild backlog
+
+| Gap | Where it is described |
+| --- | --- |
+| Silent `match_score = null`; a failed scoring call still reports success | 2.5 |
+| Salary jitter defeats content dedup for near-duplicate postings | 2.3 |
+| No sanity check on upstream Adzuna data (a `$10k` senior role) | 2.6 |
+| `z.number().catch(0)` now collides with the legitimate 0–29 rubric band | review, 2026-08-18 |
+| No backfill: old rows keep stale salary strings and stale scores | below |
+
+**The backfill gap is larger than it first looked, and is a design lesson in itself.**
+`salary` is stored as a formatted display string, so fixing the formatter cannot fix history.
+Beyond the cosmetic issue, an old row's `"$103k - $103k"` will never match a freshly
+formatted `"$103k"` for the same posting, so dedup cannot recognise them as one job. It also
+means the product demos badly: a screenshot taken after all these fixes still shows mostly
+pre-fix rows, because the account's history dominates the view.
+
+**Rebuild rule:** store raw values and format at render. A formatted string in a database
+column freezes a presentation decision into the data, and every later fix has to fight it.
