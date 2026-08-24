@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "status": "fail",
+  "visualReview": "pending",
+  "artifact": {
+    "path": "/Users/ghaly/Documents/Learning/AI/AI Engineer/job_pilot/docs/diagrams/jobpilot-system.html",
+    "sha256": "c122ae4b223f25b7e30517bc6e51a4d7c7032a5841ce58e8498f0c3a76b4cf6c",
+    "bytes": 689126
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  },
+  "containment": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "fail",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "jobpilot-system.visual-check.json",
+    "contactSheet": "jobpilot-system.visual-check.html"
+  },
+  "error": "Chrome DevTools process exit failed: Chrome closed with signal SIGTRAP\nChrome process: signal SIGTRAP.\nChrome stderr:\n[0824/044007.537778:ERROR:third_party/crashpad/crashpad/util/mach/bootstrap.cc:65] bootstrap_check_in org.chromium.crashpad.child_port_handshake.76473.104501916.DUAWWCKAQDCPOZPG: Permission denied (1100)\n[0824/044007.539164:ERROR:third_party/crashpad/crashpad/util/file/file_io.cc:103] ReadExactly: expected 4, observed 0\n[0824/044007.543332:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:208] open /Users/ghaly/Library/Application Support/Google/Chrome/Crashpad/settings.dat: Operation not permitted (1)\n[0824/044007.543780:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:208] open /Users/ghaly/Library/Application Support/Google/Chrome/Crashpad/settings.dat: Operation not permitted (1)\n[76470:104502041:0824/044007.835553:FATAL:base/apple/mach_port_rendezvous_mac.cc:159] Check failed: kr == KERN_SUCCESS. bootstrap_check_in com.google.Chrome.MachPortRendezvousServer.76470: Permission denied (1100)"
+}

@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Company Research Agent Lifecycle",
+    "output": "docs/diagrams/company-research-agent.html",
+    "viewBox": [960, 920],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "session-lifecycle",
+        "label": "Browser Session Setup",
+        "focus": ["user", "api", "agent", "bb", "stagehand"],
+        "note": "A fresh isolated Browserbase session is created with a 2-minute timeout safety limit."
+      },
+      {
+        "id": "crawl-and-extract",
+        "label": "Web Crawling & Extraction",
+        "focus": ["agent", "stagehand", "target"],
+        "note": "Stagehand navigates the company website and extracts key corporate details and culture facts."
+      },
+      {
+        "id": "synthesis-and-store",
+        "label": "Dossier Synthesis & Storage",
+        "focus": ["agent", "openai", "db", "api", "user"],
+        "note": "GPT-4o synthesizes unstructured site extracts into a structured dossier saved to Postgres."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "User", "sublabel": "job details UI" },
+    { "id": "api", "type": "backend", "label": "API Route", "sublabel": "/api/agent/research" },
+    { "id": "agent", "type": "backend", "label": "Agent", "sublabel": "research.ts" },
+    { "id": "bb", "type": "cloud", "label": "Browserbase", "sublabel": "cloud session" },
+    { "id": "stagehand", "type": "cloud", "label": "Stagehand", "sublabel": "browser control" },
+    { "id": "target", "type": "external", "label": "Target Site", "sublabel": "public pages" },
+    { "id": "openai", "type": "backend", "label": "GPT-4o", "sublabel": "synthesis", "brand": "openai" },
+    { "id": "db", "type": "database", "label": "Database", "sublabel": "InsForge Postgres" }
+  ],
+  "segments": [
+    { "from": 150, "to": 320, "label": "1. Session Initialization" },
+    { "from": 330, "to": 530, "label": "2. Navigation & Content Extraction" },
+    { "from": 540, "to": 790, "label": "3. AI Synthesis & Persistence" }
+  ],
+  "messages": [
+    { "from": "user", "to": "api", "y": 180, "label": "POST /api/agent/research", "variant": "emphasis" },
+    { "from": "api", "to": "agent", "y": 222, "label": "runCompanyResearch(jobId)", "variant": "emphasis" },
+    { "from": "agent", "to": "bb", "y": 264, "label": "sessions.create(timeout: 120s)", "variant": "default" },
+    { "from": "bb", "to": "agent", "y": 306, "label": "session_id", "variant": "return" },
+    { "from": "agent", "to": "stagehand", "y": 350, "label": "init(sessionId, gpt-4o)", "variant": "default" },
+    { "from": "stagehand", "to": "target", "y": 392, "label": "goto(companyHomepage)", "variant": "emphasis" },
+    { "from": "target", "to": "stagehand", "y": 434, "label": "DOM & rendered text", "variant": "return" },
+    { "from": "stagehand", "to": "agent", "y": 476, "label": "extract(mission, tech, culture)", "variant": "default" },
+    { "from": "agent", "to": "stagehand", "y": 518, "label": "close() session", "variant": "dashed" },
+    { "from": "agent", "to": "openai", "y": 562, "label": "synthesizeDossier(extracts, jobDesc)", "variant": "emphasis" },
+    { "from": "openai", "to": "agent", "y": 604, "label": "structured dossier JSON", "variant": "return" },
+    { "from": "agent", "to": "db", "y": 646, "label": "UPDATE jobs SET company_research", "variant": "emphasis" },
+    { "from": "agent", "to": "db", "y": 688, "label": "INSERT agent_logs (success)", "variant": "dashed" },
+    { "from": "agent", "to": "api", "y": 730, "label": "return research dossier", "variant": "return" },
+    { "from": "api", "to": "user", "y": 772, "label": "200 OK (revalidated page)", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "api", "from": 174, "to": 778, "type": "backend" },
+    { "participant": "agent", "from": 216, "to": 736, "type": "backend" },
+    { "participant": "bb", "from": 258, "to": 312, "type": "cloud" },
+    { "participant": "stagehand", "from": 344, "to": 524, "type": "cloud" },
+    { "participant": "target", "from": 386, "to": 440, "type": "external" },
+    { "participant": "openai", "from": 556, "to": 610, "type": "backend" },
+    { "participant": "db", "from": 640, "to": 694, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ephemeral Browser Sessions",
+      "items": [
+        "A single Browserbase session is spun up per company research request",
+        "Sessions are strictly hard-capped at 120s to prevent hanging compute",
+        "Stagehand always closes the browser session in a finally block"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Fault-Tolerant Synthesis",
+      "items": [
+        "If a company website is inaccessible or blocked, errors are caught gracefully",
+        "GPT-4o falls back to synthesizing intelligence from the job description itself",
+        "The agent guarantees a structured dossier is always returned"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Durable Trace & Audit",
+      "items": [
+        "Synthesized company research is stored directly in jobs.company_research",
+        "Agent execution steps and errors are recorded in the agent_logs table",
+        "Next.js revalidates cached server components on completion"
+      ]
+    }
+  ]
+}

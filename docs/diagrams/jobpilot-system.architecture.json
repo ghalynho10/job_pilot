@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "JobPilot System Architecture",
+    "output": "docs/diagrams/jobpilot-system.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "ui-and-mutations",
+        "label": "User & App Mutations",
+        "focus": ["user", "next_app", "server_actions", "postgres"],
+        "note": "Client interactions trigger server actions to mutate user profiles and job status directly in Postgres."
+      },
+      {
+        "id": "agent-and-ai",
+        "label": "Agent & AI Research",
+        "focus": ["api_routes", "adzuna", "browserbase", "openai"],
+        "note": "API routes orchestrate Adzuna job search, Stagehand web browsing, and GPT-4o synthesis."
+      },
+      {
+        "id": "backend-storage",
+        "label": "InsForge BaaS Core",
+        "focus": ["auth", "postgres", "storage"],
+        "note": "Managed authentication, relational Postgres DB, and private resume object storage."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "InsForge Auth",
+      "sublabel": "OAuth (Google / GitHub)",
+      "pos": [40, 90],
+      "size": [130, 60],
+      "tag": "JWT Session"
+    },
+    {
+      "id": "user",
+      "type": "external",
+      "label": "User Browser",
+      "sublabel": "React 19 / Client UI",
+      "pos": [40, 250],
+      "size": [130, 60]
+    },
+    {
+      "id": "next_app",
+      "type": "frontend",
+      "label": "Next.js App",
+      "sublabel": "App Router / SSR",
+      "brand": "next-js",
+      "pos": [260, 250],
+      "size": [140, 60]
+    },
+    {
+      "id": "posthog",
+      "type": "cloud",
+      "label": "PostHog",
+      "sublabel": "Analytics & Events",
+      "pos": [260, 420],
+      "size": [140, 60]
+    },
+    {
+      "id": "server_actions",
+      "type": "backend",
+      "label": "Server Actions",
+      "sublabel": "actions/*.ts",
+      "pos": [490, 120],
+      "size": [140, 60]
+    },
+    {
+      "id": "api_routes",
+      "type": "backend",
+      "label": "API Route Handlers",
+      "sublabel": "app/api/agent & resume",
+      "pos": [490, 280],
+      "size": [140, 60]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Object Storage",
+      "sublabel": "resumes bucket",
+      "pos": [490, 420],
+      "size": [140, 60],
+      "tag": "PDF Blobs"
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL DB",
+      "sublabel": "profiles, jobs, runs",
+      "brand": "postgresql",
+      "pos": [730, 120],
+      "size": [140, 60]
+    },
+    {
+      "id": "adzuna",
+      "type": "cloud",
+      "label": "Adzuna API",
+      "sublabel": "IT Job Search",
+      "pos": [730, 280],
+      "size": [140, 60]
+    },
+    {
+      "id": "browserbase",
+      "type": "cloud",
+      "label": "Browserbase",
+      "sublabel": "Stagehand v3 Browser",
+      "pos": [730, 420],
+      "size": [140, 60]
+    },
+    {
+      "id": "openai",
+      "type": "backend",
+      "label": "OpenAI GPT-4o",
+      "sublabel": "Match & Dossier AI",
+      "brand": "openai",
+      "pos": [960, 280],
+      "size": [140, 60]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Next.js 16 Application Runtime",
+      "wraps": ["next_app", "server_actions", "api_routes"]
+    },
+    {
+      "kind": "region",
+      "label": "InsForge BaaS Platform",
+      "wraps": ["auth", "postgres", "storage"]
+    },
+    {
+      "kind": "region",
+      "label": "External Services & AI",
+      "wraps": ["openai", "browserbase", "adzuna"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-to-app",
+      "from": "user",
+      "to": "next_app",
+      "label": "HTTPS",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "user-to-auth",
+      "from": "user",
+      "to": "auth",
+      "label": "login / OAuth",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -40
+    },
+    {
+      "id": "auth-to-app",
+      "from": "auth",
+      "to": "next_app",
+      "label": "session cookie",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "app-to-analytics",
+      "from": "next_app",
+      "to": "posthog",
+      "label": "telemetry",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 40
+    },
+    {
+      "id": "app-to-actions",
+      "from": "next_app",
+      "to": "server_actions",
+      "label": "mutations",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "app-to-api",
+      "from": "next_app",
+      "to": "api_routes",
+      "label": "agent fetch",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "actions-to-db",
+      "from": "server_actions",
+      "to": "postgres",
+      "label": "SQL CRUD",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "api-to-storage",
+      "from": "api_routes",
+      "to": "storage",
+      "label": "PDF blob key",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 40
+    },
+    {
+      "id": "api-to-adzuna",
+      "from": "api_routes",
+      "to": "adzuna",
+      "label": "discover jobs",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "api-to-browserbase",
+      "from": "api_routes",
+      "to": "browserbase",
+      "label": "Stagehand session",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "adzuna-to-openai",
+      "from": "adzuna",
+      "to": "openai",
+      "label": "match scoring",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "browserbase-to-openai",
+      "from": "browserbase",
+      "to": "openai",
+      "label": "dossier synthesis",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Frontend & Edge",
+      "items": [
+        "Next.js 16 App Router provides SSR pages and responsive client components",
+        "Server Actions handle atomic profile and job mutations directly",
+        "PostHog tracks analytics events and user journey funnels"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "InsForge BaaS Core",
+      "items": [
+        "PostgreSQL database stores profiles, agent runs, jobs, and access logs",
+        "Row-Level Security (RLS) restricts access strictly to authenticated owners",
+        "Private storage bucket securely holds user resume PDFs"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "AI & Agent Infrastructure",
+      "items": [
+        "Adzuna API fetches live curated IT job postings",
+        "Browserbase + Stagehand spin up isolated cloud browsers for company page crawling",
+        "OpenAI GPT-4o powers intelligent resume matching and company research dossiers"
+      ]
+    }
+  ]
+}

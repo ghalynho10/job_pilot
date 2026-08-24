@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Job Discovery & AI Matching Data Flow",
+    "output": "docs/diagrams/job-discovery-matching.html",
+    "viewBox": [1080, 780],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "discovery-path",
+        "label": "Discovery & Ingest",
+        "focus": ["trigger", "adzuna_api", "parser"],
+        "note": "User parameters query the Adzuna IT catalog and extract normalized job specifications."
+      },
+      {
+        "id": "scoring-pipeline",
+        "label": "AI Matching Engine",
+        "focus": ["profile", "parser", "matcher", "jobs_db"],
+        "note": "GPT-4o compares applicant skills against job requirements to compute 0-100 scores."
+      },
+      {
+        "id": "consumption-views",
+        "label": "Ranked Feeds & Details",
+        "focus": ["jobs_db", "jobs_ui", "details_ui"],
+        "note": "Persisted matched jobs feed the interactive search table and deep-dive details views."
+      }
+    ]
+  },
+  "stages": [
+    { "label": "Context" },
+    { "label": "Discovery" },
+    { "label": "Extraction" },
+    { "label": "Evaluation" },
+    { "label": "Delivery" }
+  ],
+  "nodes": [
+    {
+      "id": "profile",
+      "type": "database",
+      "label": "User Profile",
+      "sublabel": "skills & target roles",
+      "stage": 0,
+      "row": 0,
+      "tag": "profile data"
+    },
+    {
+      "id": "trigger",
+      "type": "frontend",
+      "label": "Search Trigger",
+      "sublabel": "title & location query",
+      "stage": 0,
+      "row": 2,
+      "tag": "user intent"
+    },
+    {
+      "id": "adzuna_api",
+      "type": "cloud",
+      "label": "Adzuna API",
+      "sublabel": "IT Jobs catalog",
+      "stage": 1,
+      "row": 2,
+      "tag": "raw listings"
+    },
+    {
+      "id": "parser",
+      "type": "backend",
+      "label": "Job Extractor",
+      "sublabel": "specs & requirements",
+      "stage": 2,
+      "row": 2,
+      "tag": "structured"
+    },
+    {
+      "id": "matcher",
+      "type": "backend",
+      "label": "GPT-4o",
+      "sublabel": "match & score 0-100",
+      "stage": 3,
+      "row": 1,
+      "tag": "eval engine",
+      "brand": "openai"
+    },
+    {
+      "id": "jobs_db",
+      "type": "database",
+      "label": "Jobs Store",
+      "sublabel": "persisted records",
+      "stage": 4,
+      "row": 0,
+      "tag": "Postgres",
+      "brand": "postgresql"
+    },
+    {
+      "id": "jobs_ui",
+      "type": "frontend",
+      "label": "Find Jobs UI",
+      "sublabel": "filter, sort & badges",
+      "stage": 4,
+      "row": 2,
+      "tag": "client table",
+      "brand": "next-js"
+    },
+    {
+      "id": "details_ui",
+      "type": "frontend",
+      "label": "Job Details UI",
+      "sublabel": "match breakdown modal",
+      "stage": 4,
+      "row": 4,
+      "tag": "deep dive"
+    }
+  ],
+  "flows": [
+    {
+      "id": "trigger-to-adzuna",
+      "from": "trigger",
+      "to": "adzuna_api",
+      "label": "search parameters",
+      "classification": "query",
+      "variant": "default",
+      "route": "straight"
+    },
+    {
+      "id": "adzuna-to-parser",
+      "from": "adzuna_api",
+      "to": "parser",
+      "label": "raw job text",
+      "classification": "listings",
+      "variant": "default",
+      "route": "straight"
+    },
+    {
+      "id": "profile-to-matcher",
+      "from": "profile",
+      "to": "matcher",
+      "label": "skills & experience",
+      "classification": "applicant profile",
+      "variant": "emphasis"
+    },
+    {
+      "id": "parser-to-matcher",
+      "from": "parser",
+      "to": "matcher",
+      "label": "role criteria",
+      "classification": "structured specs",
+      "variant": "default"
+    },
+    {
+      "id": "matcher-to-db",
+      "from": "matcher",
+      "to": "jobs_db",
+      "label": "scores & skill gaps",
+      "classification": "scored jobs",
+      "variant": "emphasis"
+    },
+    {
+      "id": "matcher-to-ui",
+      "from": "matcher",
+      "to": "jobs_ui",
+      "label": "stream results",
+      "classification": "instant feed",
+      "variant": "dashed"
+    },
+    {
+      "id": "ui-to-details",
+      "from": "jobs_ui",
+      "to": "details_ui",
+      "label": "inspect details",
+      "classification": "item detail",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingestion & Discovery",
+      "items": [
+        "Search parameters are bounded to IT categories and target locations",
+        "Raw job HTML and text descriptions from Adzuna are parsed cleanly",
+        "Deduplication ensures only new or updated listings proceed to scoring"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Intelligent Matching",
+      "items": [
+        "GPT-4o matches user skills, years of experience, and title preferences",
+        "Produces an interpretable 0-100 score, matched skills, and missing skills",
+        "Every run records audit telemetry and job counts in agent_runs"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Curated Consumption",
+      "items": [
+        "Find Jobs table allows instant filtering by score, location, and type",
+        "Job Details view renders comprehensive match rationale and missing skill tags",
+        "All data is scoped strictly to the authenticated user ID"
+      ]
+    }
+  ]
+}
+
